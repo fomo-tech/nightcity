@@ -1,0 +1,7 @@
+# local tooling / editor
+.claude/
+.DS_Store
+*.log
+node_modules/
+.next/
+.env*.local
