@@ -11,11 +11,13 @@ function mulberry32(a) {
   };
 }
 
-const RD = [6, 24, 42, 60, 78, 96, 114]; // road start cols/rows, each 4 wide
+const WORLD_TILES = 176;
+const RD = [6, 24, 42, 60, 78, 96, 114, 132, 150]; // road start cols/rows, each 4 wide
+const LEGACY_BLOCKS = 6;
 const WT = { ROAD: 0, WALK: 1, BLDG: 2, PLAZA: 3, PARK: 4, FLOOR: 5, DOOR: 6 };
 
 function genWorld() {
-  const W = 128, H = 128;
+  const W = WORLD_TILES, H = WORLD_TILES;
   const t = new Uint8Array(W * H).fill(WT.BLDG);
   const rng = mulberry32(20770612);
   const idx = (x, y) => y * W + x;
@@ -34,15 +36,19 @@ function genWorld() {
 
   const setRect = (x0, y0, w, h, v) => { for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) t[idx(x, y)] = v; };
 
-  // ---- 6x6 blocks ----
-  for (let bi = 0; bi < 6; bi++) for (let bj = 0; bj < 6; bj++) {
+  // ---- city blocks ----
+  const blocks = [];
+  for (let bi = 0; bi < LEGACY_BLOCKS; bi++) for (let bj = 0; bj < LEGACY_BLOCKS; bj++) blocks.push([bi, bj]);
+  for (let bi = 0; bi < RD.length - 1; bi++) for (let bj = 0; bj < RD.length - 1; bj++)
+    if (bi >= LEGACY_BLOCKS || bj >= LEGACY_BLOCKS) blocks.push([bi, bj]);
+  for (const [bi, bj] of blocks) {
     const bx = RD[bi] + 4, by = RD[bj] + 4; // 14x14 block
     setRect(bx, by, 14, 14, WT.WALK);
     const ix = bx + 1, iy = by + 1; // 12x12 interior
     const distK = _districtOfTile(bx + 7, by + 7);
     const dCol = DISTRICTS[distK].col;
 
-    const isShop = (bi === 1 && bj === 2) ? 'guns' : (bi === 2 && bj === 1) ? 'ripper' : (bi === 3 && bj === 2) ? 'cars' : null;
+    const isShop = (bi === 1 && bj === 2) ? 'guns' : (bi === 2 && bj === 1) ? 'ripper' : (bi === 3 && bj === 2) ? 'cars' : (bi === 0 && bj === 3) ? 'casino' : (bi === 3 && bj === 3) ? 'clothing' : null;
     if (bi === 2 && bj === 2) { // spawn plaza + bar (enterable)
       setRect(ix, iy, 12, 12, WT.PLAZA);
       setRect(ix + 2, iy, 8, 5, WT.BLDG);
@@ -57,8 +63,8 @@ function genWorld() {
     if (isShop) {
       setRect(ix, iy, 12, 12, WT.PLAZA);
       setRect(ix + 1, iy, 10, 6, WT.BLDG);
-      const names = { guns: '2ND AMENDMENT', ripper: "VIK'S CLINIC", cars: 'NC AUTOFIXER' };
-      const cols = { guns: '#f9f002', ripper: '#05d9e8', cars: '#00ff9f' };
+      const names = { guns: 'SÚNG QUÂN', ripper: 'CẤY SƠN', cars: 'XE TÚ', casino: 'SÒNG TÀI', clothing: 'ĐỒ TRANG' };
+      const cols = { guns: '#f9f002', ripper: '#05d9e8', cars: '#00ff9f', casino: '#bd00ff', clothing: '#ff2a6d' };
       bldgs.push({ x: ix + 1, y: iy, w: 10, h: 6, roof: '#24242e', neon: cols[isShop], sign: { text: names[isShop], col: cols[isShop] }, ent: true, theme: isShop });
       shops[isShop] = { x: (ix + 6) * TILE, y: (iy + 2) * TILE + 8, name: names[isShop] };
       vends.push({ x: (ix + 1) * TILE + 8, y: (iy + 9) * TILE });
@@ -74,13 +80,31 @@ function genWorld() {
       setRect(ix + 2, iy, 8, 6, WT.BLDG);
       bldgs.push({ x: ix + 2, y: iy, w: 8, h: 6, roof: '#2a2030', neon: '#bd00ff', sign: { text: 'CLOUDS', col: '#bd00ff' }, ent: true, theme: 'clouds' });
       holos.push({ x: (ix + 6) * TILE, y: (iy + 9) * TILE, text: 'JIG-JIG STREET', col: '#ff2a6d' });
-      npcs.push({ x: (ix + 3) * TILE, y: (iy + 8) * TILE + 8, i: 4, name: 'ANGEL', kind: 'joy' });
-      npcs.push({ x: (ix + 9) * TILE, y: (iy + 9) * TILE + 8, i: 5, name: 'SKYE', kind: 'joy' });
+      npcs.push({ x: (ix + 3) * TILE, y: (iy + 8) * TILE + 8, i: 4, name: 'THU', kind: 'joy' });
+      npcs.push({ x: (ix + 9) * TILE, y: (iy + 9) * TILE + 8, i: 5, name: 'MAI', kind: 'joy' });
       obst.push({ x: (ix + 3) * TILE - 4, y: (iy + 8) * TILE + 2, w: 8, h: 9 });
       obst.push({ x: (ix + 9) * TILE - 4, y: (iy + 9) * TILE + 2, w: 8, h: 9 });
       vends.push({ x: (ix + 1) * TILE + 8, y: (iy + 10) * TILE });
       crateSpots.push({ x: (ix + 10) * TILE, y: (iy + 10) * TILE });
       plant(ix + 2, iy + 7, 'neon'); plant(ix + 10, iy + 7, 'neon');
+      continue;
+    }
+
+    const isMarket = (bi === 1 && bj === 0) ? 0 : (bi === 6 && bj === 1) ? 1 : (bi === 1 && bj === 6) ? 2 : (bi === 6 && bj === 6) ? 3 : null;
+    if (isMarket !== null) {
+      setRect(ix, iy, 12, 12, WT.PLAZA);
+      holos.push({ x: (ix + 6) * TILE, y: (iy + 6) * TILE, text: 'CHỢ ' + ['WATSON', 'WESTBROOK', 'PACIFICA', 'SANTO'][isMarket], col: ['#05d9e8', '#ff2a6d', '#00ff9f', '#ff9f1c'][isMarket] });
+      for (let k = 0; k < 4; k++) {
+        crateSpots.push({ x: (ix + 2 + k * 2) * TILE + 8, y: (iy + 2) * TILE + 8 });
+        crateSpots.push({ x: (ix + 2 + k * 2) * TILE + 8, y: (iy + 10) * TILE + 8 });
+      }
+      obst.push({ x: (ix + 2) * TILE, y: (iy + 5) * TILE, w: 32, h: 16 });
+      obst.push({ x: (ix + 8) * TILE, y: (iy + 5) * TILE, w: 32, h: 16 });
+      const dKind = BUSH_BY_DIST[distK] || 'bush';
+      plant(ix + 1, iy + 1, dKind);
+      plant(ix + 11, iy + 1, dKind);
+      plant(ix + 1, iy + 11, dKind);
+      plant(ix + 11, iy + 11, dKind);
       continue;
     }
 
@@ -236,8 +260,15 @@ function genWorld() {
   if (far.length) { const a = far[rng() * far.length | 0]; skippySpot = { x: a.x * TILE + 8, y: a.y * TILE + 8 }; }
   else skippySpot = { x: RD[5] * TILE, y: RD[5] * TILE };
 
+  const markets = [
+    { id: 0, name: 'CHỢ WATSON', tx: (RD[1] + 4) + 7, ty: (RD[0] + 4) + 7, r: 8, col: '#05d9e8', code: 'M1' },
+    { id: 1, name: 'CHỢ WESTBROOK', tx: (RD[6] + 4) + 7, ty: (RD[1] + 4) + 7, r: 8, col: '#ff2a6d', code: 'M2' },
+    { id: 2, name: 'CHỢ PACIFICA', tx: (RD[1] + 4) + 7, ty: (RD[6] + 4) + 7, r: 8, col: '#00ff9f', code: 'M3' },
+    { id: 3, name: 'CHỢ SANTO', tx: (RD[6] + 4) + 7, ty: (RD[6] + 4) + 7, r: 8, col: '#ff9f1c', code: 'M4' },
+  ];
+
   WORLD = {
-    W, H, t, cv, mini, shops, vends, holos, signs, lights, puddles, crateSpots, displays, spawn, skippySpot, roofs, dens, npcs, obst, bushes,
+    W, H, t, cv, mini, shops, vends, holos, signs, lights, puddles, crateSpots, displays, spawn, skippySpot, roofs, dens, npcs, obst, bushes, markets,
     solidAt(tx, ty) { return tx < 0 || ty < 0 || tx >= W || ty >= H || t[ty * W + tx] === WT.BLDG; },
     solidPx(x, y) { return this.solidAt(Math.floor(x / TILE), Math.floor(y / TILE)); },
     // walls + furniture/NPC bodies: blocks movers; bullets use solidPx and fly over furniture
@@ -263,6 +294,7 @@ function genWorld() {
     },
     districtAt(x, y) { return _districtOfTile(Math.floor(x / TILE), Math.floor(y / TILE)); },
   };
+  window.WORLD = WORLD;
   return WORLD;
 }
 
@@ -323,7 +355,7 @@ function _bakeInterior(c, b, r, rng, npcs, obst) {
     c.fillStyle = floorCol; c.fillRect(dx * TILE, py + ph - TILE, TILE, TILE);
     c.fillStyle = '#2a3a44'; c.fillRect(dx * TILE + 3, py + ph - 10, 10, 6);
   }
-  const cx = fx + fw / 2, NAMES = { guns: 'WILSON', ripper: 'VIKTOR', cars: 'DAKOTA', bar: 'CLAIRE' };
+  const cx = fx + fw / 2, NAMES = { guns: 'QUÂN', ripper: 'SƠN', cars: 'TÚ', bar: 'LAN', casino: 'TÀI', clothing: 'TRANG' };
   const solid = (x, y, w, h) => obst.push({ x, y, w, h });
   const counter = col => {
     c.fillStyle = col; c.fillRect(fx + 4, fy + 12, fw - 8, 9);
@@ -336,8 +368,17 @@ function _bakeInterior(c, b, r, rng, npcs, obst) {
       for (let sx = fx + 8; sx < fx + fw - 8; sx += 12) { c.fillStyle = '#15151c'; c.fillRect(sx, fy + 25, 4, 4); }
       for (let bx2 = fx + 6; bx2 < fx + fw - 6; bx2 += 5) { c.fillStyle = NEON[(bx2 / 5 | 0) % NEON.length]; c.fillRect(bx2, fy + 6, 2, 4); }
       r.lights.push({ x: cx, y: fy + 14, col: '#ff2a6d' });
-      npcs.push({ x: fx + 24, y: fy + 38, i: 1, name: 'MIRROR', kind: 'stylist' });
-      obst.push({ x: fx + 20, y: fy + 34, w: 8, h: 9 });
+      break;
+    case 'casino':
+      counter('#3a1a30');
+      for (let sx = fx + 8; sx < fx + fw - 8; sx += 20) { c.fillStyle = '#10301c'; c.fillRect(sx, fy + 25, 12, 8); solid(sx, fy + 25, 12, 8); }
+      r.lights.push({ x: cx, y: fy + 14, col: '#bd00ff' });
+      break;
+    case 'clothing':
+      counter('#4a2a30');
+      for (let gy2 = fy + 26; gy2 < fy + fh - 6; gy2 += 9) { c.fillStyle = '#2c141c'; c.fillRect(fx + 4, gy2, 14, 6); }
+      solid(fx + 4, fy + 26, 14, Math.max(6, fh - 32));
+      r.lights.push({ x: cx, y: fy + 14, col: '#ff2a6d' });
       break;
     case 'guns':
       counter('#2a2e38');
@@ -378,7 +419,7 @@ function _bakeInterior(c, b, r, rng, npcs, obst) {
       for (let bx2 = fx + 8; bx2 < fx + fw - 8; bx2 += 7) { c.fillStyle = bx2 % 14 < 7 ? '#ff2a6d' : '#bd00ff'; c.fillRect(bx2, fy + 6, 2, 3); }
       r.lights.push({ x: cx - 18, y: fy + 33, col: '#ff2a6d' });
       r.lights.push({ x: cx + 18, y: fy + 33, col: '#bd00ff' });
-      npcs.push({ x: cx, y: fy + 27, i: 3, name: 'EVE', kind: 'doll' });
+      npcs.push({ x: cx, y: fy + 27, i: 3, name: 'HẠNH', kind: 'doll' });
       solid(cx - 4, fy + 21, 8, 9);
       break;
     }
@@ -405,7 +446,7 @@ function _bakeInterior(c, b, r, rng, npcs, obst) {
       r.lights.push({ x: fx + 9, y: fy + 10, col: '#7ad7ff' });
   }
   if (NAMES[b.theme]) {
-    npcs.push({ x: cx, y: fy + 8, i: { guns: 2, ripper: 0, cars: 5, bar: 4 }[b.theme], name: NAMES[b.theme] });
+    npcs.push({ x: cx, y: fy + 8, i: { guns: 2, ripper: 0, cars: 5, bar: 4, casino: 3, clothing: 1 }[b.theme], name: NAMES[b.theme], kind: b.theme === 'clothing' ? 'stylist' : b.theme === 'casino' ? 'casino' : undefined });
     solid(cx - 4, fy + 2, 8, 9); // the vendor has a body — no walking through them
   }
 }

@@ -51,10 +51,12 @@ vm.runInThisContext(src, { filename: 'bundle.js' });
 const steps = (n, dt) => { for (let i = 0; i < n; i++) window.__step(dt || 1 / 60); };
 const assert = (cond, what) => { if (!cond) throw new Error('ASSERT FAIL: ' + what); };
 
+window.__NCPX_SKIP_TITLE_MENU = true;
 window.__boot();
-assert(WORLD && WORLD.t.length === 128 * 128, 'world generated');
+assert(WORLD && WORLD.W === 176 && WORLD.H === 176 && WORLD.t.length === 176 * 176, 'expanded world generated');
 assert(WORLD.shops.guns && WORLD.shops.ripper && WORLD.shops.cars && WORLD.shops.bar, 'shops placed');
 assert(!WORLD.solidPx(WORLD.spawn.x, WORLD.spawn.y), 'spawn walkable');
+assert(G.state === 'title' && G.titleMode === 'name', 'fresh launch opens character creation');
 steps(5); // title renders
 
 startGame(false, 'f');
@@ -175,7 +177,7 @@ breakCrate(cr);
 assert(cr.hp <= 0 && G.stats.crates > 0, 'crate broken');
 
 // UI screens render without throwing
-for (const ui of ['pause', 'guns', 'cars', 'ripper', 'bar', 'wardrobe']) {
+for (const ui of ['pause', 'guns', 'cars', 'ripper', 'bar', 'wardrobe', 'casino']) {
   G.ui = ui; G.uiS = { sel: 0, scroll: 0, tab: 0, confirm: false };
   steps(8);
   G.pressed.add('ArrowDown'); G.pressed.add('ArrowUp');
@@ -199,6 +201,11 @@ assert(G.state === 'play' && G.p.hp === G.p.maxhp, 'respawned');
 // save / load roundtrip
 const eddiesBefore = G.eddies, weaponsBefore = Object.keys(G.weapons).length;
 G.skin = 3;
+G.gangIconSel = 2;
+setPlayerGang('TEST CREW');
+assert(playerProfile().gang === 'TEST CREW' && playerProfile().gangIcon === 'RG', 'player gang icon profile');
+joinPlayerGang('ALLY CREW', 'VB', '#00ff9f');
+assert(playerProfile().gang === 'ALLY CREW' && playerProfile().gangIcon === 'VB', 'joined gang keeps invited icon');
 saveGame();
 startGame(true);
 assert(G.eddies === eddiesBefore, 'eddies persisted');
@@ -206,6 +213,7 @@ assert(Object.keys(G.weapons).length === weaponsBefore, 'weapons persisted');
 assert(G.cars.caliburn && G.cyber.sandevistan, 'cars+chrome persisted');
 assert(G.gender === 'f', 'gender persisted');
 assert(G.skin === 3, 'skin persisted');
+assert(G.playerGangName === 'ALLY CREW' && playerProfile().gangIcon === 'VB', 'gang icon persisted');
 steps(120);
 
 // long soak: everything running together
@@ -277,7 +285,7 @@ G.p.x = WORLD.shops.guns.x; G.p.y = WORLD.shops.guns.y;
 steps(2);
 G.pressed.add('KeyE'); steps(2);
 assert(G.ui === 'guns', 'walk-in shop counter opens shop');
-assert(G.prompt && G.prompt.includes('WILSON'), 'counter prompt names the vendor');
+assert(G.prompt && G.prompt.includes('QUÂN'), 'counter prompt names the vendor');
 G.ui = null;
 
 // ---- shop marquees stay visible from outside ----

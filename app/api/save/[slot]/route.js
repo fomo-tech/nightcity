@@ -8,8 +8,9 @@ function cleanSlot(slot) {
   return String(slot || 'default').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40) || 'default';
 }
 
-function errorResponse(error, status = 500) {
-  return NextResponse.json({ ok: false, error: error.message || 'Save request failed' }, { status });
+function errorResponse(error, status = 200) {
+  console.warn('API save route warning:', error.message);
+  return NextResponse.json({ ok: false, dbConnected: false, error: error.message || 'Save request failed' }, { status });
 }
 
 export async function GET(_request, { params }) {

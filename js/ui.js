@@ -145,64 +145,107 @@ function titleGender(c) {
 // =================== HUD ===================
 function drawHUD(c) {
   const p = G.p;
-  // vitals
-  uiBar(c, 8, 8, 120, 7, p.hp / p.maxhp, p.hp < p.maxhp * 0.35 ? '#ff2a3c' : '#e84545', 'rgba(120,20,30,0.4)');
-  drawText(c, Math.ceil(p.hp) + '/' + p.maxhp, 132, 9, '#ff8a8a', 1);
-  uiBar(c, 8, 17, 120, 3, G.xp / xpFor(G.lvl), '#05d9e8');
-  drawText(c, 'LV' + G.lvl, 132, 16, '#05d9e8', 1);
-  drawText(c, '€$' + fmt(G.eddies), 8, 24, '#f9f002', 1);
-  if (p.armor > 0) drawText(c, 'ARMOR ' + p.armor, 80, 24, '#8a93a6', 1);
+  // HUD Background Panel (Glassmorphic)
+  const hx = 8, hy = 8, hw = 196, hh = 112;
+  c.fillStyle = 'rgba(6, 8, 14, 0.85)';
+  c.fillRect(hx, hy, hw, hh);
+  // cyan border with pink corner highlights
+  c.strokeStyle = 'rgba(5, 217, 232, 0.35)';
+  c.strokeRect(hx + 0.5, hy + 0.5, hw - 1, hh - 1);
+  c.fillStyle = '#ff2a6d';
+  c.fillRect(hx, hy, 4, 1); c.fillRect(hx, hy, 1, 4);
+  c.fillRect(hx + hw - 4, hy, 4, 1); c.fillRect(hx + hw - 1, hy, 1, 4);
+  c.fillRect(hx, hy + hh - 1, 4, 1); c.fillRect(hx, hy + hh - 4, 1, 4);
+  c.fillRect(hx + hw - 4, hy + hh - 1, 4, 1); c.fillRect(hx + hw - 1, hy + hh - 4, 1, 4);
+
+  // Line 1: Player Name & Level
+  drawText(c, G.playerName, hx + 10, hy + 8, '#05d9e8', 1.2);
+  drawTextR(c, 'LV' + G.lvl, hx + hw - 10, hy + 10, '#05d9e8', 1.0);
+
+  // Line 2: XP Bar
+  uiBar(c, hx + 10, hy + 24, hw - 20, 3, G.xp / xpFor(G.lvl), '#05d9e8');
+
+  // Line 3: Health Bar & Health Value
+  uiBar(c, hx + 10, hy + 33, 116, 8, p.hp / p.maxhp, p.hp < p.maxhp * 0.35 ? '#ff2a3c' : '#e84545', 'rgba(120,20,30,0.4)');
+  drawTextR(c, Math.ceil(p.hp) + '/' + p.maxhp, hx + hw - 10, hy + 31, '#ff8a8a', 1.0);
+
+  // Line 4: Eddies & Armor
+  drawText(c, '€$' + fmt(G.eddies), hx + 10, hy + 48, '#f9f002', 1.2);
+  if (p.armor > 0) {
+    drawTextR(c, 'GIÁP ' + p.armor, hx + hw - 10, hy + 50, '#8a93a6', 1.0);
+  }
+
+  // Line 5: Gang Info & Menu key
   const gangName = G.gang ? gangLabel(G.gang) : 'CHƯA CÓ';
-  drawText(c, 'BĂNG: ' + gangName, 8, 48, G.gang ? factionColor(G.gang) : '#8a93a6', 1);
-  drawText(c, '[G] QUẢN LÝ BĂNG', 8, 58, G.gangInvite ? '#f9f002' : '#5a6372', 1);
-  // ability chips
-  let cx = 8, cy = 34;
+  drawText(c, 'BĂNG: ' + gangName, hx + 10, hy + 68, G.gang ? factionColor(G.gang) : '#8a93a6', 1.0);
+  drawTextR(c, G.gangInvite ? 'MỜI!' : '[G]', hx + hw - 10, hy + 68, G.gangInvite ? '#f9f002' : '#5a6372', 1.0);
+
+  // Line 6: Active cyberware chips & Concealed status
+  let cx = hx + 10;
   if (G.os) {
     const cd = Math.max(0, p.osCd), def = CYB[G.os].tiers[G.cyber[G.os] - 1];
-    uiBar(c, cx, cy, 46, 8, p.osT > 0 ? 1 : 1 - cd / def.cd, p.osT > 0 ? '#f9f002' : G.os === 'berserk' ? '#ff2a3c' : '#00ff9f');
-    drawText(c, 'Q ' + (G.os === 'berserk' ? 'BERSERK' : 'SANDE'), cx + 2, cy + 1, '#06060a', 1); cx += 50;
+    uiBar(c, cx, hy + 88, 46, 8, p.osT > 0 ? 1 : 1 - cd / def.cd, p.osT > 0 ? '#f9f002' : G.os === 'berserk' ? '#ff2a3c' : '#00ff9f');
+    drawText(c, 'Q ' + (G.os === 'berserk' ? 'BERSERK' : 'SANDE'), cx + 2, hy + 89, '#06060a', 1.0);
+    cx += 52;
   }
   if (G.cyber.camo) {
-    uiBar(c, cx, cy, 36, 8, p.camoT > 0 ? 1 : 1 - Math.max(0, p.camoCd) / CYB.camo.tiers[0].cd, '#05d9e8');
-    drawText(c, 'F CAMO', cx + 2, cy + 1, '#06060a', 1); cx += 40;
+    uiBar(c, cx, hy + 88, 36, 8, p.camoT > 0 ? 1 : 1 - Math.max(0, p.camoCd) / CYB.camo.tiers[0].cd, '#05d9e8');
+    drawText(c, 'F CAMO', cx + 2, hy + 89, '#06060a', 1.0);
+    cx += 42;
   }
-  const docLabel = 'C MAXDOC ×' + G.maxdocs;
-  drawText(c, docLabel, cx, cy + 1, G.maxdocs > 0 ? '#2ecc71' : '#5a6372', 1);
-  if (p.useT > 0) { uiBar(c, cx, cy + 8, textW(docLabel), 2, 1 - p.useT, '#2ecc71'); }
-  if (p.joyT > 0) drawText(c, '♥' + Math.ceil(p.joyT), cx + textW(docLabel) + 8, cy + 1, '#ff2a6d', 1);
-  if (G.pHidden && !G.driving) drawText(c, 'CONCEALED', 8, cy + 26, '#00ff9f', 1);
+  const docLabel = 'C ×' + G.maxdocs;
+  drawText(c, docLabel, cx, hy + 89, G.maxdocs > 0 ? '#2ecc71' : '#5a6372', 1.0);
+  if (p.useT > 0) {
+    uiBar(c, cx, hy + 97, textW(docLabel), 2, 1 - p.useT, '#2ecc71');
+  }
+  if (p.joyT > 0) {
+    drawText(c, '♥' + Math.ceil(p.joyT), cx + textW(docLabel) + 8, hy + 89, '#ff2a6d', 1.0);
+  }
+  if (G.pHidden && !G.driving) {
+    // Draw CONCEALED tag overlay if hideout/bush hides player
+    c.fillStyle = 'rgba(0, 255, 159, 0.15)';
+    c.fillRect(hx + 1, hy + hh + 2, 80, 12);
+    c.strokeStyle = '#00ff9f';
+    c.strokeRect(hx + 1.5, hy + hh + 2.5, 79, 11);
+    drawText(c, 'CONCEALED', hx + 6, hy + hh + 4, '#00ff9f', 1.0);
+  }
 
   drawMinimap(c);
 
-  // weapon card
+  // weapon card (redesigned and scaled up)
   const w = curWpn();
-  const wx = VIEW_W - 148, wy = VIEW_H - 46;
-  c.fillStyle = 'rgba(6,8,14,0.7)'; c.fillRect(wx, wy, 140, 38);
-  c.fillStyle = RAR_COL[w ? w.rar : 0]; c.fillRect(wx, wy, 140, 1);
+  const wx = VIEW_W - 188, wy = VIEW_H - 56;
+  c.fillStyle = 'rgba(6, 8, 14, 0.85)'; c.fillRect(wx, wy, 180, 48);
+  c.fillStyle = RAR_COL[w ? w.rar : 0]; c.fillRect(wx, wy, 180, 1);
+  // cyan side accents
+  c.fillStyle = 'rgba(5, 217, 232, 0.25)';
+  c.fillRect(wx, wy, 1, 48); c.fillRect(wx + 179, wy, 1, 48);
+
   if (w) {
-    c.drawImage(SPR.wicon(w.cls, KIND_COL[w.kind]), wx + 4, wy + 5);
-    drawText(c, trunc(w.name, 22), wx + 4, wy + 17, RAR_COL[w.rar], 1);
-    if (MELEE_CLS[w.cls]) drawText(c, '—', wx + 32, wy + 26, '#cfd6e4', 1);
-    else {
+    c.drawImage(SPR.wicon(w.cls, KIND_COL[w.kind]), wx + 6, wy + 10);
+    drawText(c, trunc(w.name, 18), wx + 38, wy + 8, RAR_COL[w.rar], 1.2);
+    if (MELEE_CLS[w.cls]) {
+      drawText(c, 'MELEE', wx + 38, wy + 26, '#cfd6e4', 1.1);
+    } else {
       const st = G.weapons[w.id];
-      drawText(c, (p.reloadT > 0 ? '...' : st.mag) + '/' + w.mag, wx + 32, wy + 25, p.reloadT > 0 ? '#ff9f1c' : '#e8f6ff', 1);
-      if (p.reloadT > 0) uiBar(c, wx + 32, wy + 33, 40, 2, 1 - p.reloadT / w.rel, '#ff9f1c');
+      drawText(c, (p.reloadT > 0 ? '...' : st.mag) + '/' + w.mag, wx + 38, wy + 26, p.reloadT > 0 ? '#ff9f1c' : '#e8f6ff', 1.1);
+      if (p.reloadT > 0) {
+        uiBar(c, wx + 38, wy + 38, 64, 3, 1 - p.reloadT / w.rel, '#ff9f1c');
+      }
     }
-  } else drawText(c, 'UNARMED', wx + 4, wy + 17, '#5a6372', 1);
+  } else {
+    drawText(c, 'UNARMED', wx + 8, wy + 16, '#5a6372', 1.2);
+  }
+
+  // Draw uniform, modern slot indicators
   for (let i = 0; i < 3; i++) {
     const id = G.loadout[i];
-    if (TOUCH.on) { // thumb-sized, tappable slot boxes
-      const bx = wx + 78 + i * 21, by = wy + 18;
-      c.fillStyle = i === G.slot ? 'rgba(249,240,2,0.22)' : 'rgba(255,255,255,0.07)';
-      c.fillRect(bx, by, 20, 18);
-      c.strokeStyle = i === G.slot ? '#f9f002' : id ? RAR_COL[WPN[id].rar] : 'rgba(255,255,255,0.2)';
-      c.strokeRect(bx + 0.5, by + 0.5, 19, 17);
-      drawTextC(c, String(i + 1), bx + 10, by + 6, i === G.slot ? '#f9f002' : id ? '#cfd6e4' : '#5a6372', 1);
-    } else {
-      c.fillStyle = i === G.slot ? '#f9f002' : id ? RAR_COL[WPN[id].rar] : 'rgba(255,255,255,0.12)';
-      c.fillRect(wx + 110 + i * 10, wy + 26, 7, 7);
-      drawText(c, String(i + 1), wx + 112 + i * 10, wy + 27, '#06060a', 1);
-    }
+    const bx = wx + 120 + i * 20, by = wy + 20;
+    c.fillStyle = i === G.slot ? 'rgba(249, 240, 2, 0.22)' : 'rgba(255, 255, 255, 0.05)';
+    c.fillRect(bx, by, 18, 18);
+    c.strokeStyle = i === G.slot ? '#f9f002' : id ? RAR_COL[WPN[id].rar] : 'rgba(255, 255, 255, 0.15)';
+    c.strokeRect(bx + 0.5, by + 0.5, 17, 17);
+    drawTextC(c, String(i + 1), bx + 9, by + 5, i === G.slot ? '#f9f002' : id ? '#cfd6e4' : '#5a6372', 1.0);
   }
   // car status
   if (G.driving && G.car) {
@@ -219,16 +262,50 @@ function drawHUD(c) {
     drawTextC(c, 'CYBERPSYCHO — ' + ps.name, VIEW_W / 2, 8, '#ff2a3c', 1);
     uiBar(c, VIEW_W / 2 - 90, 16, 180, 5, ps.hp / ps.maxhp, '#bd00ff', 'rgba(80,0,40,0.5)');
   }
-  // objective lines under minimap
+  // objective lines under minimap (adjusted to larger S = 90 minimap)
+  const mmS = 90, mmMy = 8;
+  let oy = mmMy + mmS + 6;
   if (G.bounty) {
     const d = Math.hypot(G.bounty.x - p.x, G.bounty.y - p.y) / 10 | 0;
-    drawTextR(c, (G.bounty.psycho ? 'PSYCHO' : 'BOUNTY') + ': ' + G.bounty.left + ' LEFT · ' + d + 'M', VIEW_W - 8, 78, G.bounty.psycho ? '#bd00ff' : '#ff5a5a', 1);
+    drawTextR(c, (G.bounty.psycho ? 'PSYCHO' : 'BOUNTY') + ': ' + G.bounty.left + ' LEFT · ' + d + 'M', VIEW_W - 8, oy, G.bounty.psycho ? '#bd00ff' : '#ff5a5a', 1);
+    oy += 10;
   }
   if (G.airdrop) {
     const d = Math.hypot(G.airdrop.x - p.x, G.airdrop.y - p.y) / 10 | 0;
-    drawTextR(c, 'AIRDROP: ' + (G.airdrop.state === 'falling' ? 'INBOUND' : Math.ceil(G.airdrop.t) + 'S') + ' · ' + d + 'M', VIEW_W - 8, G.bounty ? 88 : 78, '#ff6a00', 1);
+    drawTextR(c, 'AIRDROP: ' + (G.airdrop.state === 'falling' ? 'INBOUND' : Math.ceil(G.airdrop.t) + 'S') + ' · ' + d + 'M', VIEW_W - 8, oy, '#ff6a00', 1);
+    oy += 10;
   }
-  drawTextR(c, WEATHERS[G.weather.kind].name, VIEW_W - 8, 78 + (G.bounty ? 10 : 0) + (G.airdrop ? 10 : 0), '#5a6372', 1);
+  drawTextR(c, WEATHERS[G.weather.kind].name, VIEW_W - 8, oy, '#5a6372', 1);
+  oy += 10;
+  if (G.marketWarActive) {
+    const mins = (G.marketWarT / 60) | 0;
+    const secs = (G.marketWarT % 60) | 0;
+    const timeStr = String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+    drawTextR(c, 'ĐẠI CHIẾN CHỢ: ' + timeStr, VIEW_W - 8, oy, '#ff2a6d', 1);
+    oy += 10;
+    const myGang = String((G.gang ? gangLabel(G.gang) : '') || 'SOLO').toUpperCase();
+    for (const m of WORLD.markets || []) {
+      const state = G.marketStates && G.marketStates[m.id];
+      let ownerText = 'TRỐNG';
+      let col = '#cfd6e4';
+      if (state && state.winner) {
+        ownerText = state.winner;
+        col = (state.winner === myGang) ? '#00ff9f' : '#ff5a5a';
+      } else if (state && state.members > 0) {
+        ownerText = 'TRANH CHẤP (' + state.members + ')';
+        col = '#f9f002';
+      }
+      drawTextR(c, m.code + ': ' + ownerText, VIEW_W - 8, oy, col, 1);
+      oy += 10;
+    }
+  } else {
+    const mins = (G.marketWarT / 60) | 0;
+    const hours = (mins / 60) | 0;
+    const displayMins = mins % 60;
+    const displayStr = hours > 0 ? (hours + 'H ' + displayMins + 'M') : (displayMins + 'M');
+    drawTextR(c, 'ĐẠI CHIẾN SAU: ' + displayStr, VIEW_W - 8, oy, '#5a6372', 1);
+    oy += 10;
+  }
   drawMsgs(c);
   drawBanner(c);
   // edge markers
@@ -238,7 +315,7 @@ function drawHUD(c) {
 }
 
 function drawMinimap(c) {
-  const p = G.p, S = 64, mx = VIEW_W - S - 8, my = 8;
+  const p = G.p, S = 90, mx = VIEW_W - S - 8, my = 8;
   const range = G.cyber.kiroshi >= 2 ? 64 : 44;
   let tx = p.x / TILE - range / 2, ty = p.y / TILE - range / 2;
   tx = Math.max(0, Math.min(WORLD.W - range, tx)); ty = Math.max(0, Math.min(WORLD.H - range, ty));
@@ -255,6 +332,28 @@ function drawMinimap(c) {
   dot(WORLD.shops.ripper.x, WORLD.shops.ripper.y, '#05d9e8', 'R');
   dot(WORLD.shops.cars.x, WORLD.shops.cars.y, '#00ff9f', 'A');
   dot(WORLD.shops.bar.x, WORLD.shops.bar.y, '#ff2a6d', 'B');
+  if (WORLD.shops.casino) dot(WORLD.shops.casino.x, WORLD.shops.casino.y, '#bd00ff', 'C');
+  if (WORLD.shops.clothing) dot(WORLD.shops.clothing.x, WORLD.shops.clothing.y, '#ff2a6d', 'T');
+  const myGang = String((G.gang ? gangLabel(G.gang) : '') || 'SOLO').toUpperCase();
+  for (const m of WORLD.markets || []) {
+    const state = G.marketStates && G.marketStates[m.id];
+    let col = '#5a6372';
+    if (G.marketWarActive) {
+      if (state && state.winner) {
+        col = (state.winner === myGang) ? '#00ff9f' : '#ff2a6d';
+      } else if (state && state.members > 0) {
+        col = '#f9f002';
+      } else {
+        col = '#cfd6e4';
+      }
+    }
+    dot(m.tx * TILE, m.ty * TILE, col, m.code);
+  }
+  for (const n of WORLD.npcs) {
+    if (n.kind === 'casino') dot(n.x, n.y, '#00ff9f', 'C');
+    else if (n.kind === 'stylist') dot(n.x, n.y, '#bd00ff', 'M');
+    else if (n.kind === 'joy' || n.kind === 'doll') dot(n.x, n.y, '#ff2a6d', 'J');
+  }
   for (const e of G.enemies) if (!e.dead && (e.bounty || e.psycho || e.war || G.cyber.kiroshi)) dot(e.x, e.y, e.psycho ? '#bd00ff' : factionColor(e.fac));
   for (const rp of G.remotePlayers || []) dot(rp.x, rp.y, String(rp.gang || '').toUpperCase() === ((window.NCPX_PLAYER && window.NCPX_PLAYER.gang) || '').toUpperCase() ? '#00ff9f' : '#bd00ff');
   if (G.bounty && (G.frame / 20 | 0) % 2) dot(G.bounty.x, G.bounty.y, G.bounty.psycho ? '#bd00ff' : '#ff2a3c', '×');
@@ -362,19 +461,39 @@ function drawDead(c) {
 // =================== PAUSE ===================
 function drawPause(c) {
   c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillRect(0, 0, VIEW_W, VIEW_H);
-  uiPanel(c, 200, 60, 240, 226, 'PAUSED', '#f9f002');
-  const items = ['RESUME', 'SAVE GAME', 'SOUND: ' + (SFX.muted ? 'OFF' : 'ON'), G.uiS.confirm ? 'CONFIRM WIPE? [ENTER]' : 'NEW GAME'];
+  uiPanel(c, 200, 60, 240, 226, localText('SETTINGS'), '#f9f002');
+  const langVal = (window.NCPX_I18N && window.NCPX_I18N.lang()) || 'vi';
+  const langLabel = langVal === 'vi' ? 'TIẾNG VIỆT' : 'ENGLISH';
+  const soundLabel = SFX.muted ? localText('SOUND: OFF') : localText('SOUND: ON');
+  const items = [
+    localText('RESUME'),
+    localText('SAVE GAME'),
+    soundLabel,
+    localText('LANGUAGE: ') + langLabel,
+    localText('ACCOUNT: ') + G.playerName + ' (' + (window.NCPX_CLOUD_SLOT || 'DEFAULT').toUpperCase() + ')',
+    G.uiS.confirm ? localText('CONFIRM WIPE? [ENTER]') : localText('NEW GAME')
+  ];
   const sel = navList(items.length);
   for (let i = 0; i < items.length; i++) {
-    const y = 90 + i * 20, hot = uiHot(210, y - 4, 220, 16);
+    const y = 82 + i * 15, hot = uiHot(210, y - 4, 220, 13);
     if (hot && G.mouse.moved) G.uiS.sel = i;
-    drawText(c, (sel === i ? '> ' : '  ') + items[i], 216, y, sel === i ? (i === 3 && G.uiS.confirm ? '#ff2a3c' : '#f9f002') : '#8a93a6', 1);
+    drawText(c, (sel === i ? '> ' : '  ') + items[i], 216, y, sel === i ? (i === 5 && G.uiS.confirm ? '#ff2a3c' : '#f9f002') : '#8a93a6', 1);
   }
   if (uiAct()) {
     if (sel === 0) { G.ui = null; }
-    else if (sel === 1) { saveGame(); msg('GAME SAVED', '#2ecc71'); SFX.buy(); }
+    else if (sel === 1) { saveGame(); msg(localText('GAME SAVED'), '#2ecc71'); SFX.buy(); }
     else if (sel === 2) { SFX.toggleMute(); }
     else if (sel === 3) {
+      const nextLang = langVal === 'vi' ? 'en' : 'vi';
+      window.NCPX_LANG = nextLang;
+      try { localStorage.setItem('ncpx_lang', nextLang); } catch (e) {}
+      SFX.ui();
+    }
+    else if (sel === 4) {
+      msg(localText('ACCOUNT ACTIVE: ') + G.playerName, '#00ff9f');
+      SFX.ui();
+    }
+    else if (sel === 5) {
       if (!G.uiS.confirm) G.uiS.confirm = true;
       else { wipeSave(); G.ui = null; G.state = 'title'; G.titleMode = 'name'; G.uiS = { sel: 0, scroll: 0, tab: 0, confirm: false }; }
     }
@@ -601,17 +720,151 @@ function drawBar(c) {
   drawCursorSpr(c);
 }
 
+function drawCasino(c) {
+  c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillRect(0, 0, VIEW_W, VIEW_H);
+  uiPanel(c, 180, 70, 280, 220, localText('CASINO — TÀI XỈU'), '#00ff9f');
+
+  const s = G.uiS;
+  const sel = navList(4); // 4 menu items
+
+  // Make sure bet and choice stay valid (within player's eddies and at least 100)
+  s.bet = s.bet || 100;
+  s.choice = s.choice !== undefined ? s.choice : 1;
+
+  // Item 0: Bet Size
+  const y0 = 100, hot0 = uiHot(180, y0 - 4, 280, 16);
+  if (hot0 && G.mouse.moved) s.sel = 0;
+  drawTextC(c, localText('BET SIZE: ') + '< €$ ' + fmt(s.bet) + ' >', 320, y0, sel === 0 ? '#f9f002' : '#8a93a6', 1);
+  if (sel === 0) {
+    if (press('ArrowLeft')) { s.bet = Math.max(100, s.bet - 100); SFX.ui(); }
+    if (press('ArrowRight')) { s.bet = s.bet + 100; SFX.ui(); }
+  }
+  if (hot0 && G.mouse.click) {
+    G.mouse.click = false;
+    if (G.mouse.sx < 320) s.bet = Math.max(100, s.bet - 100);
+    else s.bet = s.bet + 100;
+    SFX.ui();
+  }
+
+  // Item 1: Choice
+  const y1 = 120, hot1 = uiHot(180, y1 - 4, 280, 16);
+  if (hot1 && G.mouse.moved) s.sel = 1;
+  const choiceText = s.choice === 1 ? localText('TÀI (BIG)') : localText('XỈU (SMALL)');
+  drawTextC(c, localText('CHOICE: ') + '< ' + choiceText + ' >', 320, y1, sel === 1 ? '#f9f002' : '#8a93a6', 1);
+  if (sel === 1 && (press('ArrowLeft') || press('ArrowRight'))) { s.choice = 1 - s.choice; SFX.ui(); }
+  if (hot1 && G.mouse.click) {
+    G.mouse.click = false;
+    s.choice = 1 - s.choice;
+    SFX.ui();
+  }
+
+  // Item 2: Roll Dice
+  const y2 = 140, hot2 = uiHot(180, y2 - 4, 280, 16);
+  if (hot2 && G.mouse.moved) s.sel = 2;
+  drawTextC(c, localText('ROLL DICE'), 320, y2, sel === 2 ? '#00ff9f' : '#8a93a6', 1);
+
+  // Item 3: Exit
+  const y3 = 160, hot3 = uiHot(180, y3 - 4, 280, 16);
+  if (hot3 && G.mouse.moved) s.sel = 3;
+  drawTextC(c, localText('LEAVE CASINO'), 320, y3, sel === 3 ? '#ff2a6d' : '#8a93a6', 1);
+
+  // Active triggers
+  const triggerRoll = () => {
+    if (G.eddies < s.bet) {
+      msg(localText('NOT ENOUGH EDDIES'), '#ff5a5a');
+      SFX.deny();
+      return;
+    }
+    const d1 = Math.floor(Math.random() * 6) + 1;
+    const d2 = Math.floor(Math.random() * 6) + 1;
+    const d3 = Math.floor(Math.random() * 6) + 1;
+    s.dice = [d1, d2, d3];
+    const sum = d1 + d2 + d3;
+    if (sum === 3 || sum === 18) {
+      s.result = 'triple';
+      G.eddies -= s.bet;
+      SFX.hurt();
+    } else {
+      const sumOutcome = (sum >= 11 && sum <= 17) ? 1 : 0;
+      if (sumOutcome === s.choice) {
+        s.result = 'win';
+        G.eddies += s.bet;
+        SFX.levelup();
+      } else {
+        s.result = 'lose';
+        G.eddies -= s.bet;
+        SFX.hurt();
+      }
+    }
+    saveGame();
+  };
+
+  const triggerExit = () => {
+    G.ui = null;
+    SFX.ui();
+  };
+
+  if (press('Enter') || press('Space')) {
+    if (sel === 2) triggerRoll();
+    if (sel === 3) triggerExit();
+  }
+
+  if (hot2 && G.mouse.click) {
+    G.mouse.click = false;
+    triggerRoll();
+  }
+
+  if (hot3 && G.mouse.click) {
+    G.mouse.click = false;
+    triggerExit();
+  }
+
+  // Draw dice results if rolled
+  if (s.dice) {
+    const diceY = 186;
+    const sum = s.dice[0] + s.dice[1] + s.dice[2];
+    
+    // Draw 3 dice boxes
+    for (let k = 0; k < 3; k++) {
+      const diceX = 220 + k * 32;
+      c.fillStyle = '#1c1c22';
+      c.fillRect(diceX, diceY, 24, 24);
+      c.strokeStyle = '#00ff9f';
+      c.strokeRect(diceX + 0.5, diceY + 0.5, 23, 23);
+      drawTextC(c, String(s.dice[k]), diceX + 12, diceY + 8, '#f9f002', 1);
+    }
+
+    // Draw outcome text
+    const outcome = (sum === 3 || sum === 18) 
+      ? localText('TRIPLE') 
+      : (sum >= 11 ? localText('BIG') : localText('SMALL'));
+    drawText(c, '= ' + sum + ' (' + outcome + ')', 324, diceY + 9, '#00ff9f', 1);
+
+    // Draw Win/Loss text
+    const resultY = 222;
+    if (s.result === 'win') {
+      drawTextC(c, localText('WIN! +€$') + ' ' + fmt(s.bet), 320, resultY, '#2ecc71', 2);
+    } else if (s.result === 'lose') {
+      drawTextC(c, localText('LOSE! -€$') + ' ' + fmt(s.bet), 320, resultY, '#ff2a3c', 2);
+    } else if (s.result === 'triple') {
+      drawTextC(c, localText('DEALER WINS ON TRIPLE!'), 320, resultY, '#ff2a3c', 1);
+    }
+  }
+
+  drawCursorSpr(c);
+}
+
 // =================== INVENTORY ===================
-const INV_TABS = ['WEAPONS', 'CYBERWARE', 'GARAGE', 'STATS'];
+const INV_TABS = ['WEAPONS', 'CYBERWARE', 'GARAGE', 'MAP', 'STATS'];
 function drawInv(c) {
   c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillRect(0, 0, VIEW_W, VIEW_H);
   uiPanel(c, 56, 22, 528, 316, null, '#bd00ff');
   drawTextR(c, '€$' + fmt(G.eddies), 576, 28, '#f9f002', 1);
   const s = G.uiS;
-  if (press('ArrowLeft')) { s.tab = (s.tab + 3) % 4; s.sel = 0; SFX.ui(); }
-  if (press('ArrowRight')) { s.tab = (s.tab + 1) % 4; s.sel = 0; SFX.ui(); }
+  if (press('ArrowLeft')) { s.tab = (s.tab + 4) % 5; s.sel = 0; SFX.ui(); }
+  if (press('ArrowRight')) { s.tab = (s.tab + 1) % 5; s.sel = 0; SFX.ui(); }
   let tx = 66;
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 5; i++) {
     const w = textW(INV_TABS[i]) + 12, hot = uiHot(tx, 26, w, 12);
     if (hot && G.mouse.click) { G.mouse.click = false; s.tab = i; s.sel = 0; }
     if (s.tab === i) { c.fillStyle = 'rgba(189,0,255,0.18)'; c.fillRect(tx, 26, w, 11); }
@@ -621,6 +874,7 @@ function drawInv(c) {
   if (s.tab === 0) invWeapons(c);
   else if (s.tab === 1) invCyber(c);
   else if (s.tab === 2) invGarage(c);
+  else if (s.tab === 3) invMap(c);
   else invStats(c);
   drawTextC(c, 'ARROW KEYS SWITCH TAB · WASD NAVIGATE · TAB/ESC CLOSE', VIEW_W / 2, 324, '#5a6372', 1);
   drawCursorSpr(c);
@@ -656,8 +910,27 @@ function invWeapons(c) {
     drawText(c, RAR_NAME[w.rar] + ' · ' + w.kind.toUpperCase() + ' · ' + w.cls.toUpperCase(), 66, dy + 12, KIND_COL[w.kind], 1);
     drawText(c, 'DMG ' + w.dmg * (w.pellets || 1) + ' · RPS ' + w.rof + ' · DPS ' + dpsOf(w) + (w.mag ? ' · MAG ' + w.mag : ''), 66, dy + 24, '#cfd6e4', 1);
     wrapText(w.desc, 80).forEach((ln, i) => drawText(c, ln, 66, dy + 38 + i * 9, '#8a93a6', 1));
-    if (have) drawText(c, 'PRESS [1] [2] [3] TO ASSIGN LOADOUT SLOT', 66, dy + 64, '#f9f002', 1);
-    else drawText(c, w.iconic ? 'DROPS FROM CYBERPSYCHOS' : w.granted ? 'INSTALLED BY RIPPERDOC' : 'SOLD AT 2ND AMENDMENT', 66, dy + 64, '#5a6372', 1);
+    if (have) {
+      if (TOUCH.on) {
+        drawText(c, localText('EQUIP TO SLOT:'), 66, dy + 64, '#f9f002', 1);
+        for (let slotIdx = 0; slotIdx < 3; slotIdx++) {
+          const bx = 160 + slotIdx * 32, by = dy + 59, bw = 24, bh = 13;
+          const hotB = uiHot(bx, by, bw, bh);
+          if (hotB && G.mouse.click) {
+            G.mouse.click = false;
+            assignSlot(w.id, slotIdx);
+            SFX.buy();
+          }
+          c.fillStyle = hotB ? 'rgba(249,240,2,0.2)' : 'rgba(255,255,255,0.06)';
+          c.fillRect(bx, by, bw, bh);
+          c.strokeStyle = '#f9f002';
+          c.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1);
+          drawTextC(c, String(slotIdx + 1), bx + bw / 2, by + 3.5, '#f9f002', 1);
+        }
+      } else {
+        drawText(c, localText('PRESS [1] [2] [3] TO ASSIGN LOADOUT SLOT'), 66, dy + 64, '#f9f002', 1);
+      }
+    } else drawText(c, w.iconic ? 'DROPS FROM CYBERPSYCHOS' : w.granted ? 'INSTALLED BY RIPPERDOC' : 'SOLD AT 2ND AMENDMENT', 66, dy + 64, '#5a6372', 1);
   } else drawText(c, 'UNKNOWN. RUMORS SPEAK OF A VOICE IN A GUTTER...', 66, dy, '#5a6372', 1);
   if (have) {
     if (press('Digit1')) assignSlot(w.id, 0);
@@ -732,7 +1005,7 @@ function invStats(c) {
     ['DISTANCE ROAMED', (st.dist / 1000).toFixed(1) + ' KM'],
     ['TIME IN NIGHT CITY', mins + ' MIN'],
     ['PLAYER GANG', G.gang ? gangLabel(G.gang) : 'CHƯA CÓ'],
-    ['ONLINE CREW', (G.remotePlayers || []).length + ' NEARBY'],
+    ['ONLINE CREW', (G.onlineCount || ((G.remotePlayers || []).length + (window.NCPX_NET && window.NCPX_NET.connected ? 1 : 0))) + ' ONLINE'],
     ['SKIPPY', G.skippyFound ? 'FOUND (HE TALKS)' : 'STILL OUT THERE...'],
   ];
   let y = 52;
@@ -744,39 +1017,179 @@ function invStats(c) {
   drawTextC(c, '"WRONG CITY, WRONG PEOPLE."', VIEW_W / 2, y + 18, '#3a414e', 1);
 }
 
+function invMap(c) {
+  const mapSize = 220;
+  const mx = 70, my = 52;
+  c.fillStyle = '#06080e'; c.fillRect(mx - 2, my - 2, mapSize + 4, mapSize + 4);
+  c.strokeStyle = '#bd00ff'; c.strokeRect(mx - 1.5, my - 1.5, mapSize + 3, mapSize + 3);
+
+  const smoothing = c.imageSmoothingEnabled;
+  c.imageSmoothingEnabled = false;
+  c.drawImage(WORLD.mini, mx, my, mapSize, mapSize);
+  c.imageSmoothingEnabled = smoothing;
+
+  const project = (wx, wy) => {
+    const tx = wx / TILE, ty = wy / TILE;
+    return {
+      x: mx + (tx / WORLD.W) * mapSize,
+      y: my + (ty / WORLD.H) * mapSize
+    };
+  };
+
+  const dot = (wx, wy, col, txt, label, desc) => {
+    const pt = project(wx, wy);
+    c.fillStyle = '#06080e'; c.fillRect(pt.x - 3, pt.y - 3, 7, 7);
+    drawTextC(c, txt, pt.x, pt.y - 2.5, col, 1);
+
+    const m = G.mouse;
+    if (m && Math.hypot(m.sx - pt.x, m.sy - pt.y) < 6) {
+      const tx = 310, ty = 200;
+      c.fillStyle = 'rgba(6,8,14,0.95)'; c.fillRect(tx, ty, 250, 60);
+      c.strokeStyle = col; c.strokeRect(tx + 0.5, ty + 0.5, 249, 59);
+      drawText(c, label, tx + 8, ty + 8, col, 1);
+      drawText(c, desc, tx + 8, ty + 20, '#cfd6e4', 1);
+      drawText(c, 'COORD: ' + Math.floor(wx/TILE) + ', ' + Math.floor(wy/TILE), tx + 8, ty + 38, '#8a93a6', 1);
+    }
+  };
+
+  // 1. Player
+  dot(G.p.x, G.p.y, '#05d9e8', 'P', 'PLAYER: ' + cleanPlayerName(G.playerName), localText('YOUR CURRENT POSITION'));
+
+  // 2. Shops
+  dot(WORLD.shops.guns.x, WORLD.shops.guns.y, '#f9f002', 'G', 'QU\u00c2N - ' + localText('GUN SHOP'), localText('WEAPONS & AMMO'));
+  dot(WORLD.shops.ripper.x, WORLD.shops.ripper.y, '#05d9e8', 'R', 'S\u01a0N - ' + localText('RIPPERDOC'), localText('CYBERWARE CLINIC'));
+  dot(WORLD.shops.cars.x, WORLD.shops.cars.y, '#00ff9f', 'A', 'T\u00da - AUTOFIXER', localText('VEHICLES AND GARAGE'));
+  dot(WORLD.shops.bar.x, WORLD.shops.bar.y, '#ff2a6d', 'B', 'LAN - AFTERLIFE BAR', localText('ORDER A DRINK'));
+  if (WORLD.shops.casino) dot(WORLD.shops.casino.x, WORLD.shops.casino.y, '#bd00ff', 'C', 'T\u00c0I - ' + localText('CASINO DEALER'), localText('PLAY DICE MINI-GAME'));
+  if (WORLD.shops.clothing) dot(WORLD.shops.clothing.x, WORLD.shops.clothing.y, '#ff69b4', 'T', 'TRANG - ' + localText('MIRROR ROOM'), localText('SWITCH GENDER / SKIN'));
+
+  // 3. NPCs (joy/doll only — casino+stylist now have dedicated buildings)
+  for (const n of WORLD.npcs) {
+    if (n.kind === 'joy') {
+      dot(n.x, n.y, '#ff2a6d', 'J', n.name + ' - JOY', localText('CLOUDS LOUNGE'));
+    } else if (n.kind === 'doll') {
+      dot(n.x, n.y, '#ff2a6d', 'D', n.name + ' - DOLL', localText('CLOUDS VIP ROOM'));
+    }
+  }
+
+  // 4. Legend
+  const lx = 308, ly = 52;
+  drawText(c, localText('NIGHT CITY MAP'), lx, ly, '#bd00ff', 2);
+  drawText(c, localText('LEGEND:'), lx, ly + 18, '#5a6372', 1);
+
+  const legendItems = [
+    { key: 'P', name: 'PLAYER V', col: '#05d9e8' },
+    { key: 'G', name: 'GUN SHOP', col: '#f9f002' },
+    { key: 'R', name: 'RIPPERDOC', col: '#05d9e8' },
+    { key: 'A', name: 'AUTOFIXER', col: '#00ff9f' },
+    { key: 'B', name: 'AFTERLIFE', col: '#ff2a6d' },
+    { key: 'C', name: 'CASINO DEALER', col: '#bd00ff' },
+    { key: 'T', name: 'TRANG PHUC', col: '#ff69b4' },
+    { key: 'J', name: 'JOY / DOLL', col: '#ff2a6d' },
+  ];
+
+  legendItems.forEach((item, index) => {
+    const rx = lx + (index % 2) * 130;
+    const ry = ly + 32 + Math.floor(index / 2) * 14;
+    drawText(c, '[' + item.key + '] ' + localText(item.name), rx, ry, item.col, 1);
+  });
+
+  drawText(c, localText('HOVER ON DOTS TO IDENTIFY LOCATIONS'), lx, ly + 104, '#8a93a6', 1);
+}
+
+
 function drawGangMenu(c) {
   const s = G.uiS;
-  uiPanel(c, 150, 66, 340, 226, 'QUẢN LÝ BĂNG', '#00ff9f');
-  drawText(c, 'BĂNG HIỆN TẠI', 176, 100, '#5a6372', 1);
-  drawText(c, G.gang ? gangLabel(G.gang) : 'CHƯA CÓ BĂNG', 306, 100, G.gang ? factionColor(G.gang) : '#8a93a6', 1);
-  drawText(c, 'CHỌN TÊN BĂNG', 176, 126, '#5a6372', 1);
+  uiPanel(c, 126, 50, 388, 264, 'QUẢN LÝ BĂNG', '#00ff9f');
+  drawText(c, 'BĂNG HIỆN TẠI', 154, 84, '#5a6372', 1);
+  drawText(c, G.gang ? gangLabel(G.gang) : 'CHƯA CÓ BĂNG', 292, 84, G.gang ? factionColor(G.gang) : '#8a93a6', 1);
+  drawText(c, 'CHỌN TÊN', 154, 108, '#5a6372', 1);
   const names = PLAYER_GANG_NAMES;
   if (navLeft()) { G.gangNameSel = (G.gangNameSel - 1 + names.length) % names.length; SFX.ui(); }
   if (navRight()) { G.gangNameSel = (G.gangNameSel + 1) % names.length; SFX.ui(); }
   G.gangNameSel = Math.max(0, Math.min(names.length - 1, G.gangNameSel || 0));
-  drawTextC(c, '< ' + names[G.gangNameSel] + ' >', 320, 148, '#f9f002', 2);
+  const hotName = uiHot(150, 118, 340, 18);
+  if (hotName && G.mouse.click) {
+    G.mouse.click = false;
+    if (G.mouse.sx < 326) G.gangNameSel = (G.gangNameSel - 1 + names.length) % names.length;
+    else G.gangNameSel = (G.gangNameSel + 1) % names.length;
+    SFX.ui();
+  }
+  drawTextC(c, '< ' + names[G.gangNameSel] + ' >', 326, 128, '#f9f002', 2);
+  const icons = PLAYER_GANG_ICONS;
+  if (press('KeyZ')) { G.gangIconSel = (G.gangIconSel - 1 + icons.length) % icons.length; SFX.ui(); }
+  if (press('KeyX')) { G.gangIconSel = (G.gangIconSel + 1) % icons.length; SFX.ui(); }
+  G.gangIconSel = Math.max(0, Math.min(icons.length - 1, G.gangIconSel || 0));
+  const hotIcon = uiHot(150, 146, 340, 18);
+  if (hotIcon && G.mouse.click) {
+    G.mouse.click = false;
+    if (G.mouse.sx < 326) G.gangIconSel = (G.gangIconSel - 1 + icons.length) % icons.length;
+    else G.gangIconSel = (G.gangIconSel + 1) % icons.length;
+    SFX.ui();
+  }
+  const icon = gangIconObj(G.gangIconSel);
+  drawText(c, 'BIỂU TƯỢNG', 154, 154, '#5a6372', 1);
+  drawTextC(c, '< [' + icon.mark + '] ' + icon.name + ' >', 326, 154, icon.col, 1);
 
+  const inviteTarget = nearestRemotePlayer(rp => G.gang && !sameGangProfile(rp, playerProfile()));
+  const requestTarget = nearestRemotePlayer(rp => !G.gang && rp.gang && rp.gang !== 'SOLO');
   const rows = [
     G.gang === 'player' ? 'ĐỔI TÊN BĂNG' : 'TẠO BĂNG',
-    G.gangInvite ? 'VÀO ' + gangLabel(G.gangInvite) : 'CHƯA CÓ LỜI MỜI',
+    inviteTarget ? 'MỜI ' + cleanPlayerName(inviteTarget.name) : 'KHÔNG CÓ NGƯỜI ĐỂ MỜI',
+    requestTarget ? 'XIN VÀO ' + requestTarget.gang : 'KHÔNG CÓ BĂNG ĐỂ XIN',
+    G.gangJoinReq ? 'DUYỆT ' + cleanPlayerName(G.gangJoinReq.fromName) : 'CHƯA CÓ ĐƠN XIN',
+    G.playerInvite ? 'VÀO ' + G.playerInvite.gang : (G.gangInvite ? 'VÀO ' + gangLabel(G.gangInvite) : 'CHƯA CÓ LỜI MỜI'),
     'ĐÓNG',
   ];
   const sel = navList(rows.length);
   for (let i = 0; i < rows.length; i++) {
-    const y = 182 + i * 20, hot = uiHot(206, y - 5, 228, 16), enabled = i !== 1 || !!G.gangInvite;
+    const y = 184 + i * 18, hot = uiHot(166, y - 5, 308, 15);
+    const enabled = i === 0 || (i === 1 && !!inviteTarget) || (i === 2 && !!requestTarget) || (i === 3 && !!G.gangJoinReq && G.gang) || (i === 4 && (!!G.playerInvite || !!G.gangInvite)) || i === 5;
     if (hot && G.mouse.moved && enabled) s.sel = i;
     drawTextC(c, (sel === i ? '> ' : '') + rows[i] + (sel === i ? ' <' : ''), 320, y, !enabled ? '#3a414e' : sel === i ? '#00ff9f' : '#8a93a6', 1);
     if (hot && G.mouse.click && enabled) { G.mouse.click = false; s.sel = i; gangMenuAct(i); return; }
   }
-  drawTextC(c, '[A/D] ĐỔI TÊN · [ENTER] CHỌN · [ESC/G] ĐÓNG', VIEW_W / 2, 268, '#5a6372', 1);
-  drawTextC(c, 'CÙNG BĂNG KHÔNG THỂ BẮN NHAU TRONG REALTIME', VIEW_W / 2, 282, '#00ff9f', 1);
+  drawTextC(c, '[A/D] TÊN · [Z/X] ICON · [ENTER] CHỌN · [ESC/G] ĐÓNG', VIEW_W / 2, 292, '#5a6372', 1);
+  drawTextC(c, 'CÙNG BĂNG KHÔNG THỂ BẮN NHAU TRONG REALTIME', VIEW_W / 2, 304, '#00ff9f', 1);
   if (press('KeyG') || press('Escape')) { G.ui = null; SFX.ui(); return; }
   if (uiAct()) gangMenuAct(sel);
 }
 
 function gangMenuAct(sel) {
   if (sel === 0) { setPlayerGang(PLAYER_GANG_NAMES[G.gangNameSel || 0]); G.ui = null; SFX.buy(); return; }
-  if (sel === 1 && G.gangInvite) {
+  if (sel === 1) {
+    const target = nearestRemotePlayer(rp => G.gang && !sameGangProfile(rp, playerProfile()));
+    if (target && window.NCPX_NET && window.NCPX_NET.invite) {
+      window.NCPX_NET.invite(target.id, playerProfile());
+      msg('ĐÃ GỬI LỜI MỜI CHO ' + cleanPlayerName(target.name), '#00ff9f');
+      SFX.buy();
+    }
+    return;
+  }
+  if (sel === 2) {
+    const target = nearestRemotePlayer(rp => !G.gang && rp.gang && rp.gang !== 'SOLO');
+    if (target && window.NCPX_NET && window.NCPX_NET.requestJoin) {
+      window.NCPX_NET.requestJoin(target.id, playerProfile());
+      msg('ĐÃ XIN VÀO ' + target.gang, '#f9f002');
+      SFX.buy();
+    }
+    return;
+  }
+  if (sel === 3 && G.gangJoinReq && G.gang && window.NCPX_NET && window.NCPX_NET.invite) {
+    window.NCPX_NET.invite(G.gangJoinReq.from, playerProfile());
+    msg('ĐÃ DUYỆT ' + cleanPlayerName(G.gangJoinReq.fromName), '#00ff9f');
+    G.gangJoinReq = null;
+    window.NCPX_NET.requests = [];
+    SFX.buy();
+    return;
+  }
+  if (sel === 4 && G.playerInvite) {
+    joinPlayerGang(G.playerInvite.gang, G.playerInvite.gangIcon, G.playerInvite.gangIconCol);
+    G.ui = null;
+    SFX.buy();
+    return;
+  }
+  if (sel === 4 && G.gangInvite) {
     G.gang = G.gangInvite;
     G.playerGangName = null;
     const name = gangLabel(G.gang);
@@ -788,7 +1201,7 @@ function gangMenuAct(sel) {
     SFX.buy();
     return;
   }
-  if (sel === 2) { G.ui = null; SFX.ui(); }
+  if (sel === 5) { G.ui = null; SFX.ui(); }
 }
 
 function wrapText(s, n) {
@@ -801,3 +1214,6 @@ function wrapText(s, n) {
   if (cur.trim()) lines.push(cur.trim());
   return lines;
 }
+
+window.gangMenuAct = gangMenuAct;
+

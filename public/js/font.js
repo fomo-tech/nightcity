@@ -85,29 +85,34 @@ function glyphOf(ch) {
 }
 
 function pixelTextOnly(s) {
-  s = String(s).normalize('NFD');
-  for (let i = 0; i < s.length; i++) {
-    const ch = s[i];
-    if (!GLYPHS[ch] && !GLYPHS[ch.toUpperCase()] && !isCombiningMark(ch)) return false;
-  }
-  return true;
+  return false;
 }
 
 function textW(s, sc) {
   s = localText(s);
   sc = sc || 1;
-  if (!pixelTextOnly(s)) return Math.ceil(s.length * 5.7 * sc);
-  let w = 0;
-  const normalized = s.normalize('NFD');
-  for (let i = 0; i < normalized.length; i++) {
-    const ch = normalized[i];
-    if (isCombiningMark(ch)) continue;
-    w += glyphOf(ch)[0].length + 1;
+  if (typeof document !== 'undefined') {
+    try {
+      const cv = document.createElement('canvas');
+      const c = cv.getContext('2d');
+      c.font = gameFont(sc);
+      const m = c.measureText(s);
+      if (m && typeof m.width === 'number') {
+        return Math.ceil(m.width);
+      }
+    } catch (e) {}
   }
-  return Math.max(0, w - 1) * sc;
+  return Math.ceil(s.length * GAME_FONT_BASE * sc);
 }
 
 const _txtCache = new Map();
+const GAME_FONT_FAMILY = '"Orbitron", "Share Tech Mono", "Segoe UI", Arial, sans-serif';
+const GAME_FONT_BASE = 12;
+const gameFont = sc => '900 ' + Math.max(GAME_FONT_BASE, GAME_FONT_BASE * sc) + 'px ' + GAME_FONT_FAMILY;
+
+if (typeof document !== 'undefined' && document.fonts && document.fonts.ready) {
+  document.fonts.ready.then(() => _txtCache.clear()).catch(() => {});
+}
 
 function localText(s) {
   s = String(s);
@@ -189,48 +194,24 @@ function drawCombiningMarks(c, marks, cx, lastX, lastW, sc) {
 }
 
 function _renderText(s, col, sc) {
-  s = s.normalize('NFD');
+  s = s.normalize('NFC');
   const w = Math.max(1, textW(s, sc));
   const cv = document.createElement('canvas');
-  const pixel = pixelTextOnly(s);
-  cv.width = w; cv.height = pixel ? 9 * sc : 9 * sc;
-  const c = cv.getContext('2d');
-  c.fillStyle = col;
-  if (!pixel) {
-    c.imageSmoothingEnabled = false;
-    c.font = '700 ' + Math.max(7, 7 * sc) + 'px Arial, Helvetica, sans-serif';
-    c.textBaseline = 'top';
-    c.fillText(s, 0, Math.max(0, sc - 1));
-    return cv;
-  }
+  cv.width = w + Math.ceil(6 * sc);
   
-  const tokens = [];
-  for (let i = 0; i < s.length; i++) {
-    const ch = s[i];
-    if (isCombiningMark(ch)) {
-      if (tokens.length > 0) tokens[tokens.length - 1].marks.push(ch);
-    } else {
-      tokens.push({ char: ch, marks: [] });
-    }
-  }
+  const paddingY = Math.ceil(3 * sc);
+  cv.height = Math.ceil(21 * sc);
+  
+  const c = cv.getContext('2d');
+  c.font = gameFont(sc);
+  c.textBaseline = 'top';
+  c.fillStyle = '#02030a';
+  c.globalAlpha = 0.75;
+  c.fillText(s, sc, paddingY + sc);
+  c.globalAlpha = 1;
+  c.fillStyle = col;
+  c.fillText(s, 0, paddingY);
 
-  let x = 0;
-  for (let i = 0; i < tokens.length; i++) {
-    const tok = tokens[i];
-    const g = glyphOf(tok.char);
-    const gw = g[0].length;
-    for (let r = 0; r < 5; r++) {
-      const row = g[r];
-      for (let p = 0; p < row.length; p++) {
-        if (row[p] === '1') c.fillRect(x + p * sc, (r + 2) * sc, sc, sc);
-      }
-    }
-    if (tok.marks.length > 0) {
-      const cx = x + Math.floor(gw / 2) * sc;
-      drawCombiningMarks(c, tok.marks, cx, x, gw, sc);
-    }
-    x += (gw + 1) * sc;
-  }
   return cv;
 }
 
@@ -245,8 +226,7 @@ function drawText(c, s, x, y, col, sc) {
     cv = _renderText(s, col, sc);
     _txtCache.set(key, cv);
   }
-  const pixel = pixelTextOnly(s);
-  const dy = pixel ? y - 2 * sc : y;
+  const dy = y - Math.ceil(3 * sc);
   c.drawImage(cv, Math.round(x), Math.round(dy));
 }
 

@@ -1,6 +1,7 @@
 'use strict';
 // ============ Static game data: weapons / cars / cyberware / districts ============
-const TILE = 16, VIEW_W = 640, VIEW_H = 360;
+const TILE = 16;
+let VIEW_W = 640, VIEW_H = 360;
 
 const NEON = ['#ff2a6d', '#05d9e8', '#f9f002', '#bd00ff', '#00ff9f', '#ff9f1c'];
 const RAR_NAME = ['COMMON', 'UNCOMMON', 'RARE', 'EPIC', 'LEGENDARY', 'ICONIC'];
@@ -145,6 +146,16 @@ const FACTION_LABELS = {
   barghest: 'BARGHEST',
 };
 const PLAYER_GANG_NAMES = ['BÓNG ĐÊM', 'RỒNG ĐỎ', 'SÓI PHỐ', 'HẮC LONG', 'SAO NEON', 'BỤI ĐỜI'];
+const PLAYER_GANG_ICONS = [
+  { mark:'SK', name:'ĐẦU LÂU', col:'#ff2a6d' },
+  { mark:'NX', name:'NEON X', col:'#05d9e8' },
+  { mark:'RG', name:'RỒNG', col:'#ff2a3c' },
+  { mark:'NB', name:'NOVA', col:'#f9f002' },
+  { mark:'6T', name:'SỐ 6', col:'#ff9f1c' },
+  { mark:'VB', name:'VOODOO', col:'#00ff9f' },
+  { mark:'HL', name:'HẮC LONG', col:'#bd00ff' },
+  { mark:'TT', name:'TRAUMA', col:'#e8f6ff' },
+];
 const PSYCHO_NAMES = ['BLOODY NOX','SCALPEL','TURBO SAINT','NEON REAPER','DUKE OF NUKES','MISS SHRAPNEL','DR. CHROME','ZERO COUNT'];
 
 const BRANDS = ['KIROSHI','ARASAKA','MILITECH','NICOLA','CHROMANTICORE','ORBITAL AIR','SAMURAI','BUDGET ARMS','ALL FOODS','TRAUMA TEAM','ZETATECH','BIOTECHNICA','KANG TAO','WEST WIND'];
@@ -227,3 +238,17 @@ const WEATHER_POOL = ['clear', 'clear', 'drizzle', 'drizzle', 'drizzle', 'storm'
 
 function xpFor(lvl) { return Math.floor(70 * Math.pow(lvl, 1.45)); }
 function dpsOf(w) { return Math.round(w.dmg * (w.pellets || 1) * w.rof); }
+
+window.WEAPONS = WEAPONS;
+window.CARS = CARS;
+window.CYBER = CYBER;
+window.CYBER_SLOTS = CYBER_SLOTS;
+window.PLAYER_GANG_NAMES = PLAYER_GANG_NAMES;
+window.PLAYER_GANG_ICONS = PLAYER_GANG_ICONS;
+window.RAR_NAME = RAR_NAME;
+window.WPN = WPN;
+window.CARD = CARD;
+window.CYB = CYB;
+window.TILE = TILE;
+window.ICONICS = ICONICS;
+

@@ -2,6 +2,10 @@
 // ============ Core sim + render. Night City: Pixel Edition ============
 const SAVE_KEY = 'ncpx2077_v1';
 let CV = null, C = null, G = null;
+function activeSaveKey() {
+  return (typeof window !== 'undefined' && window.NCPX_SAVE_KEY) || SAVE_KEY;
+}
+const WORLD_ZOOM = 1.0;
 
 // ---- helpers ----
 function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
@@ -30,16 +34,50 @@ function gangLabel(fac) {
   if (fac === 'player') return G && G.playerGangName ? G.playerGangName : 'BĂNG CỦA BẠN';
   return (FACTION_LABELS && FACTION_LABELS[fac]) || (FACTIONS[fac] && FACTIONS[fac].name) || String(fac).toUpperCase();
 }
+function gangIconObj(sel) {
+  const icons = (typeof PLAYER_GANG_ICONS !== 'undefined' && PLAYER_GANG_ICONS.length) ? PLAYER_GANG_ICONS : [{ mark:'NC', name:'NIGHT CITY', col:'#00ff9f' }];
+  return icons[clamp(sel || 0, 0, icons.length - 1) | 0] || icons[0];
+}
+function activeGangIcon() {
+  if (G && G.gang === 'player' && G.playerGangIcon) return { mark:G.playerGangIcon, name:G.playerGangIcon, col:G.playerGangIconCol || '#00ff9f' };
+  return G && G.gang === 'player' ? gangIconObj(G.gangIconSel || 0) : { mark:'', name:'', col:factionColorSafe(G && G.gang) };
+}
+function factionColorSafe(fac) {
+  return fac === 'player' ? '#00ff9f' : (FACTIONS[fac] && FACTIONS[fac].pal && FACTIONS[fac].pal.T) || '#8a93a6';
+}
 function cleanPlayerName(name) {
   return String(name || 'V').replace(/[^\p{L}\p{N}_ -]/gu, '').trim().slice(0, 18).toUpperCase() || 'V';
 }
 function playerProfile() {
   const p = (typeof window !== 'undefined' && window.NCPX_PLAYER) || {};
   const ownGang = G && G.gang ? gangLabel(G.gang) : p.gang;
+  const icon = activeGangIcon();
   return {
     name: cleanPlayerName((G && G.playerName) || p.name || 'V'),
     gang: String(ownGang || 'SOLO').slice(0, 18).toUpperCase(),
+    gangKey: G && G.gang ? G.gang : 'solo',
+    gangIcon: icon.mark || '',
+    gangIconCol: icon.col || '#8a93a6',
+    isLeader: G ? !!G.isGangLeader : !!p.isLeader,
   };
+}
+function sameGangProfile(a, b) {
+  const ak = String((a && a.gangKey) || '').toUpperCase();
+  const bk = String((b && b.gangKey) || '').toUpperCase();
+  const ag = String((a && a.gang) || '').toUpperCase();
+  const bg = String((b && b.gang) || '').toUpperCase();
+  return ak && bk && ak !== 'SOLO' && bk !== 'SOLO' ? ak === bk && ag === bg : ag && ag !== 'SOLO' && ag === bg;
+}
+function sendRemoteHit(rp, dmg, crit, weapon) {
+  if (!rp || !rp.id || typeof window === 'undefined' || !window.NCPX_NET || !window.NCPX_NET.hit) return;
+  window.NCPX_NET.hit(rp.id, { dmg: Math.round(dmg), crit: !!crit, weapon: weapon || 'WEAPON' });
+}
+function isRealtimeNpcReplica() {
+  return !!(typeof window !== 'undefined' && window.NCPX_NET && window.NCPX_NET.connected && !window.NCPX_NET.isHost && window.NCPX_NET.npcState);
+}
+function sendNpcHit(e, dmg, crit, dir, kb, burn) {
+  if (!e || !e.id || typeof window === 'undefined' || !window.NCPX_NET || !window.NCPX_NET.npcHit) return;
+  window.NCPX_NET.npcHit({ enemyId: e.id, dmg: Math.round(dmg), crit: !!crit, dir: dir || 0, kb: kb || 0, burn: burn || 0 });
 }
 
 // ---- touch / mobile: twin-stick virtual controls (left = move, right = aim+fire) ----
@@ -106,11 +144,11 @@ function touchStartPt(id, pt) {
     }
   }
   // weapon card: tap a slot box to equip it, tap the card body to reload
-  const wcx = VIEW_W - 148, wcy = VIEW_H - 46;
-  if (pt.x >= wcx - 4 && pt.y >= wcy - 6) {
+  const wcx = VIEW_W - 188, wcy = VIEW_H - 56;
+  if (pt.x >= wcx && pt.y >= wcy) {
     for (let i = 0; i < 3; i++) {
-      const bx = wcx + 78 + i * 21;
-      if (pt.x >= bx - 3 && pt.x < bx + 23 && pt.y >= wcy + 14) {
+      const bx = wcx + 120 + i * 20;
+      if (pt.x >= bx - 2 && pt.x < bx + 20 && pt.y >= wcy + 18 && pt.y < wcy + 40) {
         if (G.loadout[i]) { G.slot = i; cycleSlot(0); }
         return;
       }
@@ -181,8 +219,8 @@ function applyTouch() {
     const len = Math.hypot(TOUCH.aim.x, TOUCH.aim.y);
     if (len > 0.2) {
       const a = Math.atan2(TOUCH.aim.y, TOUCH.aim.x);
-      G.mouse.sx = clamp(G.p.x - G.cam.x + Math.cos(a) * 90, 4, VIEW_W - 4);
-      G.mouse.sy = clamp(G.p.y - G.cam.y + Math.sin(a) * 90, 4, VIEW_H - 4);
+      G.mouse.sx = clamp((G.p.x - G.cam.x) * WORLD_ZOOM + Math.cos(a) * 90, 4, VIEW_W - 4);
+      G.mouse.sy = clamp((G.p.y - G.cam.y) * WORLD_ZOOM + Math.sin(a) * 90, 4, VIEW_H - 4);
     }
     const fire = len > 0.55;
     if (fire !== TOUCH.firing) { TOUCH.firing = fire; G.mouse.down = fire; }
@@ -209,9 +247,9 @@ const NCPX = {
 };
 NCPX.mel = _mel; // melody helper from sfx.js, re-exported for station mods
 window.NCPX = NCPX;
-function hasSave() { try { return !!localStorage.getItem(SAVE_KEY); } catch (e) { return false; } }
+function hasSave() { try { return !!localStorage.getItem(activeSaveKey()); } catch (e) { return false; } }
 function wipeSave() {
-  try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+  try { localStorage.removeItem(activeSaveKey()); } catch (e) {}
   try { if (window.NCPX_SAVE && window.NCPX_SAVE.remove) window.NCPX_SAVE.remove(); } catch (e) {}
 }
 
@@ -232,7 +270,7 @@ function newGame() {
     weapons: {}, loadout: [null, null, null], slot: 0,
     cars: {}, activeCar: null, car: null, driving: false, summonCd: 0,
     cyber: {}, os: null,
-    enemies: [], bullets: [], parts: [], texts: [], pickups: [], crates: [], civs: [], slashes: [], glows: [], remotePlayers: [],
+    enemies: [], enemySeq: 0, bullets: [], parts: [], texts: [], pickups: [], crates: [], civs: [], civSeq: 0, slashes: [], glows: [], remotePlayers: [], remoteLerp: {}, onlineCount: 0, onlineRoom: 'default', roomIsHost: false, npcSyncT: 0, npcSyncSeq: 0,
     bounty: null, bountyT: 10, bountyCount: 0, psychoPending: 0,
     airdrop: null, airdropT: 90, talk: null, fade: null,
     skippyFound: false, skippyHintT: 0,
@@ -240,8 +278,18 @@ function newGame() {
     stats: { kills: 0, psychos: 0, bounties: 0, crates: 0, dist: 0, playT: 0, airdrops: 0 },
     saveT: 12, deadT: 0, deathFee: 0, hurtT: 0, flashT: 0, thunderT: rnd(18, 40),
     rain: [], prompt: null, lockTarget: null, lastDistrict: null,
-    gang: null, playerGangName: null, gangNameSel: 0, gangRel: {}, gangInvite: null, playerInvite: null, gangWarT: 22, gangWar: null, netT: 0,
+    gang: null, playerGangName: null, playerGangIcon: null, playerGangIconCol: null, gangNameSel: 0, gangIconSel: 0, gangRel: {}, gangInvite: null, playerInvite: null, gangJoinReq: null, gangWarT: 22, gangWar: null, netT: 0,
     weather: { kind: 'drizzle', t: rnd(60, 120) }, wfx: { density: 55, fog: 0 }, fogBlobs: [], pHidden: false,
+    marketWarActive: false,
+    marketWarT: (typeof window !== 'undefined' && window.location && window.location.search && window.location.search.includes('fastmarket')) ? 30 : 7200,
+    marketPayoutT: 5,
+    marketStates: [
+      { winner: null, members: 0 },
+      { winner: null, members: 0 },
+      { winner: null, members: 0 },
+      { winner: null, members: 0 }
+    ],
+    isGangLeader: false,
   };
 }
 
@@ -278,27 +326,42 @@ function makePlayer(x, y) {
 function saveGame() {
   if (!G || !G.p) return;
   const d = {
-    v: 1, gender: G.gender, skin: G.skin, playerName: G.playerName, gang: G.gang, playerGangName: G.playerGangName, gangNameSel: G.gangNameSel, gangRel: G.gangRel, eddies: G.eddies, lvl: G.lvl, xp: G.xp, maxdocs: G.maxdocs,
+    v: 1, gender: G.gender, skin: G.skin, playerName: G.playerName, gang: G.gang, playerGangName: G.playerGangName, playerGangIcon: G.playerGangIcon, playerGangIconCol: G.playerGangIconCol, gangNameSel: G.gangNameSel, gangIconSel: G.gangIconSel, gangRel: G.gangRel, eddies: G.eddies, lvl: G.lvl, xp: G.xp, maxdocs: G.maxdocs,
     px: G.p.x, py: G.p.y, hp: G.p.hp,
     weapons: Object.keys(G.weapons), loadout: G.loadout, slot: G.slot,
     cars: Object.keys(G.cars), activeCar: G.activeCar,
     cyber: G.cyber, os: G.os, stats: G.stats,
     skippyFound: G.skippyFound, bountyCount: G.bountyCount,
     dens: WORLD.dens.filter(dn => dn.cleared).map(dn => dn.id),
+    isGangLeader: G.isGangLeader,
+    marketWarActive: G.marketWarActive,
+    marketWarT: G.marketWarT,
+    marketStates: G.marketStates,
   };
-  try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch (e) {}
+  try { localStorage.setItem(activeSaveKey(), JSON.stringify(d)); } catch (e) {}
   try { if (window.NCPX_SAVE && window.NCPX_SAVE.put) window.NCPX_SAVE.put(d); } catch (e) {}
 }
 
 function applySave() {
   let d = null;
-  try { d = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch (e) {}
+  try { d = JSON.parse(localStorage.getItem(activeSaveKey())); } catch (e) {}
   if (!d) return false;
   G.gender = d.gender === 'f' ? 'f' : 'm';
   G.skin = d.skin !== undefined ? d.skin : null;
   G.playerName = cleanPlayerName(d.playerName || G.titleName || 'V');
   if (typeof window !== 'undefined') window.NCPX_PLAYER = Object.assign({}, window.NCPX_PLAYER || {}, { name: G.playerName });
-  G.gang = d.gang || null; G.playerGangName = d.playerGangName || null; G.gangNameSel = d.gangNameSel || 0; G.gangRel = Object.assign(G.gangRel, d.gangRel || {});
+  G.gang = d.gang || null; G.playerGangName = d.playerGangName || null; G.playerGangIcon = d.playerGangIcon || null; G.playerGangIconCol = d.playerGangIconCol || null; G.gangNameSel = d.gangNameSel || 0; G.gangIconSel = clamp(d.gangIconSel || 0, 0, (PLAYER_GANG_ICONS || []).length - 1); G.gangRel = Object.assign(G.gangRel, d.gangRel || {});
+  const isFast = (typeof window !== 'undefined' && window.location && window.location.search && window.location.search.includes('fastmarket'));
+  G.isGangLeader = d.isGangLeader !== undefined ? !!d.isGangLeader : false;
+  G.marketWarActive = d.marketWarActive !== undefined ? !!d.marketWarActive : false;
+  G.marketWarT = d.marketWarT !== undefined ? d.marketWarT : (isFast ? 30 : 7200);
+  G.marketPayoutT = 5;
+  G.marketStates = d.marketStates || [
+    { winner: null, members: 0 },
+    { winner: null, members: 0 },
+    { winner: null, members: 0 },
+    { winner: null, members: 0 }
+  ];
   G.eddies = d.eddies; G.lvl = d.lvl; G.xp = d.xp; G.maxdocs = d.maxdocs;
   d.weapons.forEach(id => { if (WPN[id]) G.weapons[id] = { mag: WPN[id].mag || 0 }; });
   G.loadout = d.loadout.map(id => (id && G.weapons[id]) ? id : null);
@@ -318,6 +381,7 @@ function startGame(cont, gender) {
   const keep = G ? { keys: G.keys, mouse: G.mouse, rain: G.rain } : null;
   const chosenName = cleanPlayerName(G && G.titleName);
   G = newGame();
+  window.G = G;
   if (keep) { G.keys = keep.keys; G.mouse = keep.mouse; G.rain = keep.rain; }
   G.titleName = chosenName;
   G.playerName = chosenName;
@@ -348,8 +412,10 @@ function startGame(cont, gender) {
 }
 
 function snapCam() {
-  G.cam.x = clamp(G.p.x - VIEW_W / 2, 0, WORLD.W * TILE - VIEW_W);
-  G.cam.y = clamp(G.p.y - VIEW_H / 2, 0, WORLD.H * TILE - VIEW_H);
+  const wv_w = VIEW_W / WORLD_ZOOM;
+  const wv_h = VIEW_H / WORLD_ZOOM;
+  G.cam.x = clamp(G.p.x - wv_w / 2, 0, WORLD.W * TILE - wv_w);
+  G.cam.y = clamp(G.p.y - wv_h / 2, 0, WORLD.H * TILE - wv_h);
 }
 
 // =================== boot & input ===================
@@ -361,6 +427,7 @@ function boot() {
   C.imageSmoothingEnabled = false;
   genWorld();
   G = newGame();
+  window.G = G;
   fitCanvas();
   window.addEventListener('resize', fitCanvas);
 
@@ -376,6 +443,10 @@ function boot() {
     if (G.state === 'play') {
       if (e.code === 'Escape') escAction();
       if (e.code === 'Tab') toggleInv();
+      if (e.code === 'KeyG') {
+        if (G.ui === 'gang') { G.ui = null; SFX.ui(); }
+        else if (!G.ui) { G.ui = 'gang'; G.uiS = { sel: 0, scroll: 0, tab: 0, confirm: false }; SFX.ui(); }
+      }
     }
   });
   window.addEventListener('keyup', e => G.keys.delete(e.code));
@@ -450,6 +521,9 @@ function boot() {
     if (jj) { G.p.x = jj.x + 14; G.p.y = jj.y + 12; }
     for (let i = 0; i < 90; i++) step(1 / 60);
     G.bannerO = null;
+  } else if (window.__NCPX_SKIP_TITLE_MENU) {
+    if (hasSave()) startGame(true);
+    else { G.titleMode = 'name'; G.uiS.sel = 0; }
   }
   if (/demo/.test(q)) {
     G.eddies = 60000;
@@ -487,16 +561,20 @@ function boot() {
 }
 
 function fitCanvas() {
-  // HiDPI-aware: pick an integer scale in DEVICE pixels so each game pixel maps to a
-  // whole number of physical pixels (mac retina 2x, fractional Windows scaling, etc.)
   const dpr = window.devicePixelRatio || 1;
   const w = window.innerWidth, h = window.innerHeight;
   if (window.__NCPX_RESPONSIVE_FIT) {
-    const padX = TOUCH.on ? 0 : 0;
-    const padY = TOUCH.on ? 0 : 0;
-    const s = Math.min((w - padX) / VIEW_W, (h - padY) / VIEW_H);
-    CV.style.width = Math.max(1, Math.floor(VIEW_W * s)) + 'px';
-    CV.style.height = Math.max(1, Math.floor(VIEW_H * s)) + 'px';
+    const scale = Math.max(1, Math.floor(w / 850));
+    VIEW_W = Math.max(320, Math.floor(w / scale));
+    VIEW_H = Math.max(180, Math.floor(h / scale));
+    if (CV.width !== VIEW_W || CV.height !== VIEW_H) {
+      CV.width = VIEW_W;
+      CV.height = VIEW_H;
+      C = CV.getContext('2d');
+      C.imageSmoothingEnabled = false;
+    }
+    CV.style.width = '100vw';
+    CV.style.height = '100dvh';
     return;
   }
   let s = Math.min(w * dpr / VIEW_W, h * dpr / VIEW_H);
@@ -516,6 +594,7 @@ function uiPanelRect() {
     case 'gang': return [128, 54, 384, 258];
     case 'bar': return [220, 110, 200, 130];
     case 'talk': return [110, 218, 420, 116];
+    case 'casino': return [180, 70, 280, 220];
     case 'guns': case 'cars': case 'ripper': case 'inv': return [56, 22, 528, 316];
     default: return null;
   }
@@ -548,9 +627,23 @@ function cycleSlot(d) {
 
 // =================== main step ===================
 function step(dt) {
+  window.G = G;
   G.rt += dt; G.frame++;
   updateRain(dt);
   applyTouch();
+  if (!G.ui && G.state === 'play' && G.p) {
+    const bx = 538, by = 8, bw = 22, bh = 11;
+    const m = G.mouse;
+    if (m.sx >= bx && m.sx < bx + bw && m.sy >= by && m.sy < by + bh) {
+      if (m.click || m.down) {
+        m.click = false;
+        m.down = false;
+        G.ui = 'pause';
+        G.uiS = { sel: 0, scroll: 0, tab: 0, confirm: false };
+        SFX.ui();
+      }
+    }
+  }
   if (G.state === 'title') { render(); endFrame(); return; }
   if (G.state === 'dead') {
     G.deadT -= dt;
@@ -566,20 +659,21 @@ function step(dt) {
   const dtW = dt * ts, dtP = dt * lerp(ts, 1, 0.6);
 
   if (!G.ui) {
-    if (press('KeyG')) { G.ui = 'gang'; G.uiS = { sel: 0, scroll: 0, tab: 0, confirm: false }; SFX.ui(); render(); endFrame(); return; }
     G.t += dtW;
     G.stats.playT += dt;
     updatePlayer(dt, dtP);
     updateCar(dtW, dt);
-    updateEnemies(dtW);
+    updateRealtime(dt);
+    const npcReplica = isRealtimeNpcReplica();
+    if (!npcReplica) updateEnemies(dtW);
     updateBullets(dtW);
     updatePickups(dtW);
     updateCrates(dt);
-    updateCivs(dtW);
-    updateSpawns(dt);
-    updateGangWars(dt);
-    updateRealtime(dt);
-    updateAirdrop(dt, dtW);
+    if (!npcReplica) updateCivs(dtW);
+    if (!npcReplica) updateSpawns(dt);
+    if (!npcReplica) updateGangWars(dt);
+    updateMarketWar(dt);
+    if (!npcReplica) updateAirdrop(dt, dtW);
     updateWeather(dt);
     updateTips(dt);
     // roof reveal + gang hideout ambushes
@@ -616,15 +710,17 @@ function step(dt) {
     if (Math.random() < (W.thunder || 0)) { G.flashT = 0.25; SFX.thunder(); }
   }
   // camera
+  const wv_w = VIEW_W / WORLD_ZOOM;
+  const wv_h = VIEW_H / WORLD_ZOOM;
   const tgt = G.driving && G.car ? { x: G.car.x + G.car.vx * 0.35, y: G.car.y + G.car.vy * 0.35 }
     : { x: p.x + (G.mouse.sx - VIEW_W / 2) * 0.18, y: p.y + (G.mouse.sy - VIEW_H / 2) * 0.18 };
-  G.cam.x = clamp(lerp(G.cam.x, tgt.x - VIEW_W / 2, Math.min(1, 6 * dt)), 0, WORLD.W * TILE - VIEW_W);
-  G.cam.y = clamp(lerp(G.cam.y, tgt.y - VIEW_H / 2, Math.min(1, 6 * dt)), 0, WORLD.H * TILE - VIEW_H);
+  G.cam.x = clamp(lerp(G.cam.x, tgt.x - wv_w / 2, Math.min(1, 6 * dt)), 0, WORLD.W * TILE - wv_w);
+  G.cam.y = clamp(lerp(G.cam.y, tgt.y - wv_h / 2, Math.min(1, 6 * dt)), 0, WORLD.H * TILE - wv_h);
   if (G.shake > 0) {
     G.cam.x += rnd(-G.shake, G.shake); G.cam.y += rnd(-G.shake, G.shake);
     G.shake = Math.max(0, G.shake - dt * 30);
   }
-  G.mouse.wx = G.mouse.sx + G.cam.x; G.mouse.wy = G.mouse.sy + G.cam.y;
+  G.mouse.wx = G.cam.x + G.mouse.sx / WORLD_ZOOM; G.mouse.wy = G.cam.y + G.mouse.sy / WORLD_ZOOM;
   render();
   endFrame();
 }
@@ -634,7 +730,13 @@ function endFrame() { G.pressed.clear(); G.mouse.click = false; G.mouse.moved = 
 function updateRealtime(dt) {
   const net = window.NCPX_NET;
   if (!net) return;
-  G.remotePlayers = net.players || [];
+  applyRealtimeEvents(net);
+  applyNpcHitEvents(net);
+  if (!net.isHost && net.npcState) applyNpcSnapshot(net.npcState);
+  updateRemotePlayers(net.players || [], dt);
+  G.onlineCount = (net.connected ? 1 : 0) + (G.remotePlayers || []).length;
+  G.onlineRoom = net.room || G.onlineRoom || 'default';
+  G.roomIsHost = !!net.isHost;
   if (net.invites && net.invites.length) {
     const inv = net.invites[0];
     if (!G.playerInvite || G.playerInvite.from !== inv.from || G.playerInvite.gang !== inv.gang) {
@@ -642,34 +744,176 @@ function updateRealtime(dt) {
       msg('LỜI MỜI VÀO BĂNG ' + inv.gang + ' — MỞ [G]', '#00ff9f');
     }
   }
+  if (net.requests && net.requests.length) {
+    const req = net.requests[0];
+    if (!G.gangJoinReq || G.gangJoinReq.from !== req.from) {
+      G.gangJoinReq = req;
+      msg((req.fromName || 'MERC') + ' XIN VÀO BĂNG — MỞ [G]', '#f9f002');
+    }
+  }
   G.netT -= dt;
   if (G.netT > 0 || !G.p) return;
   G.netT = 0.08;
-  net.send({ gang: gangLabel(G.gang), x: G.p.x, y: G.p.y, face: G.p.face, flip: G.p.flip, hp: Math.ceil(G.p.hp) });
+  const profile = playerProfile();
+  net.send({ name: profile.name, gang: profile.gang, gangKey: profile.gangKey, gangIcon: profile.gangIcon, gangIconCol: profile.gangIconCol, x: G.p.x, y: G.p.y, face: G.p.face, flip: G.p.flip, hp: Math.ceil(G.p.hp), isLeader: profile.isLeader });
+  if (net.isHost && net.sendNpcState) {
+    G.npcSyncT = (G.npcSyncT || 0) - 0.08;
+    if (G.npcSyncT <= 0) {
+      G.npcSyncT = 0.12;
+      net.sendNpcState(makeNpcSnapshot());
+    }
+  }
+}
+
+function makeNpcSnapshot() {
+  G.npcSyncSeq = (G.npcSyncSeq || 0) + 1;
+  return {
+    seq: G.npcSyncSeq,
+    enemies: (G.enemies || []).filter(e => !e.dead).slice(0, 80).map(e => ({
+      id: e.id, x: Math.round(e.x), y: Math.round(e.y), vx: Math.round(e.vx || 0), vy: Math.round(e.vy || 0),
+      hp: Math.ceil(e.hp), maxhp: e.maxhp, tier: e.tier, fac: e.fac, kind: e.kind,
+      state: e.state, alerted: !!e.alerted, face: e.face, flip: !!e.flip, anim: e.anim || 0,
+      bounty: !!e.bounty, psycho: !!e.psycho, war: !!e.war, name: e.name || gangLabel(e.fac),
+      lookA: e.lookA || 0, detect: e.detect || 0, hitT: e.hitT || 0,
+    })),
+    civs: (G.civs || []).slice(0, 16).map(cv => ({
+      id: cv.id, x: Math.round(cv.x), y: Math.round(cv.y), i: cv.i || 0,
+      anim: cv.anim || 0, face: cv.face || 'down', flip: !!cv.flip, fleeT: cv.fleeT || 0,
+    })),
+  };
+}
+
+function applyNpcSnapshot(snap) {
+  if (!snap || !Array.isArray(snap.enemies)) return;
+  const oldEnemies = {};
+  for (const e of G.enemies || []) if (e.id) oldEnemies[e.id] = e;
+  G.enemies = snap.enemies.map(raw => {
+    let e = oldEnemies[raw.id];
+    if (!e) e = makeEnemy(raw.x, raw.y, raw.tier || 1, raw.fac || 'scavs', raw.kind || 'melee', { id: raw.id, hp: raw.hp, maxhp: raw.maxhp, name: raw.name });
+    e.x = raw.x; e.y = raw.y; e.vx = raw.vx || 0; e.vy = raw.vy || 0;
+    e.hp = raw.hp; e.maxhp = raw.maxhp || raw.hp || e.maxhp;
+    e.tier = raw.tier || e.tier; e.fac = raw.fac || e.fac; e.kind = raw.kind || e.kind;
+    e.state = raw.state || e.state; e.alerted = !!raw.alerted; e.face = raw.face || e.face; e.flip = !!raw.flip; e.anim = raw.anim || 0;
+    e.bounty = !!raw.bounty; e.psycho = !!raw.psycho; e.war = !!raw.war; e.name = raw.name || e.name;
+    e.lookA = raw.lookA || 0; e.detect = raw.detect || 0; e.hitT = raw.hitT || 0; e.dead = false;
+    return e;
+  });
+  if (Array.isArray(snap.civs)) {
+    const oldCivs = {};
+    for (const cv of G.civs || []) if (cv.id) oldCivs[cv.id] = cv;
+    G.civs = snap.civs.map(raw => Object.assign(oldCivs[raw.id] || {}, {
+      id: raw.id, x: raw.x, y: raw.y, i: raw.i || 0, anim: raw.anim || 0,
+      face: raw.face || 'down', flip: !!raw.flip, fleeT: raw.fleeT || 0,
+    }));
+  }
+}
+
+function applyNpcHitEvents(net) {
+  if (!net.isHost || !net.takeNpcEvents) return;
+  const events = net.takeNpcEvents();
+  for (const ev of events) {
+    const e = G.enemies.find(x => x.id === ev.enemyId && !x.dead);
+    if (!e) continue;
+    damageEnemy(e, Math.max(0, Number(ev.dmg) || 0), !!ev.crit, Number(ev.dir) || 0, Number(ev.kb) || 0, Number(ev.burn) || 0);
+  }
+}
+
+function applyRealtimeEvents(net) {
+  const events = net.takeEvents ? net.takeEvents() : [];
+  const me = playerProfile();
+  for (let i = events.length - 1; i >= 0; i--) {
+    const ev = events[i];
+    if (!ev || ev.type !== 'damage' || G.state !== 'play' || !G.p) continue;
+    const from = (G.remotePlayers || []).find(rp => rp.id === ev.from);
+    if (from && sameGangProfile(from, me)) {
+      msg('ĐÃ CHẶN SÁT THƯƠNG ĐỒNG BĂNG', '#00ff9f');
+      continue;
+    }
+    const before = G.p.hp;
+    damagePlayer(Math.max(0, Number(ev.dmg) || 0));
+    if (G.p.hp < before) {
+      addTxt(G.p.x, G.p.y - 42, '-' + Math.round(before - G.p.hp), ev.crit ? '#f9f002' : '#ff2a6d');
+      msg('BỊ BẮN BỞI ' + cleanPlayerName(ev.fromName || 'MERC'), '#ff2a6d');
+    }
+  }
+}
+
+function updateRemotePlayers(rawPlayers, dt) {
+  G.remoteLerp = G.remoteLerp || {};
+  const seen = {};
+  const out = [];
+  const follow = 1 - Math.pow(0.001, Math.min(0.2, dt) * 8);
+  for (const raw of rawPlayers) {
+    if (!raw || !raw.id) continue;
+    seen[raw.id] = true;
+    let rp = G.remoteLerp[raw.id];
+    const tx = Number.isFinite(raw.x) ? raw.x : (rp ? rp.tx : 0);
+    const ty = Number.isFinite(raw.y) ? raw.y : (rp ? rp.ty : 0);
+    if (!rp) {
+      rp = Object.assign({}, raw, { x: tx, y: ty, tx, ty, staleT: 0 });
+      G.remoteLerp[raw.id] = rp;
+    } else {
+      const px = rp.x, py = rp.y;
+      const jump = distPx(rp.x, rp.y, tx, ty);
+      Object.assign(rp, raw);
+      rp.tx = tx; rp.ty = ty; rp.staleT = 0;
+      const f = jump > 180 ? 1 : follow;
+      rp.x = lerp(px, tx, f);
+      rp.y = lerp(py, ty, f);
+    }
+    out.push(rp);
+  }
+  for (const id in G.remoteLerp) {
+    if (seen[id]) continue;
+    const rp = G.remoteLerp[id];
+    rp.staleT = (rp.staleT || 0) + dt;
+    if (rp.staleT < 2) out.push(rp);
+    else delete G.remoteLerp[id];
+  }
+  G.remotePlayers = out;
 }
 
 function setPlayerGang(name) {
   G.gang = 'player';
   G.playerGangName = String(name || 'BĂNG CỦA BẠN').toUpperCase().slice(0, 18);
+  G.isGangLeader = true;
+  G.gangIconSel = clamp(G.gangIconSel || 0, 0, PLAYER_GANG_ICONS.length - 1);
+  const icon = gangIconObj(G.gangIconSel);
+  G.playerGangIcon = icon.mark;
+  G.playerGangIconCol = icon.col;
   if (typeof window !== 'undefined') {
-    window.NCPX_PLAYER = Object.assign({}, window.NCPX_PLAYER || {}, { gang: G.playerGangName });
+    window.NCPX_PLAYER = Object.assign({}, window.NCPX_PLAYER || {}, { gang: G.playerGangName, gangIcon: icon.mark, gangIconCol: icon.col });
   }
   banner('TẠO BĂNG THÀNH CÔNG', G.playerGangName, '#00ff9f');
   msg('ĐỒNG BĂNG KHÔNG THỂ BẮN NHAU', '#00ff9f');
   saveGame();
 }
 
-function joinPlayerGang(name) {
+function joinPlayerGang(name, iconMark, iconCol) {
   G.gang = 'player';
   G.playerGangName = cleanPlayerName(name || 'BĂNG CỦA BẠN');
+  G.isGangLeader = false;
+  G.playerGangIcon = String(iconMark || '').toUpperCase().slice(0, 4) || null;
+  G.playerGangIconCol = iconCol || '#00ff9f';
   G.playerInvite = null;
   if (window.NCPX_NET) window.NCPX_NET.invites = [];
   if (typeof window !== 'undefined') {
-    window.NCPX_PLAYER = Object.assign({}, window.NCPX_PLAYER || {}, { gang: G.playerGangName });
+    window.NCPX_PLAYER = Object.assign({}, window.NCPX_PLAYER || {}, { gang: G.playerGangName, gangIcon: iconMark || '', gangIconCol: iconCol || '#00ff9f' });
   }
   banner('ĐÃ VÀO BĂNG', G.playerGangName, '#00ff9f');
   msg('BẠN ĐÃ GIA NHẬP ' + G.playerGangName, '#00ff9f');
   saveGame();
+}
+
+function nearestRemotePlayer(fn) {
+  if (!G.p) return null;
+  let best = null, bestD = Infinity;
+  for (const rp of G.remotePlayers || []) {
+    if (fn && !fn(rp)) continue;
+    const d = distPx(G.p.x, G.p.y, rp.x || 0, rp.y || 0);
+    if (d < bestD) { best = rp; bestD = d; }
+  }
+  return best && bestD < 360 ? best : null;
 }
 
 function updateTips(dt) {
@@ -827,20 +1071,27 @@ function moveCollide(ent, dx, dy, r) {
 }
 
 const SHOP_PROMPTS = {
-  guns: 'BROWSE IRON — WILSON',
-  ripper: 'GET CHROMED — VIKTOR',
-  cars: 'BROWSE RIDES — DAKOTA',
-  bar: 'ORDER A DRINK — CLAIRE',
+  guns: 'XEM SÚNG — QUÂN',
+  ripper: 'ĐỘ CYBERWARE — SƠN',
+  cars: 'MUA XE — TÚ',
+  bar: 'GỌI ĐỒ UỐNG — LAN',
 };
 
 function interactScan() {
   G.prompt = null;
   const p = G.p;
-  for (const k of ['guns', 'ripper', 'cars', 'bar']) {
+  for (const k of ['guns', 'ripper', 'cars', 'bar', 'casino', 'clothing']) {
     const s = WORLD.shops[k];
+    if (!s) continue;
     if (distPx(p.x, p.y, s.x, s.y) < 26) {
-      G.prompt = '[E] ' + SHOP_PROMPTS[k];
-      if (press('KeyE')) { G.ui = k === 'bar' ? 'bar' : k; G.uiS = { sel: 0, scroll: 0, tab: 0, confirm: false }; SFX.ui(); }
+      G.prompt = '[E] ' + (SHOP_PROMPTS[k] || (localText('NÓI CHUYỆN — ') + s.name));
+      if (press('KeyE')) {
+        if (k === 'bar') { G.ui = 'bar'; }
+        else if (k === 'casino') { G.ui = 'casino'; G.uiS = { sel: 0, scroll: 0, tab: 0, confirm: false, bet: 100, choice: 1, dice: null, result: null }; }
+        else if (k === 'clothing') { G.ui = 'wardrobe'; G.uiS = { sel: 0, scroll: 0, tab: 0, confirm: false }; }
+        else { G.ui = k; G.uiS = { sel: 0, scroll: 0, tab: 0, confirm: false }; }
+        SFX.ui();
+      }
       return;
     }
   }
@@ -850,12 +1101,16 @@ function interactScan() {
     return;
   }
   for (const n of WORLD.npcs) {
-    if ((n.kind === 'joy' || n.kind === 'doll' || n.kind === 'stylist') && distPx(p.x, p.y, n.x, n.y) < 22) {
-      G.prompt = '[E] ' + (n.kind === 'stylist' ? localText('TALK — MIRROR') : 'TALK — ' + n.name);
+    if ((n.kind === 'joy' || n.kind === 'doll' || n.kind === 'stylist' || n.kind === 'casino') && distPx(p.x, p.y, n.x, n.y) < 22) {
+      G.prompt = '[E] ' + localText('NÓI CHUYỆN — ') + n.name;
       if (press('KeyE')) {
         if (n.kind === 'stylist') {
           G.ui = 'wardrobe';
           G.uiS = { sel: 0, scroll: 0, tab: 0, confirm: false };
+          SFX.ui();
+        } else if (n.kind === 'casino') {
+          G.ui = 'casino';
+          G.uiS = { sel: 0, scroll: 0, tab: 0, confirm: false, bet: 100, choice: 1, dice: null, result: null };
           SFX.ui();
         } else {
           openTalk(n);
@@ -923,6 +1178,7 @@ function tryFire(w) {
       vx: Math.cos(a) * w.spd, vy: Math.sin(a) * w.spd,
       dmg: w.dmg * dmgMult * (crit ? 1.8 : 1), crit, from: 'p',
       pierce: w.pierce || 0, wallPierce: !!w.wallPierce, life: 1.5,
+      weapon: w.name || w.id,
       col: w.kind === 'smart' ? '#ff7ab8' : w.kind === 'tech' ? '#7af2ff' : '#ffe9a0',
       homing: (w.kind === 'smart' && G.lockTarget && !G.lockTarget.dead) ? G.lockTarget : null,
       turn: (w.homing || 0) + p.smartTurn, aoe: w.aoe || 0, kb: w.kb || 0, burn: w.burn,
@@ -938,6 +1194,7 @@ function swingMelee(w) {
   p.recoil = Math.min(1, p.recoil + 0.3);
   SFX.shoot(w.cls);
   const dmgMult = (G.os === 'berserk' && p.osT > 0) ? CYB.berserk.tiers[G.cyber.berserk - 1].dmg : 1;
+  const npcReplica = isRealtimeNpcReplica();
   G.slashes.push({ x: p.x, y: p.y, a: p.aim, t: 0.16, range: w.range + 6, col: w.cls === 'mantis' ? '#ff2a3c' : w.cls === 'wire' ? '#05d9e8' : '#dfe6f2' });
   let hitAny = false;
   for (const e of G.enemies) {
@@ -949,12 +1206,34 @@ function swingMelee(w) {
     const crit = Math.random() < p.critCh + (w.crit || 0) + (p.joyT > 0 ? 0.05 : 0);
     const sneakM = e.alerted ? 1 : 2.5;
     if (sneakM > 1) addTxt(e.x, e.y - 20, 'TAKEDOWN', '#f9f002');
-    damageEnemy(e, w.dmg * dmgMult * sneakM * (crit ? 1.8 : 1), crit, p.aim, w.kb || 140, w.burn);
+    const dmg = w.dmg * dmgMult * sneakM * (crit ? 1.8 : 1);
+    if (npcReplica) {
+      sendNpcHit(e, dmg, crit, p.aim, w.kb || 140, w.burn);
+      addTxt(e.x, e.y - 20, crit ? 'SYNC CRIT' : 'SYNC HIT', crit ? '#f9f002' : '#ff2a6d');
+    } else {
+      damageEnemy(e, dmg, crit, p.aim, w.kb || 140, w.burn);
+    }
     hitAny = true;
     if (G.os === 'berserk' && p.osT > 0) p.hp = Math.min(p.maxhp, p.hp + 2);
   }
   for (const cr of G.crates) {
     if (cr.hp > 0 && distPx(p.x, p.y, cr.x, cr.y) < w.range + 6) breakCrate(cr);
+  }
+  const me = playerProfile();
+  for (const rp of G.remotePlayers || []) {
+    const d = distPx(p.x, p.y, rp.x, rp.y);
+    if (d > w.range + 8) continue;
+    let da = Math.abs(((Math.atan2(rp.y - p.y, rp.x - p.x) - p.aim) + Math.PI * 3) % (Math.PI * 2) - Math.PI);
+    if (da > (w.arc / 2) * Math.PI / 180) continue;
+    if (sameGangProfile(rp, me)) {
+      msg('KHÔNG THỂ ĐÁNH ĐỒNG BĂNG', '#00ff9f');
+      continue;
+    }
+    const crit = Math.random() < p.critCh + (w.crit || 0) + (p.joyT > 0 ? 0.05 : 0);
+    const dmg = w.dmg * dmgMult * (crit ? 1.8 : 1);
+    sendRemoteHit(rp, dmg, crit, w.name || w.id);
+    addTxt(rp.x, rp.y - 24, crit ? 'CRIT' : 'HIT', crit ? '#f9f002' : '#ff2a6d');
+    hitAny = true;
   }
   if (hitAny) { SFX.hit(); G.shake = Math.max(G.shake, 1.5); }
 }
@@ -981,7 +1260,13 @@ function updateBullets(dt) {
         for (const e of G.enemies) {
           if (e.dead || e.hitBy === b) continue;
           if (distPx(b.x, b.y, e.x, e.y - 4) < (e.psycho ? 13 : 6.5)) {
-            damageEnemy(e, b.dmg * (e.alerted ? 1 : 1.5), b.crit, Math.atan2(b.vy, b.vx), b.kb, b.burn);
+            const dmg = b.dmg * (e.alerted ? 1 : 1.5);
+            if (isRealtimeNpcReplica()) {
+              sendNpcHit(e, dmg, b.crit, Math.atan2(b.vy, b.vx), b.kb, b.burn);
+              addTxt(e.x, e.y - 18, b.crit ? 'SYNC CRIT' : 'SYNC HIT', b.crit ? '#f9f002' : '#ff2a6d');
+            } else {
+              damageEnemy(e, dmg, b.crit, Math.atan2(b.vy, b.vx), b.kb, b.burn);
+            }
             e.hitBy = b;
             if (b.aoe) { explode(b.x, b.y, b.aoe, b.dmg, 'p'); b.dead = true; }
             else if (b.pierce > 0) b.pierce--;
@@ -993,10 +1278,15 @@ function updateBullets(dt) {
         for (const rp of G.remotePlayers || []) {
           if (b.dead) break;
           if (distPx(b.x, b.y, rp.x, rp.y - 4) < 7) {
-            const sameGang = String(rp.gang || '').toUpperCase() === me.gang;
-            addTxt(rp.x, rp.y - 18, sameGang ? 'CÙNG BĂNG' : 'HIT', sameGang ? '#00ff9f' : '#ff2a6d');
-            if (sameGang) msg('KHÔNG THỂ BẮN ĐỒNG BĂNG', '#00ff9f');
-            b.dead = true;
+            const sameGang = sameGangProfile(rp, me);
+            addTxt(rp.x, rp.y - 24, sameGang ? 'CÙNG BĂNG' : (b.crit ? 'CRIT' : 'HIT'), sameGang ? '#00ff9f' : b.crit ? '#f9f002' : '#ff2a6d');
+            if (sameGang) {
+              msg('KHÔNG THỂ BẮN ĐỒNG BĂNG', '#00ff9f');
+            } else {
+              sendRemoteHit(rp, b.dmg, b.crit, b.weapon);
+            }
+            if (b.pierce > 0 && !sameGang) b.pierce--;
+            else b.dead = true;
           }
         }
         for (const cr of G.crates) {
@@ -1203,6 +1493,7 @@ function findGangTarget(e) {
 function makeEnemy(x, y, tier, fac, kind, opts) {
   const hp = Math.round((26 + tier * 22) * (kind === 'heavy' ? 1.8 : 1) * ((opts && opts.psycho) ? 16 : 1));
   return Object.assign({
+    id: opts && opts.id ? opts.id : 'e' + ((G.enemySeq = (G.enemySeq || 0) + 1).toString(36)),
     x, y, vx: 0, vy: 0, hp, maxhp: hp, tier, fac, kind,
     state: 'idle', alerted: false, aimT: 0, shootCd: rnd(0.5, 1.5), wanderT: 0,
     face: 'down', flip: false, anim: 0, hitT: 0, kbx: 0, kby: 0, burnT: 0, burnTick: 0, roCd: 0,
@@ -1589,6 +1880,126 @@ function updateGangWars(dt) {
   banner('GIAO TRANH BĂNG ĐẢNG', gangLabel(facA) + ' VS ' + gangLabel(facB), '#f9f002');
 }
 
+function updateMarketWar(dt) {
+  if (!G.p) return;
+  const isFast = (typeof window !== 'undefined' && window.location && window.location.search && window.location.search.includes('fastmarket'));
+  const PEACE_TIME = isFast ? 30 : 7200;
+  const WAR_TIME = isFast ? 30 : 1800;
+
+  G.marketWarT -= dt;
+  if (G.marketWarT <= 0) {
+    if (!G.marketWarActive) {
+      G.marketWarActive = true;
+      G.marketWarT = WAR_TIME;
+      banner('ĐẠI CHIẾN BĂNG ĐẢNG', '4 KHU CHỢ ĐÃ MỞ CỬA TRANH CHẤP!', '#ff2a6d');
+      if (typeof SFX !== 'undefined' && SFX.msg) SFX.msg();
+    } else {
+      G.marketWarActive = false;
+      G.marketWarT = PEACE_TIME;
+      for (let i = 0; i < G.marketStates.length; i++) {
+        G.marketStates[i] = { winner: null, members: 0 };
+      }
+      banner('KẾT THÚC ĐẠI CHIẾN', 'CÁC KHU CHỢ ĐÃ NGỪNG TRANH CHẤP', '#00ff9f');
+      if (typeof SFX !== 'undefined' && SFX.msg) SFX.msg();
+    }
+    saveGame();
+  }
+
+  if (WORLD.markets) {
+    const onlinePlayers = [];
+    const myProfile = playerProfile();
+    if (myProfile.gang && myProfile.gang !== 'SOLO') {
+      onlinePlayers.push({
+        gang: myProfile.gang,
+        isLeader: !!G.isGangLeader,
+        x: G.p.x,
+        y: G.p.y
+      });
+    }
+    for (const rp of G.remotePlayers || []) {
+      if (rp.gang && rp.gang !== 'SOLO') {
+        onlinePlayers.push({
+          gang: String(rp.gang).toUpperCase(),
+          isLeader: !!rp.isLeader,
+          x: rp.x,
+          y: rp.y
+        });
+      }
+    }
+
+    for (const m of WORLD.markets) {
+      const counts = {};
+      const bosses = {};
+
+      for (const op of onlinePlayers) {
+        const dist = Math.hypot(op.x / TILE - m.tx, op.y / TILE - m.ty);
+        if (dist <= m.r) {
+          counts[op.gang] = (counts[op.gang] || 0) + 1;
+          if (op.isLeader) {
+            bosses[op.gang] = true;
+          }
+        }
+      }
+
+      let winningGang = null;
+      let maxMembers = 0;
+      let tie = false;
+
+      for (const gang in counts) {
+        const cnt = counts[gang];
+        if (cnt > maxMembers) {
+          maxMembers = cnt;
+          winningGang = gang;
+          tie = false;
+        } else if (cnt === maxMembers) {
+          tie = true;
+        }
+      }
+
+      let newWinner = null;
+      if (winningGang && !tie && bosses[winningGang]) {
+        newWinner = winningGang;
+      }
+
+      const state = G.marketStates[m.id] || { winner: null, members: 0 };
+      const oldWinner = state.winner;
+      G.marketStates[m.id] = { winner: newWinner, members: maxMembers };
+
+      if (G.marketWarActive && newWinner !== oldWinner) {
+        if (newWinner) {
+          msg(m.name + ' ĐÃ BỊ CHIẾM BỞI BĂNG ' + newWinner, '#00ff9f');
+        } else if (oldWinner) {
+          msg(m.name + ' TRỞ LẠI TRẠNG THÁI TRANH CHẤP', '#ff2a6d');
+        }
+        if (typeof SFX !== 'undefined' && SFX.msg) SFX.msg();
+      }
+    }
+  }
+
+  if (G.marketWarActive) {
+    G.marketPayoutT -= dt;
+    if (G.marketPayoutT <= 0) {
+      G.marketPayoutT = 5;
+      const myGang = playerProfile().gang;
+      if (myGang && myGang !== 'SOLO') {
+        let wonCount = 0;
+        for (const state of G.marketStates) {
+          if (state.winner && state.winner === myGang) {
+            wonCount++;
+          }
+        }
+        if (wonCount > 0) {
+          const reward = wonCount * 50;
+          G.eddies += reward;
+          msg('THU NHẬP CHIẾM CHỢ: +' + reward + ' EDDIES', '#00ff9f');
+          if (typeof SFX !== 'undefined' && SFX.buy) SFX.buy();
+          saveGame();
+        }
+      }
+    }
+  }
+}
+
 function updateSpawns(dt) {
   // ambient packs
   G.ambientT = (G.ambientT || 0) - dt;
@@ -1707,7 +2118,7 @@ function maintainCivs() {
   while (G.civs.length < 10) {
     const s = findSpot(G.p.x, G.p.y, 180, 460);
     if (!s) break;
-    G.civs.push({ x: s.x, y: s.y, i: irnd(0, 5), anim: 0, face: 'down', flip: false, wanderT: 0, fleeT: 0, wx: 0, wy: 0 });
+    G.civs.push({ id: 'c' + ((G.civSeq = (G.civSeq || 0) + 1).toString(36)), x: s.x, y: s.y, i: irnd(0, 5), anim: 0, face: 'down', flip: false, wanderT: 0, fleeT: 0, wx: 0, wy: 0 });
   }
 }
 
@@ -2058,8 +2469,10 @@ function drawRain(c) {
 }
 
 // =================== render ===================
+const WORLD_PED_SCALE = 1.6;
+
 function drawPed(c, ped, face, flip, frame, x, y, alpha, scale) {
-  scale = scale || 1;
+  scale = scale == null ? WORLD_PED_SCALE : scale;
   const spr = ped[face === 'side' ? 'side' : face][frame % 2];
   c.save();
   if (alpha != null) c.globalAlpha = alpha;
@@ -2075,7 +2488,9 @@ function drawPed(c, ped, face, flip, frame, x, y, alpha, scale) {
 
 function visible(x, y, m) {
   m = m || 40;
-  return x > G.cam.x - m && x < G.cam.x + VIEW_W + m && y > G.cam.y - m && y < G.cam.y + VIEW_H + m;
+  const wv_w = VIEW_W / WORLD_ZOOM;
+  const wv_h = VIEW_H / WORLD_ZOOM;
+  return x > G.cam.x - m && x < G.cam.x + wv_w + m && y > G.cam.y - m && y < G.cam.y + wv_h + m;
 }
 
 function indoorAt(x, y) { return WORLD.tileAt(x, y) >= 5; } // FLOOR or DOOR
@@ -2106,13 +2521,14 @@ function drawWorldEntities(c, indoor) {
   const me = playerProfile();
   for (const rp of G.remotePlayers || []) {
     if (!visible(rp.x, rp.y) || indoorAt(rp.x, rp.y) !== indoor) continue;
-    const ally = String(rp.gang || '').toUpperCase() === me.gang;
+    const ally = sameGangProfile(rp, me);
     c.globalAlpha = ally ? 0.92 : 0.86;
     c.strokeStyle = ally ? '#00ff9f' : '#bd00ff';
     c.beginPath(); c.ellipse(rp.x, rp.y - 2, 7, 4, 0, 0, Math.PI * 2); c.stroke();
     drawPed(c, SPR.player.m, rp.face || 'down', !!rp.flip, Math.floor(G.rt * 6), rp.x, rp.y, c.globalAlpha);
     c.globalAlpha = 1;
-    drawTextC(c, (rp.name || 'MERC') + ' [' + (rp.gang || 'SOLO') + ']', rp.x, rp.y - 24, ally ? '#00ff9f' : '#bd00ff', 1);
+    if (rp.gang && rp.gang !== 'SOLO') drawTextC(c, (rp.gangIcon ? '[' + rp.gangIcon + '] ' : '') + rp.gang, rp.x, rp.y - 54, rp.gangIconCol || (ally ? '#00ff9f' : '#bd00ff'), 1);
+    drawTextC(c, rp.name || 'MERC', rp.x, rp.y - 38, ally ? '#00ff9f' : '#bd00ff', 1);
   }
   // enemies
   for (const e of G.enemies) {
@@ -2131,17 +2547,17 @@ function drawWorldEntities(c, indoor) {
       c.drawImage(SPR.glowS('#bd00ff', 18), e.x - 18, e.y - 22);
       c.globalAlpha = 1;
     }
-    drawPed(c, e.psycho ? SPR.psycho : SPR.ped(e.fac), e.face, e.flip, Math.floor(e.anim), e.x, e.y, e.hitT > 0 ? 0.55 : 1, e.psycho ? 1.8 : 1);
-    if (e.war || e.bounty || e.psycho || (G.cyber.kiroshi && e.alerted)) drawTextC(c, gangLabel(e.fac), e.x, e.y - (e.psycho ? 42 : 24), e.war ? '#f9f002' : factionColor(e.fac), 1);
+    drawPed(c, e.psycho ? SPR.psycho : SPR.ped(e.fac), e.face, e.flip, Math.floor(e.anim), e.x, e.y, e.hitT > 0 ? 0.55 : 1, e.psycho ? 2.05 : undefined);
+    if (e.war || e.bounty || e.psycho || (G.cyber.kiroshi && e.alerted)) drawTextC(c, gangLabel(e.fac), e.x, e.y - (e.psycho ? 60 : 38), e.war ? '#f9f002' : factionColor(e.fac), 1);
     if ((G.cyber.kiroshi || e.bounty || e.psycho) && e.hp < e.maxhp) {
       c.fillStyle = 'rgba(0,0,0,0.5)'; c.fillRect(e.x - 7, e.y - (e.psycho ? 30 : 18), 14, 2);
       c.fillStyle = e.psycho ? '#bd00ff' : '#ff2a3c'; c.fillRect(e.x - 7, e.y - (e.psycho ? 30 : 18), 14 * e.hp / e.maxhp, 2);
     }
     if (e.bounty && !e.psycho) { c.fillStyle = '#ff2a3c'; c.fillRect(e.x - 1, e.y - (G.cyber.kiroshi ? 23 : 19), 2, 2); }
     // detection state: '?' suspicion meter, '!' on full alert
-    if (e.flashT > 0) drawTextC(c, '!', e.x, e.y - (e.psycho ? 36 : 26), '#ff2a3c', 1);
+    if (e.flashT > 0) drawTextC(c, '!', e.x, e.y - (e.psycho ? 52 : 40), '#ff2a3c', 1);
     else if (!e.alerted && e.detect > 0.05) {
-      drawTextC(c, '?', e.x, e.y - 26, '#f9f002', 1);
+      drawTextC(c, '?', e.x, e.y - 40, '#f9f002', 1);
       c.fillStyle = 'rgba(0,0,0,0.5)'; c.fillRect(e.x - 5, e.y - 19, 10, 2);
       c.fillStyle = e.detect > 0.6 ? '#ff9f1c' : '#f9f002'; c.fillRect(e.x - 5, e.y - 19, 10 * e.detect, 2);
     }
@@ -2155,7 +2571,7 @@ function drawWorldEntities(c, indoor) {
   for (const n of WORLD.npcs) {
     if (!visible(n.x, n.y) || indoorAt(n.x, n.y) !== indoor) continue;
     drawPed(c, SPR.civ(n.i), 'down', false, 0, n.x, n.y);
-    drawTextC(c, n.name, n.x, n.y - 20, n.kind === 'joy' || n.kind === 'doll' ? '#ff2a6d' : '#5a6372', 1);
+    drawTextC(c, n.name, n.x, n.y - 38, n.kind === 'joy' || n.kind === 'doll' ? '#ff2a6d' : '#5a6372', 1);
   }
   // airdrop: chute on the way down, beacon container on the ground
   if (!indoor && G.airdrop && visible(G.airdrop.x, G.airdrop.y, 80)) {
@@ -2184,7 +2600,11 @@ function drawWorldEntities(c, indoor) {
     const pedSpr = (G.skin !== null && G.skin !== undefined) ? SPR.playerCiv(G.skin, G.gender) : (SPR.player[G.gender] || SPR.player.m);
     for (const tr of p.trail) drawPed(c, pedSpr, tr.face, tr.flip, 0, tr.x, tr.y, tr.t * 1.2);
     drawPed(c, pedSpr, p.face, p.flip, p.moving ? Math.floor(p.anim) : 0, p.x, p.y, p.camoT > 0 ? 0.25 : G.pHidden ? 0.8 : 1);
-    if (p.camoT <= 0) drawTextC(c, cleanPlayerName(G.playerName), p.x, p.y - 24, '#f9f002', 1);
+    if (p.camoT <= 0) {
+      const prof = playerProfile();
+      if (G.gang) drawTextC(c, (prof.gangIcon ? '[' + prof.gangIcon + '] ' : '') + prof.gang, p.x, p.y - 54, prof.gangIconCol || '#00ff9f', 1);
+      drawTextC(c, cleanPlayerName(G.playerName), p.x, p.y - 38, '#f9f002', 1);
+    }
     // held gun
     const w = curWpn();
     if (w && !MELEE_CLS[w.cls] && p.camoT <= 0) {
@@ -2222,9 +2642,53 @@ function render() {
   if (G.state === 'title') { drawTitle(c); c.drawImage(SPR.scan, 0, 0); return; }
   const p = G.p, camX = Math.round(G.cam.x), camY = Math.round(G.cam.y);
   c.save();
+  c.scale(WORLD_ZOOM, WORLD_ZOOM);
   c.translate(-camX, -camY);
   // ground
-  c.drawImage(WORLD.cv, camX, camY, VIEW_W, VIEW_H, camX, camY, VIEW_W, VIEW_H);
+  const wv_w = VIEW_W / WORLD_ZOOM;
+  const wv_h = VIEW_H / WORLD_ZOOM;
+  c.drawImage(WORLD.cv, camX, camY, wv_w, wv_h, camX, camY, wv_w, wv_h);
+
+  // market territories on the ground
+  for (const m of WORLD.markets || []) {
+    const mx = m.tx * TILE, my = m.ty * TILE;
+    if (mx > camX - 200 && mx < camX + VIEW_W + 200 && my > camY - 200 && my < camY + VIEW_H + 200) {
+      const state = G.marketStates && G.marketStates[m.id];
+      let col = 'rgba(255,255,255,0.06)';
+      let lineCol = 'rgba(255,255,255,0.12)';
+      if (G.marketWarActive) {
+        if (state && state.winner) {
+          const isPlayerGang = (state.winner === playerProfile().gang);
+          col = isPlayerGang ? 'rgba(0,255,159,0.04)' : 'rgba(255,42,109,0.04)';
+          lineCol = isPlayerGang ? 'rgba(0,255,159,0.3)' : 'rgba(255,42,109,0.3)';
+        } else if (state && state.members > 0) {
+          col = 'rgba(249,240,2,0.04)';
+          lineCol = 'rgba(249,240,2,0.3)';
+        }
+      }
+      c.strokeStyle = lineCol;
+      c.fillStyle = col;
+      c.lineWidth = 2;
+      c.beginPath();
+      c.arc(mx, my, m.r * TILE, 0, Math.PI * 2);
+      c.fill();
+      c.stroke();
+      c.lineWidth = 1;
+
+      if (G.marketWarActive) {
+        let label = 'CHIẾM GIỮ: ';
+        if (state && state.winner) {
+          label += state.winner;
+        } else if (state && state.members > 0) {
+          label += 'TRANH CHẤP (' + state.members + ')';
+        } else {
+          label += 'TRỐNG';
+        }
+        drawTextC(c, label, mx, my - 24, lineCol, 1);
+      }
+    }
+  }
+
   // puddle shimmer
   for (const pd of WORLD.puddles) {
     if (!visible(pd.x, pd.y, 20)) continue;
@@ -2360,16 +2824,10 @@ function render() {
   }
 
   if (G.state === 'dead') drawDead(c);
-  else if (G.ui === 'pause') drawPause(c);
-  else if (G.ui === 'inv') drawInv(c);
-  else if (G.ui === 'guns') drawShopGuns(c);
-  else if (G.ui === 'cars') drawShopCars(c);
-  else if (G.ui === 'ripper') drawRipper(c);
-  else if (G.ui === 'bar') drawBar(c);
-  else if (G.ui === 'gang') drawGangMenu(c);
-  else if (G.ui === 'talk') { drawHUD(c); drawTalk(c); }
-  else if (G.ui === 'wardrobe') drawWardrobe(c);
-  else { drawHUD(c); drawCrosshair(c); }
+  else {
+    drawHUD(c);
+    if (!G.ui) drawCrosshair(c);
+  }
   if (TOUCH.on) drawTouchControls(c);
 
   // fade-to-black interludes
@@ -2387,3 +2845,25 @@ function render() {
 if (!window.__NCPX_MANUAL_BOOT) window.addEventListener('load', boot);
 window.__boot = boot;
 window.__step = step;
+
+window.buyWeapon = buyWeapon;
+window.buyCar = buyCar;
+window.setActiveCar = setActiveCar;
+window.buyCyber = buyCyber;
+window.barSelect = barSelect;
+window.talkSelect = talkSelect;
+window.talkOptions = talkOptions;
+window.buyWardrobeOutfit = buyWardrobeOutfit;
+window.assignSlot = assignSlot;
+window.drawPed = drawPed;
+window.msg = msg;
+window.saveGame = saveGame;
+window.wipeSave = wipeSave;
+window.nearestRemotePlayer = nearestRemotePlayer;
+window.playerProfile = playerProfile;
+window.sameGangProfile = sameGangProfile;
+window.gangLabel = gangLabel;
+window.gangIconObj = gangIconObj;
+window.factionColor = factionColor;
+window.cleanPlayerName = cleanPlayerName;
+
