@@ -258,14 +258,16 @@ async function main() {
     const now = Date.now();
     const changed = new Set();
     for (const [id, p] of players) {
-      if (now - p.lastSeen > 15000) {
+      const ws = [...wss.clients].find(client => client.playerId === id);
+      if (ws && ws.readyState === ws.OPEN) continue;
+      if (now - p.lastSeen > 45000) {
         changed.add(p.room);
         forgetPlayer(id);
       }
     }
     for (const room of rooms.keys()) broadcast(room);
     for (const room of changed) broadcast(room);
-  }, 100);
+  }, 500);
 
   setInterval(() => {
     for (const ws of wss.clients) {
@@ -279,7 +281,7 @@ async function main() {
       ws.isAlive = false;
       try { ws.ping(); } catch (error) {}
     }
-  }, 5000);
+  }, 10000);
 
   server.listen(actualPort, '0.0.0.0', () => {
     console.log(`> Ready locally on http://localhost:${actualPort}`);

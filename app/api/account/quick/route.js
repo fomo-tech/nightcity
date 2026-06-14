@@ -13,6 +13,11 @@ function cleanId(value) {
   return String(value || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40);
 }
 
+function cleanProvider(value) {
+  const provider = String(value || 'quick').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 24);
+  return provider || 'quick';
+}
+
 function hashToken(token) {
   return createHash('sha256').update(String(token || '')).digest('hex');
 }
@@ -55,7 +60,7 @@ export async function POST(request) {
     const account = {
       id,
       slot: id,
-      provider: 'quick',
+      provider: cleanProvider(body.provider),
       name: cleanName(body.name),
       tokenHash: hashToken(nextToken),
       createdAt: now.toISOString(),

@@ -330,3 +330,4 @@ function buildSprites() {
   }
 }
 buildSprites();
+window.SPR = SPR;

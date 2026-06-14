@@ -72,6 +72,25 @@ function sendRemoteHit(rp, dmg, crit, weapon) {
   if (!rp || !rp.id || typeof window === 'undefined' || !window.NCPX_NET || !window.NCPX_NET.hit) return;
   window.NCPX_NET.hit(rp.id, { dmg: Math.round(dmg), crit: !!crit, weapon: weapon || 'WEAPON' });
 }
+function drawWorldTextC(c, text, x, y, col, sc) {
+  sc = sc || 0.82;
+  c.save();
+  c.translate(Math.round(x), Math.round(y));
+  c.scale(sc, sc);
+  drawTextC(c, text, 0, 0, col, 1);
+  c.restore();
+}
+function drawGangWorldLabel(c, gang, icon, iconCol, x, y, col) {
+  const label = trunc(String(gang || '').toUpperCase(), 12);
+  if (!label || label === 'SOLO') return;
+  if (icon && typeof drawGangBadge === 'function') {
+    const sc = 0.78, w = textW(label, 1) * sc, left = x - (w + 13) / 2;
+    drawGangBadge(c, left, y - 8, icon, iconCol || col, 0.82);
+    drawWorldTextC(c, label, left + 15 + w / 2, y - 3, iconCol || col, sc);
+  } else {
+    drawWorldTextC(c, label, x, y, col, 0.78);
+  }
+}
 function isRealtimeNpcReplica() {
   return !!(typeof window !== 'undefined' && window.NCPX_NET && window.NCPX_NET.connected && !window.NCPX_NET.isHost && window.NCPX_NET.npcState);
 }
@@ -89,20 +108,43 @@ const TOUCH = {
 };
 
 // thumb-sized: on a phone 1 canvas px ≈ 1pt, so r≥17 keeps targets near the 44pt guideline
+// thumb-sized: on a phone 1 canvas px ≈ 1pt, so r≥17 keeps targets near the 44pt guideline
 function touchButtons() {
   const comfy = !!window.__NCPX_MOBILE_COMFY;
+  const portrait = VIEW_H > VIEW_W;
+  const right = VIEW_W - (comfy ? 36 : 32);
+  const topY = portrait ? 96 : 24;
+  if (portrait) {
+    const B = [
+      { k: 'pause', x: right, y: topY - 48, r: comfy ? 18 : 15, label: 'II' },
+      { k: 'radio', x: right, y: topY, r: comfy ? 18 : 15, label: 'FM' },
+      { k: 'fire', x: right, y: VIEW_H - 82, r: comfy ? 26 : 22, label: 'FIRE' },
+      { k: 'dash', x: right, y: VIEW_H - 146, r: comfy ? 20 : 17, label: 'DASH' },
+      { k: 'reload', x: right - 55, y: VIEW_H - 160, r: comfy ? 18 : 15, label: 'REL' },
+      { k: 'doc', x: right - 55, y: VIEW_H - 215, r: comfy ? 18 : 15, label: 'C' },
+      { k: 'use', x: right, y: VIEW_H - 210, r: comfy ? 18 : 15, label: 'E' },
+      { k: 'wpn', x: right, y: VIEW_H - 270, r: comfy ? 18 : 15, label: 'WPN' },
+      { k: 'car', x: right - 55, y: VIEW_H - 270, r: comfy ? 18 : 15, label: 'V' },
+      { k: 'inv', x: right - 55, y: VIEW_H - 325, r: comfy ? 18 : 15, label: 'TAB' },
+    ];
+    if (G.os) B.push({ k: 'os', x: right, y: VIEW_H - 325, r: comfy ? 18 : 15, label: 'Q' });
+    if (G.cyber.camo) B.push({ k: 'camo', x: right, y: VIEW_H - 380, r: comfy ? 18 : 15, label: 'F' });
+    return B;
+  }
   const B = [
-    { k: 'dash', x: 466, y: 312, r: comfy ? 27 : 24, label: 'DASH' },
-    { k: 'use', x: 452, y: 248, r: comfy ? 24 : 20, label: 'E' },
-    { k: 'wpn', x: 396, y: 290, r: comfy ? 24 : 20, label: 'WPN' },
-    { k: 'doc', x: 504, y: 214, r: comfy ? 21 : 17, label: 'C' },
-    { k: 'car', x: 412, y: 212, r: comfy ? 21 : 17, label: 'V' },
-    { k: 'pause', x: 270, y: 20, r: comfy ? 19 : 16, label: 'II' },
-    { k: 'inv', x: 318, y: 20, r: comfy ? 19 : 16, label: 'BAG' },
-    { k: 'radio', x: 366, y: 20, r: comfy ? 19 : 16, label: 'FM' },
+    { k: 'fire', x: VIEW_W - 60, y: VIEW_H - 60, r: comfy ? 26 : 22, label: 'FIRE' },
+    { k: 'dash', x: VIEW_W - 60, y: VIEW_H - 120, r: comfy ? 20 : 17, label: 'DASH' },
+    { k: 'reload', x: VIEW_W - 120, y: VIEW_H - 120, r: comfy ? 18 : 15, label: 'REL' },
+    { k: 'doc', x: VIEW_W - 170, y: VIEW_H - 120, r: comfy ? 18 : 15, label: 'C' },
+    { k: 'use', x: VIEW_W - 220, y: VIEW_H - 120, r: comfy ? 18 : 15, label: 'E' },
+    { k: 'wpn', x: VIEW_W - 120, y: VIEW_H - 25, r: comfy ? 18 : 15, label: 'WPN' },
+    { k: 'car', x: VIEW_W - 170, y: VIEW_H - 25, r: comfy ? 18 : 15, label: 'V' },
+    { k: 'inv', x: VIEW_W - 220, y: VIEW_H - 25, r: comfy ? 18 : 15, label: 'TAB' },
+    { k: 'pause', x: VIEW_W - 166, y: 24, r: comfy ? 19 : 16, label: 'II' },
+    { k: 'radio', x: VIEW_W - 70, y: 24, r: comfy ? 19 : 16, label: 'FM' },
   ];
-  if (G.os) B.push({ k: 'os', x: 554, y: 198, r: comfy ? 21 : 17, label: 'Q' });
-  if (G.cyber.camo) B.push({ k: 'camo', x: 600, y: 212, r: comfy ? 21 : 17, label: 'F' });
+  if (G.os) B.push({ k: 'os', x: VIEW_W - 270, y: VIEW_H - 25, r: comfy ? 18 : 15, label: 'Q' });
+  if (G.cyber.camo) B.push({ k: 'camo', x: VIEW_W - 270, y: VIEW_H - 120, r: comfy ? 18 : 15, label: 'F' });
   return B;
 }
 
@@ -117,8 +159,13 @@ function touchBtnDown(k) {
   else if (k === 'wpn') cycleSlot(1);
   else if (k === 'pause') escAction();
   else if (k === 'inv') toggleInv();
+  else if (k === 'fire') { TOUCH.firing = true; G.mouse.down = true; }
+  else if (k === 'reload') { G.pressed.add('KeyR'); }
 }
-function touchBtnUp(k) { if (k === 'dash') G.keys.delete('Space'); }
+function touchBtnUp(k) {
+  if (k === 'dash') G.keys.delete('Space');
+  else if (k === 'fire') { TOUCH.firing = false; G.mouse.down = false; }
+}
 
 function touchMenuMode() { return G.state !== 'play' || !!G.ui; }
 
@@ -129,9 +176,22 @@ function touchCloseVisible() {
 function touchStartPt(id, pt) {
   if (touchMenuMode()) {
     // close button (✕) — generous hit area
-    if (touchCloseVisible() && Math.hypot(pt.x - 612, pt.y - 24) < 30) { escAction(); return; }
+    if (touchCloseVisible() && Math.hypot(pt.x - (VIEW_W - 28), pt.y - 28) < 32) { escAction(); return; }
     TOUCH.ids.set(id, { role: 'menu', x: pt.x, y: pt.y, drag: 0, moved: 0 });
     G.mouse.sx = pt.x; G.mouse.sy = pt.y; G.mouse.moved = true;
+    return;
+  }
+  // Keep the weapon card tappable even when mobile action buttons sit nearby.
+  const preWcx = VIEW_W - 188, preWcy = VIEW_H - 56;
+  if (pt.x >= preWcx && pt.y >= preWcy) {
+    for (let i = 0; i < 3; i++) {
+      const bx = preWcx + 120 + i * 20;
+      if (pt.x >= bx - 2 && pt.x < bx + 20 && pt.y >= preWcy + 18 && pt.y < preWcy + 40) {
+        if (G.loadout[i]) { G.slot = i; cycleSlot(0); }
+        return;
+      }
+    }
+    G.pressed.add('KeyR');
     return;
   }
   for (const b of touchButtons()) {
@@ -156,10 +216,14 @@ function touchStartPt(id, pt) {
     G.pressed.add('KeyR');
     return;
   }
-  if (pt.x < 285 && pt.y > 118) {
+  const portrait = VIEW_H > VIEW_W;
+  const topGuard = portrait ? Math.max(128, VIEW_H * 0.16) : 90;
+  const moveEdge = portrait ? VIEW_W * 0.58 : VIEW_W * 0.46;
+  const aimEdge = portrait ? VIEW_W * 0.52 : VIEW_W * 0.54;
+  if (pt.x < moveEdge && pt.y > topGuard) {
     TOUCH.ids.set(id, { role: 'mv' });
     TOUCH.mv = { act: true, x: 0, y: 0, bx: pt.x, by: pt.y, kx: pt.x, ky: pt.y };
-  } else if (pt.x > 325 && pt.y > 96) {
+  } else if (pt.x > aimEdge && pt.y > topGuard) {
     TOUCH.ids.set(id, { role: 'aim' });
     TOUCH.aim = { act: true, x: 0, y: 0, bx: pt.x, by: pt.y, kx: pt.x, ky: pt.y };
   }
@@ -215,16 +279,51 @@ function applyTouch() {
   }
   for (const k of [...TOUCH.setKeys]) if (!want.has(k)) { G.keys.delete(k); TOUCH.setKeys.delete(k); }
   for (const k of want) if (!TOUCH.setKeys.has(k)) { G.keys.add(k); TOUCH.setKeys.add(k); }
-  if (play && TOUCH.aim.act && !G.driving) {
-    const len = Math.hypot(TOUCH.aim.x, TOUCH.aim.y);
-    if (len > 0.2) {
-      const a = Math.atan2(TOUCH.aim.y, TOUCH.aim.x);
-      G.mouse.sx = clamp((G.p.x - G.cam.x) * WORLD_ZOOM + Math.cos(a) * 90, 4, VIEW_W - 4);
-      G.mouse.sy = clamp((G.p.y - G.cam.y) * WORLD_ZOOM + Math.sin(a) * 90, 4, VIEW_H - 4);
+
+  if (play && !G.driving) {
+    let aiming = false;
+    if (TOUCH.aim.act) {
+      const len = Math.hypot(TOUCH.aim.x, TOUCH.aim.y);
+      if (len > 0.2) {
+        aiming = true;
+        G.lockTarget = null;
+        const a = Math.atan2(TOUCH.aim.y, TOUCH.aim.x);
+        G.mouse.sx = clamp((G.p.x - G.cam.x) * WORLD_ZOOM + Math.cos(a) * 90, 4, VIEW_W - 4);
+        G.mouse.sy = clamp((G.p.y - G.cam.y) * WORLD_ZOOM + Math.sin(a) * 90, 4, VIEW_H - 4);
+      }
+      const fire = len > 0.45;
+      if (fire !== TOUCH.firing) { TOUCH.firing = fire; G.mouse.down = fire; }
+    } else if (TOUCH.held['fire']) {
+      // Hold dedicated fire button: auto-aim at nearest enemy or fire forward
+      let nearest = null, minDist = 220;
+      for (const e of G.enemies) {
+        if (e.dead || e.hidden) continue;
+        const d = Math.hypot(e.x - G.p.x, e.y - G.p.y);
+        if (d < minDist) { minDist = d; nearest = e; }
+      }
+      if (nearest) {
+        G.lockTarget = nearest;
+        G.mouse.sx = (nearest.x - G.cam.x) * WORLD_ZOOM;
+        G.mouse.sy = (nearest.y - G.cam.y - 4) * WORLD_ZOOM;
+      } else {
+        G.lockTarget = null;
+        const facing = G.p.facing || 'down';
+        let dx = 0, dy = 0;
+        if (facing === 'down') dy = 60;
+        else if (facing === 'up') dy = -60;
+        else if (facing === 'left') dx = -60;
+        else if (facing === 'right') dx = 60;
+        else if (facing === 'side') dx = (G.p.flipX ? -60 : 60);
+        G.mouse.sx = (G.p.x - G.cam.x) * WORLD_ZOOM + dx;
+        G.mouse.sy = (G.p.y - G.cam.y) * WORLD_ZOOM + dy;
+      }
+      if (!TOUCH.firing) { TOUCH.firing = true; G.mouse.down = true; }
+    } else {
+      if (TOUCH.firing) { TOUCH.firing = false; G.mouse.down = false; }
     }
-    const fire = len > 0.55;
-    if (fire !== TOUCH.firing) { TOUCH.firing = fire; G.mouse.down = fire; }
-  } else if (TOUCH.firing) { TOUCH.firing = false; G.mouse.down = false; }
+  } else {
+    if (TOUCH.firing) { TOUCH.firing = false; G.mouse.down = false; }
+  }
 }
 
 // ---- NCPX mod API: players become creators. See MODDING.md; mods load from mods/mods.js ----
@@ -379,7 +478,7 @@ function applySave() {
 
 function startGame(cont, gender) {
   const keep = G ? { keys: G.keys, mouse: G.mouse, rain: G.rain } : null;
-  const chosenName = cleanPlayerName(G && G.titleName);
+  const chosenName = cleanPlayerName((typeof window !== 'undefined' && window.NCPX_PLAYER && window.NCPX_PLAYER.name) || (G && G.titleName));
   G = newGame();
   window.G = G;
   if (keep) { G.keys = keep.keys; G.mouse = keep.mouse; G.rain = keep.rain; }
@@ -389,7 +488,8 @@ function startGame(cont, gender) {
     window.NCPX_PLAYER = Object.assign({}, window.NCPX_PLAYER || {}, { name: G.playerName });
     try { localStorage.setItem('ncpx_player_name', G.playerName); } catch (e) {}
   }
-  G.gender = gender === 'f' ? 'f' : 'm';
+  const profileGender = typeof window !== 'undefined' && window.NCPX_PLAYER && window.NCPX_PLAYER.gender;
+  G.gender = (gender || profileGender) === 'f' ? 'f' : 'm';
   G.p = makePlayer(WORLD.spawn.x, WORLD.spawn.y);
   G.crates = WORLD.crateSpots.map(s => ({ x: s.x, y: s.y, hp: 1, respT: 0 }));
   if (cont && applySave()) {
@@ -523,6 +623,7 @@ function boot() {
     G.bannerO = null;
   } else if (window.__NCPX_SKIP_TITLE_MENU) {
     if (hasSave()) startGame(true);
+    else if (window.__NCPX_CHARACTER_READY) startGame(false, window.NCPX_PLAYER && window.NCPX_PLAYER.gender);
     else { G.titleMode = 'name'; G.uiS.sel = 0; }
   }
   if (/demo/.test(q)) {
@@ -542,8 +643,9 @@ function boot() {
   }
   step(1 / 60); // paint one frame synchronously so load-time screenshots aren't black
 
-  let last = performance.now();
+  let last = (typeof performance !== 'undefined' && performance.now) ? performance.now() : 0;
   const loop = now => {
+    if (now == null) now = last + 16.6667;
     const dt = clamp((now - last) / 1000, 0.001, 0.05);
     last = now;
     // crash shield: a bad frame (or a broken mod) must never freeze the game
@@ -562,9 +664,13 @@ function boot() {
 
 function fitCanvas() {
   const dpr = window.devicePixelRatio || 1;
-  const w = window.innerWidth, h = window.innerHeight;
+  const vv = window.visualViewport;
+  const w = Math.round((vv && vv.width) || window.innerWidth);
+  const h = Math.round((vv && vv.height) || window.innerHeight);
   if (window.__NCPX_RESPONSIVE_FIT) {
-    const scale = Math.max(1, Math.floor(w / 850));
+    const shortSide = Math.min(w, h);
+    const portrait = h > w;
+    const scale = portrait ? 1 : shortSide >= 700 ? 1.5 : shortSide >= 520 ? 1.25 : 1;
     VIEW_W = Math.max(320, Math.floor(w / scale));
     VIEW_H = Math.max(180, Math.floor(h / scale));
     if (CV.width !== VIEW_W || CV.height !== VIEW_H) {
@@ -572,9 +678,10 @@ function fitCanvas() {
       CV.height = VIEW_H;
       C = CV.getContext('2d');
       C.imageSmoothingEnabled = false;
+      if (SPR) SPR.scan = null;
     }
     CV.style.width = '100vw';
-    CV.style.height = '100dvh';
+    CV.style.height = 'var(--app-height, 100dvh)';
     return;
   }
   let s = Math.min(w * dpr / VIEW_W, h * dpr / VIEW_H);
@@ -586,6 +693,22 @@ function fitCanvas() {
     fitCanvas._dpr = dpr;
     try { window.matchMedia('(resolution: ' + dpr + 'dppx)').addEventListener('change', fitCanvas, { once: true }); } catch (e) {}
   }
+}
+
+function makeScanOverlay() {
+  const cv = document.createElement('canvas'), c = cv.getContext('2d');
+  cv.width = VIEW_W; cv.height = VIEW_H;
+  c.fillStyle = 'rgba(0,0,0,0.07)';
+  for (let y = 1; y < VIEW_H; y += 2) c.fillRect(0, y, VIEW_W, 1);
+  const g = c.createRadialGradient(VIEW_W / 2, VIEW_H / 2, VIEW_H / 2.6, VIEW_W / 2, VIEW_H / 2, VIEW_W / 1.35);
+  g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,0.42)');
+  c.fillStyle = g; c.fillRect(0, 0, VIEW_W, VIEW_H);
+  return cv;
+}
+
+function drawScanOverlay(c) {
+  if (!SPR.scan || SPR.scan.width !== VIEW_W || SPR.scan.height !== VIEW_H) SPR.scan = makeScanOverlay();
+  c.drawImage(SPR.scan, 0, 0);
 }
 
 function uiPanelRect() {
@@ -842,6 +965,7 @@ function updateRemotePlayers(rawPlayers, dt) {
   G.remoteLerp = G.remoteLerp || {};
   const seen = {};
   const out = [];
+  const grace = (window.NCPX_NET && window.NCPX_NET.connected) ? 20 : 45;
   const follow = 1 - Math.pow(0.001, Math.min(0.2, dt) * 8);
   for (const raw of rawPlayers) {
     if (!raw || !raw.id) continue;
@@ -867,7 +991,7 @@ function updateRemotePlayers(rawPlayers, dt) {
     if (seen[id]) continue;
     const rp = G.remoteLerp[id];
     rp.staleT = (rp.staleT || 0) + dt;
-    if (rp.staleT < 2) out.push(rp);
+    if (rp.staleT < grace) out.push(rp);
     else delete G.remoteLerp[id];
   }
   G.remotePlayers = out;
@@ -2527,8 +2651,8 @@ function drawWorldEntities(c, indoor) {
     c.beginPath(); c.ellipse(rp.x, rp.y - 2, 7, 4, 0, 0, Math.PI * 2); c.stroke();
     drawPed(c, SPR.player.m, rp.face || 'down', !!rp.flip, Math.floor(G.rt * 6), rp.x, rp.y, c.globalAlpha);
     c.globalAlpha = 1;
-    if (rp.gang && rp.gang !== 'SOLO') drawTextC(c, (rp.gangIcon ? '[' + rp.gangIcon + '] ' : '') + rp.gang, rp.x, rp.y - 54, rp.gangIconCol || (ally ? '#00ff9f' : '#bd00ff'), 1);
-    drawTextC(c, rp.name || 'MERC', rp.x, rp.y - 38, ally ? '#00ff9f' : '#bd00ff', 1);
+    if (rp.gang && rp.gang !== 'SOLO') drawGangWorldLabel(c, rp.gang, rp.gangIcon, rp.gangIconCol, rp.x, rp.y - 48, rp.gangIconCol || (ally ? '#00ff9f' : '#bd00ff'));
+    drawWorldTextC(c, trunc(rp.name || 'MERC', 10), rp.x, rp.y - 34, ally ? '#00ff9f' : '#bd00ff', 0.8);
   }
   // enemies
   for (const e of G.enemies) {
@@ -2602,8 +2726,8 @@ function drawWorldEntities(c, indoor) {
     drawPed(c, pedSpr, p.face, p.flip, p.moving ? Math.floor(p.anim) : 0, p.x, p.y, p.camoT > 0 ? 0.25 : G.pHidden ? 0.8 : 1);
     if (p.camoT <= 0) {
       const prof = playerProfile();
-      if (G.gang) drawTextC(c, (prof.gangIcon ? '[' + prof.gangIcon + '] ' : '') + prof.gang, p.x, p.y - 54, prof.gangIconCol || '#00ff9f', 1);
-      drawTextC(c, cleanPlayerName(G.playerName), p.x, p.y - 38, '#f9f002', 1);
+      if (G.gang) drawGangWorldLabel(c, prof.gang, prof.gangIcon, prof.gangIconCol, p.x, p.y - 48, prof.gangIconCol || '#00ff9f');
+      drawWorldTextC(c, trunc(cleanPlayerName(G.playerName), 10), p.x, p.y - 34, '#f9f002', 0.8);
     }
     // held gun
     const w = curWpn();
@@ -2639,7 +2763,7 @@ function drawWorldEntities(c, indoor) {
 function render() {
   const c = C;
   c.fillStyle = '#06060a'; c.fillRect(0, 0, VIEW_W, VIEW_H);
-  if (G.state === 'title') { drawTitle(c); c.drawImage(SPR.scan, 0, 0); return; }
+  if (G.state === 'title') { drawTitle(c); drawScanOverlay(c); return; }
   const p = G.p, camX = Math.round(G.cam.x), camY = Math.round(G.cam.y);
   c.save();
   c.scale(WORLD_ZOOM, WORLD_ZOOM);
@@ -2838,13 +2962,14 @@ function render() {
     if (a > 0.6) drawTextC(c, G.fade.label, VIEW_W / 2, 172, '#ff2a6d', 1);
   }
 
-  c.drawImage(SPR.scan, 0, 0);
+  drawScanOverlay(c);
 }
 
 // boot
 if (!window.__NCPX_MANUAL_BOOT) window.addEventListener('load', boot);
 window.__boot = boot;
 window.__step = step;
+window.startGame = startGame;
 
 window.buyWeapon = buyWeapon;
 window.buyCar = buyCar;
@@ -2866,4 +2991,3 @@ window.gangLabel = gangLabel;
 window.gangIconObj = gangIconObj;
 window.factionColor = factionColor;
 window.cleanPlayerName = cleanPlayerName;
-
