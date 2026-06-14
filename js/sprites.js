@@ -68,14 +68,32 @@ function makePed(pal, fem) {
 
 const PLAYER_PAL   = { H:'#1b1b28', S:'#e8b88a', E:'#05d9e8', J:'#16323f', T:'#05d9e8', P:'#23232c', B:'#101014' };
 const PLAYER_PAL_F = { H:'#4a1738', S:'#e8b88a', E:'#05d9e8', J:'#16323f', T:'#ff2a6d', P:'#23232c', B:'#101014' };
-const CIV_PALS = [
-  { H:'#2a2a30', S:'#d8a87c', E:'#222', J:'#3a3a44', T:'#4a4a56', P:'#2c2c34', B:'#1a1a20' },
-  { H:'#4a3826', S:'#c89060', E:'#222', J:'#44303a', T:'#5a3a4a', P:'#26262e', B:'#15151a' },
-  { H:'#101014', S:'#8a6248', E:'#222', J:'#2e3a30', T:'#3c4c3e', P:'#23232a', B:'#101014' },
-  { H:'#5a5a64', S:'#e0b48c', E:'#222', J:'#30303c', T:'#bd00ff', P:'#2a2a32', B:'#16161c' },
-  { H:'#7a2c4a', S:'#d8a87c', E:'#222', J:'#26323e', T:'#05d9e8', P:'#262630', B:'#14141a' },
-  { H:'#c0c0c8', S:'#caa074', E:'#222', J:'#383844', T:'#ff9f1c', P:'#2c2c36', B:'#1a1a22' },
+const MALE_CIV_PALS = [
+  { H:'#121214', S:'#e8b88a', E:'#05d9e8', J:'#1e1e24', T:'#ff9f1c', P:'#121216', B:'#08080c' },
+  { H:'#ff2a6d', S:'#caa074', E:'#05d9e8', J:'#2d0b3d', T:'#05d9e8', P:'#1a1a24', B:'#121218' },
+  { H:'#e6e6fa', S:'#e8b88a', E:'#ffe9a0', J:'#0f1a24', T:'#ffe9a0', P:'#0f1a24', B:'#0a0e14' },
+  { H:'#d9a05b', S:'#d8a87c', E:'#4cd964', J:'#4a2f13', T:'#d9a05b', P:'#2b211a', B:'#1f1712' },
+  { H:'#1c1c1c', S:'#e8b88a', E:'#00ff9f', J:'#0d2319', T:'#00ff9f', P:'#08140f', B:'#050806' },
+  { H:'#bd00ff', S:'#e8b88a', E:'#ff2a6d', J:'#2e0854', T:'#ff2a6d', P:'#120524', B:'#0b0318' },
+  { H:'#e0e0e0', S:'#e8b88a', E:'#ff2a3c', J:'#1a1515', T:'#ff2a3c', P:'#100b0b', B:'#080404' },
+  { H:'#f0f0f5', S:'#e8b88a', E:'#05d9e8', J:'#f9f002', T:'#0a161c', P:'#242630', B:'#12141c' },
+  { H:'#ffffff', S:'#d8a87c', E:'#bd00ff', J:'#150c1f', T:'#bd00ff', P:'#0d0714', B:'#06030b' },
+  { H:'#4a5568', S:'#e8b88a', E:'#ff6a00', J:'#2d3748', T:'#ff6a00', P:'#1a202c', B:'#0d1117' }
 ];
+
+const FEMALE_CIV_PALS = [
+  { H:'#ff0055', S:'#e8b88a', E:'#05d9e8', J:'#1c1c24', T:'#05d9e8', P:'#181822', B:'#0f0f14' },
+  { H:'#00f0ff', S:'#caa074', E:'#ff2a6d', J:'#300c30', T:'#ff2a6d', P:'#201030', B:'#150b20' },
+  { H:'#a8201a', S:'#e8b88a', E:'#c0c0c8', J:'#2c3539', T:'#e0e0e0', P:'#2c3539', B:'#181f21' },
+  { H:'#e9c46a', S:'#d8a87c', E:'#e76f51', J:'#5f4b32', T:'#e9c46a', P:'#3a2e1d', B:'#241c12' },
+  { H:'#00ff9f', S:'#e8b88a', E:'#00ff9f', J:'#121f1f', T:'#00ff9f', P:'#0b1515', B:'#050a0a' },
+  { H:'#ff2a6d', S:'#e8b88a', E:'#bd00ff', J:'#3c0936', T:'#bd00ff', P:'#210326', B:'#14001c' },
+  { H:'#111111', S:'#e8b88a', E:'#ff2a3c', J:'#251818', T:'#ff2a3c', P:'#1a1010', B:'#0f0909' },
+  { H:'#e0bbff', S:'#e8b88a', E:'#05d9e8', J:'#ffffff', T:'#ff2a6d', P:'#1a1a24', B:'#101015' },
+  { H:'#ffffff', S:'#caa074', E:'#ff0055', J:'#1a0a2a', T:'#ff0055', P:'#10051b', B:'#0a0212' },
+  { H:'#38b000', S:'#e8b88a', E:'#f9f002', J:'#4f5d2f', T:'#f9f002', P:'#2f351e', B:'#1a1e10' }
+];
+
 
 // ---- vehicles (16x30, nose up) ----
 function carSprite(def) {
@@ -220,13 +238,17 @@ function bushSprite(kind) {
 
 const SPR = {
   _peds: {}, _cars: {}, _glows: {}, _wicons: {}, _skulls: {}, _bushes: {},
-  player: null, civs: [], psycho: null, crate: null, vend: null, scan: null, cursor: null,
+  player: null, civs: [], civs_m: [], civs_f: [], psycho: null, crate: null, vend: null, scan: null, cursor: null,
 
   ped(fac) {
     if (!this._peds[fac]) this._peds[fac] = makePed(FACTIONS[fac].pal);
     return this._peds[fac];
   },
   civ(i) { return this.civs[((i % this.civs.length) + this.civs.length) % this.civs.length]; },
+  playerCiv(i, gender) {
+    const list = gender === 'f' ? this.civs_f : this.civs_m;
+    return list[((i % list.length) + list.length) % list.length];
+  },
   car(id) {
     if (!this._cars[id]) this._cars[id] = carSprite(CARD[id]);
     return this._cars[id];
@@ -262,7 +284,13 @@ const SPR = {
 
 function buildSprites() {
   SPR.player = { m: makePed(PLAYER_PAL), f: makePed(PLAYER_PAL_F, true) };
-  SPR.civs = CIV_PALS.map((p, i) => makePed(p, i % 2 === 1));
+  SPR.civs_m = MALE_CIV_PALS.map(p => makePed(p, false));
+  SPR.civs_f = FEMALE_CIV_PALS.map(p => makePed(p, true));
+  SPR.civs = [];
+  for (let i = 0; i < 10; i++) {
+    SPR.civs.push(SPR.civs_m[i]);
+    SPR.civs.push(SPR.civs_f[i]);
+  }
   SPR.psycho = makePed({ H:'#2a0c10', S:'#b9b3a8', E:'#ff2a3c', J:'#3a0c14', T:'#ff2a3c', P:'#26161a', B:'#0c0c10' });
 
   // crate

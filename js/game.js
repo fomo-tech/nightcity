@@ -220,6 +220,7 @@ function newGame() {
   return {
     state: 'title', titleMode: 'menu', ui: null, uiS: { sel: 0, scroll: 0, tab: 0, confirm: false }, textQ: [],
     gender: 'm',
+    skin: null,
     playerName: cleanPlayerName((typeof window !== 'undefined' && window.NCPX_PLAYER && window.NCPX_PLAYER.name) || 'V'),
     titleName: cleanPlayerName((typeof localStorage !== 'undefined' && localStorage.getItem('ncpx_player_name')) || (typeof window !== 'undefined' && window.NCPX_PLAYER && window.NCPX_PLAYER.name) || 'V'),
     t: 0, rt: 0, frame: 0, timeScale: 1,
@@ -277,7 +278,7 @@ function makePlayer(x, y) {
 function saveGame() {
   if (!G || !G.p) return;
   const d = {
-    v: 1, gender: G.gender, playerName: G.playerName, gang: G.gang, playerGangName: G.playerGangName, gangNameSel: G.gangNameSel, gangRel: G.gangRel, eddies: G.eddies, lvl: G.lvl, xp: G.xp, maxdocs: G.maxdocs,
+    v: 1, gender: G.gender, skin: G.skin, playerName: G.playerName, gang: G.gang, playerGangName: G.playerGangName, gangNameSel: G.gangNameSel, gangRel: G.gangRel, eddies: G.eddies, lvl: G.lvl, xp: G.xp, maxdocs: G.maxdocs,
     px: G.p.x, py: G.p.y, hp: G.p.hp,
     weapons: Object.keys(G.weapons), loadout: G.loadout, slot: G.slot,
     cars: Object.keys(G.cars), activeCar: G.activeCar,
@@ -294,6 +295,7 @@ function applySave() {
   try { d = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch (e) {}
   if (!d) return false;
   G.gender = d.gender === 'f' ? 'f' : 'm';
+  G.skin = d.skin !== undefined ? d.skin : null;
   G.playerName = cleanPlayerName(d.playerName || G.titleName || 'V');
   if (typeof window !== 'undefined') window.NCPX_PLAYER = Object.assign({}, window.NCPX_PLAYER || {}, { name: G.playerName });
   G.gang = d.gang || null; G.playerGangName = d.playerGangName || null; G.gangNameSel = d.gangNameSel || 0; G.gangRel = Object.assign(G.gangRel, d.gangRel || {});
@@ -848,9 +850,17 @@ function interactScan() {
     return;
   }
   for (const n of WORLD.npcs) {
-    if ((n.kind === 'joy' || n.kind === 'doll') && distPx(p.x, p.y, n.x, n.y) < 22) {
-      G.prompt = '[E] TALK — ' + n.name;
-      if (press('KeyE')) openTalk(n);
+    if ((n.kind === 'joy' || n.kind === 'doll' || n.kind === 'stylist') && distPx(p.x, p.y, n.x, n.y) < 22) {
+      G.prompt = '[E] ' + (n.kind === 'stylist' ? localText('TALK — MIRROR') : 'TALK — ' + n.name);
+      if (press('KeyE')) {
+        if (n.kind === 'stylist') {
+          G.ui = 'wardrobe';
+          G.uiS = { sel: 0, scroll: 0, tab: 0, confirm: false };
+          SFX.ui();
+        } else {
+          openTalk(n);
+        }
+      }
       return;
     }
   }
@@ -1434,18 +1444,76 @@ function openAirdrop() {
   saveGame();
 }
 
+function buyWardrobeOutfit(row) {
+  const isVi = window.NCPX_I18N && window.NCPX_I18N.lang() === 'vi';
+  if (G.skin === row) {
+    SFX.deny();
+    return;
+  }
+  const price = 100;
+  if (G.eddies < price) { msg(isVi ? 'KHÔNG ĐỦ EDDIES' : 'NOT ENOUGH EDDIES', '#ff5a5a'); SFX.deny(); return; }
+  G.eddies -= price;
+  G.ui = null;
+  G.skin = row;
+  recalcStats();
+  saveGame();
+  const label = isVi
+    ? (G.skin === null ? 'MẶC ĐỊNH' : 'TRANG PHỤC #' + (G.skin + 1))
+    : (G.skin === null ? 'DEFAULT V' : 'OUTFIT #' + (G.skin + 1));
+  G.fade = { t: 0, dur: 1.5, label: isVi ? 'DIỆN MẠO MỚI: ' + label : 'NEW APPEARANCE: ' + label };
+  SFX.install();
+  msg(isVi ? 'ĐÃ THAY ĐỔI TRANG PHỤC: ' + label : 'OUTFIT UPDATED: ' + label, '#00ff9f');
+}
+
 // =================== joytoys & dolls ===================
 function openTalk(n) {
   G.ui = 'talk';
   G.uiS = { sel: 0, scroll: 0, tab: 0, confirm: false };
-  G.talk = { npc: n, text: pick(n.kind === 'doll' ? DOLL_GREET : JOY_GREET) };
+  G.talk = { npc: n, text: n.kind === 'stylist' ? localText('WAKE UP, MERC. WANT A NEW SKIN? IT COSTS €$100.') : pick(n.kind === 'doll' ? DOLL_GREET : JOY_GREET) };
   SFX.ui();
 }
 function talkOptions(n) {
+  if (n.kind === 'stylist') {
+    const isVi = window.NCPX_I18N && window.NCPX_I18N.lang() === 'vi';
+    const opts = [];
+    opts.push(isVi ? 'MẶC ĐỊNH' : 'DEFAULT V');
+    for (let i = 1; i <= 10; i++) {
+      opts.push((isVi ? 'TRANG PHỤC #' : 'OUTFIT #') + i + ' — €$100');
+    }
+    opts.push(isVi ? 'RỜI KHỎI' : 'LEAVE');
+    return opts;
+  }
   return n.kind === 'doll' ? ['TALK', 'BRAINDANCE BLISS — €$300', 'LEAVE'] : ['FLIRT', 'GOOD TIME — €$100', 'LEAVE'];
 }
 function talkSelect(i) {
   const n = G.talk.npc;
+  if (n.kind === 'stylist') {
+    const isVi = window.NCPX_I18N && window.NCPX_I18N.lang() === 'vi';
+    if (i === 11) {
+      G.ui = null; G.talk = null; SFX.ui();
+      return;
+    }
+    const targetSkin = i === 0 ? null : (i - 1);
+    if (G.skin === targetSkin) {
+      msg(isVi ? 'BẠN ĐANG MẶC TRANG PHỤC NÀY RỒI!' : 'ALREADY WEARING THIS OUTFIT!', '#ff9f1c');
+      SFX.deny();
+      return;
+    }
+    const price = 100;
+    if (G.eddies < price) { msg(isVi ? 'KHÔNG ĐỦ EDDIES' : 'NOT ENOUGH EDDIES', '#ff5a5a'); SFX.deny(); return; }
+    G.eddies -= price;
+    G.ui = null; G.talk = null;
+    G.skin = targetSkin;
+    recalcStats();
+    saveGame();
+    const label = isVi
+      ? (G.skin === null ? 'MẶC ĐỊNH' : 'TRANG PHỤC #' + (G.skin + 1))
+      : (G.skin === null ? 'DEFAULT V' : 'OUTFIT #' + (G.skin + 1));
+    G.fade = { t: 0, dur: 1.5, label: isVi ? 'DIỆN MẠO MỚI: ' + label : 'NEW APPEARANCE: ' + label };
+    SFX.install();
+    msg(isVi ? 'ĐÃ THAY ĐỔI TRANG PHỤC: ' + label : 'OUTFIT UPDATED: ' + label, '#00ff9f');
+    return;
+  }
   if (i === 0) { G.talk.text = pick(n.kind === 'doll' ? DOLL_LINES : JOY_LINES); SFX.ui(); return; }
   if (i === 1) {
     const price = n.kind === 'doll' ? 300 : 100;
@@ -2113,7 +2181,7 @@ function drawWorldEntities(c, indoor) {
   }
   // player
   if (!G.driving && indoorAt(p.x, p.y) === indoor) {
-    const pedSpr = SPR.player[G.gender] || SPR.player.m;
+    const pedSpr = (G.skin !== null && G.skin !== undefined) ? SPR.playerCiv(G.skin, G.gender) : (SPR.player[G.gender] || SPR.player.m);
     for (const tr of p.trail) drawPed(c, pedSpr, tr.face, tr.flip, 0, tr.x, tr.y, tr.t * 1.2);
     drawPed(c, pedSpr, p.face, p.flip, p.moving ? Math.floor(p.anim) : 0, p.x, p.y, p.camoT > 0 ? 0.25 : G.pHidden ? 0.8 : 1);
     if (p.camoT <= 0) drawTextC(c, cleanPlayerName(G.playerName), p.x, p.y - 24, '#f9f002', 1);
@@ -2300,6 +2368,7 @@ function render() {
   else if (G.ui === 'bar') drawBar(c);
   else if (G.ui === 'gang') drawGangMenu(c);
   else if (G.ui === 'talk') { drawHUD(c); drawTalk(c); }
+  else if (G.ui === 'wardrobe') drawWardrobe(c);
   else { drawHUD(c); drawCrosshair(c); }
   if (TOUCH.on) drawTouchControls(c);
 

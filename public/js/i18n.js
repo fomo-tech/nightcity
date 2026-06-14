@@ -122,10 +122,18 @@
     'ONLINE CREW': 'DOI ONLINE',
     'GANG WAR': 'CHIEN TRANH BANG DANG',
     'BĂNG: ': 'BĂNG: ',
+    'TALK — MIRROR': 'SOI GUONG',
+    'MIRROR': 'GUONG SOI',
+    'SWITCH GENDER / SKIN — €$100': 'DOI DIEN MAO — €$100',
+    'WAKE UP, MERC. WANT A NEW SKIN? IT COSTS €$100.': 'BAN CO MUON THAY DOI DIEN MAO KHONG? CHI PHI LA €$100.',
   };
   const ACCENT = {
     'TIEP TUC': 'TIẾP TỤC',
     'CHOI MOI': 'CHƠI MỚI',
+    'SOI GUONG': 'SOI GƯƠNG',
+    'GUONG SOI': 'GƯƠNG SOI',
+    'DOI DIEN MAO — €$100': 'ĐỔI DIỆN MẠO — €$100',
+    'BAN CO MUON THAY DOI DIEN MAO KHONG? CHI PHI LA €$100.': 'BẠN CÓ MUỐN THAY ĐỔI DIỆN MẠO KHÔNG? CHI PHÍ LÀ €$100.',
     'AM THANH: BAT': 'ÂM THANH: BẬT',
     'AM THANH: TAT': 'ÂM THANH: TẮT',
     'CHON V': 'CHỌN V',

@@ -530,14 +530,58 @@ function drawTalk(c) {
   uiPanel(c, 110, 218, 420, 116, n.name + (n.kind === 'doll' ? ' — CLOUDS' : ' — JIG-JIG STREET'), '#ff2a6d');
   wrapText(G.talk.text, 66).slice(0, 2).forEach((ln, i) => drawText(c, ln, 122, 242 + i * 10, '#e8f6ff', 1));
   const opts = talkOptions(n);
-  const sel = navList(opts.length);
-  for (let i = 0; i < opts.length; i++) {
-    const y = 272 + i * 16, hot = uiHot(118, y - 4, 404, 14);
+  const isStylist = n.kind === 'stylist';
+  const sel = navList(opts.length, isStylist ? 3 : undefined);
+  const start = isStylist ? (G.uiS.scroll || 0) : 0;
+  const count = isStylist ? Math.min(opts.length, start + 3) : opts.length;
+  for (let i = start; i < count; i++) {
+    const displayIdx = i - start;
+    const y = 272 + displayIdx * 16, hot = uiHot(118, y - 4, 404, 14);
     if (hot && G.mouse.moved) G.uiS.sel = i;
     drawText(c, (sel === i ? '> ' : '  ') + opts[i], 124, y, sel === i ? '#f9f002' : '#8a93a6', 1);
     if (hot && G.mouse.click) { G.mouse.click = false; talkSelect(i); return; }
   }
   if (press('Enter') || press('KeyE')) talkSelect(sel);
+  drawCursorSpr(c);
+}
+
+function drawWardrobe(c) {
+  const isVi = window.NCPX_I18N && window.NCPX_I18N.lang() === 'vi';
+  const stock = [null, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+  const r = shopList(c, stock, (cc, row, x, y, on) => {
+    const name = row === null ? (isVi ? 'MẶC ĐỊNH' : 'DEFAULT V') : (isVi ? 'BỘ TRANG PHỤC #' : 'OUTFIT #') + (row + 1);
+    drawText(cc, name, x, y + 3, G.skin === row ? '#05d9e8' : '#cfd6e4', 1);
+    const right = G.skin === row ? (isVi ? 'ĐANG MẶC' : 'EQUIPPED') : '€$100';
+    drawTextR(cc, right, x + 272, y + 3, G.skin === row ? '#5a6372' : G.eddies >= 100 ? '#2ecc71' : '#ff5a5a', 1);
+  }, isVi ? 'PHÍ THAY ĐỔI DIỆN MẠO: €$100' : 'WARDROBE SERVICE FEE: €$100', isVi ? 'GƯƠNG SOI — TỦ ĐỒ' : 'MIRROR — WARDROBE', '#ff2a6d');
+
+  const row = stock[r.sel];
+  const pedSpr = row === null ? (SPR.player[G.gender] || SPR.player.m) : SPR.playerCiv(row, G.gender);
+
+  const dx = 360, dy = 46;
+  const outfitName = row === null ? (isVi ? 'MẶC ĐỊNH' : 'DEFAULT V') : (isVi ? 'BỘ TRANG PHỤC #' : 'OUTFIT #') + (row + 1);
+  drawText(c, outfitName, dx, dy, '#f9f002', 1);
+  drawText(c, (isVi ? 'GIỚI TÍNH: ' : 'GENDER: ') + (G.gender === 'f' ? (isVi ? 'NỮ' : 'FEMALE') : (isVi ? 'NAM' : 'MALE')), dx, dy + 12, '#5a6372', 1);
+
+  drawPed(c, pedSpr, 'down', false, Math.floor(G.rt * 4), dx + 30, dy + 78, 1, 3);
+  drawPed(c, pedSpr, 'side', false, Math.floor(G.rt * 4), dx + 90, dy + 78, 1, 3);
+  drawPed(c, pedSpr, 'up', false, Math.floor(G.rt * 4), dx + 150, dy + 78, 1, 3);
+
+  drawTextC(c, isVi ? 'MẶT TRƯỚC' : 'FRONT', dx + 30, dy + 96, '#8a93a6', 1);
+  drawTextC(c, isVi ? 'MẶT BÊN' : 'PROFILE', dx + 90, dy + 96, '#8a93a6', 1);
+  drawTextC(c, isVi ? 'MẶT SAU' : 'BACK', dx + 150, dy + 96, '#8a93a6', 1);
+
+  let act;
+  if (G.skin === row) {
+    act = isVi ? 'ĐÃ ĐƯỢC TRANG BỊ' : 'ALREADY EQUIPPED';
+  } else {
+    act = G.eddies < 100 ? (isVi ? 'KHÔNG ĐỦ EDDIES' : 'NOT ENOUGH EDDIES') : (isVi ? '[ENTER] MẶC LÊN — €$100' : '[ENTER] EQUIP — €$100');
+  }
+  drawText(c, act, dx, dy + 150, G.skin === row ? '#5a6372' : G.eddies >= 100 ? '#f9f002' : '#ff5a5a', 1);
+
+  if (r.act) {
+    buyWardrobeOutfit(row);
+  }
   drawCursorSpr(c);
 }
 

@@ -336,6 +336,8 @@ function _bakeInterior(c, b, r, rng, npcs, obst) {
       for (let sx = fx + 8; sx < fx + fw - 8; sx += 12) { c.fillStyle = '#15151c'; c.fillRect(sx, fy + 25, 4, 4); }
       for (let bx2 = fx + 6; bx2 < fx + fw - 6; bx2 += 5) { c.fillStyle = NEON[(bx2 / 5 | 0) % NEON.length]; c.fillRect(bx2, fy + 6, 2, 4); }
       r.lights.push({ x: cx, y: fy + 14, col: '#ff2a6d' });
+      npcs.push({ x: fx + 24, y: fy + 38, i: 1, name: 'MIRROR', kind: 'stylist' });
+      obst.push({ x: fx + 20, y: fy + 34, w: 8, h: 9 });
       break;
     case 'guns':
       counter('#2a2e38');

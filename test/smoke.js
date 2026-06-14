@@ -175,7 +175,7 @@ breakCrate(cr);
 assert(cr.hp <= 0 && G.stats.crates > 0, 'crate broken');
 
 // UI screens render without throwing
-for (const ui of ['pause', 'guns', 'cars', 'ripper', 'bar']) {
+for (const ui of ['pause', 'guns', 'cars', 'ripper', 'bar', 'wardrobe']) {
   G.ui = ui; G.uiS = { sel: 0, scroll: 0, tab: 0, confirm: false };
   steps(8);
   G.pressed.add('ArrowDown'); G.pressed.add('ArrowUp');
@@ -198,12 +198,14 @@ assert(G.state === 'play' && G.p.hp === G.p.maxhp, 'respawned');
 
 // save / load roundtrip
 const eddiesBefore = G.eddies, weaponsBefore = Object.keys(G.weapons).length;
+G.skin = 3;
 saveGame();
 startGame(true);
 assert(G.eddies === eddiesBefore, 'eddies persisted');
 assert(Object.keys(G.weapons).length === weaponsBefore, 'weapons persisted');
 assert(G.cars.caliburn && G.cyber.sandevistan, 'cars+chrome persisted');
 assert(G.gender === 'f', 'gender persisted');
+assert(G.skin === 3, 'skin persisted');
 steps(120);
 
 // long soak: everything running together
