@@ -5,7 +5,8 @@ import { useGameStore } from "@/store/useGameStore";
 
 const SAVE_KEY = "ncpx2077_v1";
 const ACCOUNT_KEY = "ncpx_account_v1";
-const SCRIPT_VERSION = "65";
+const SCRIPT_VERSION = "81";
+const PERFORMANCE_MODE = true;
 const GAME_SCRIPTS = [
   "/js/font.js",
   "/js/i18n.js",
@@ -443,7 +444,8 @@ function PixelUserHud({
         <div className="pixel-user-nameblock">
           <div className="pixel-user-name">{displayName}</div>
           <div className="pixel-user-sub">
-            LV{player.lvl || 1} · {provider}
+            <span className="pixel-user-level">LV{player.lvl || 1}</span>
+            <span className="pixel-user-provider"> · {provider}</span>
           </div>
         </div>
         <div className="pixel-user-chip">€${fmtCredits(player.eddies)}</div>
@@ -562,10 +564,16 @@ function PixelMiniMapHud() {
 
   useEffect(() => {
     let raf = 0;
-    const draw = () => {
+    let lastDraw = 0;
+    const draw = (time = 0) => {
+      if (time - lastDraw < 110) {
+        raf = requestAnimationFrame(draw);
+        return;
+      }
+      lastDraw = time;
       const canvas = canvasRef.current;
       const win = typeof window !== "undefined" ? window : null;
-      if (!canvas || !win?.WORLD || !win?.G) {
+      if (!canvas || !win?.WORLD || !win?.G || !win?.G.p) {
         raf = requestAnimationFrame(draw);
         return;
       }
@@ -1327,89 +1335,92 @@ export default function GameCanvas() {
   const [confirmWipe, setConfirmWipe] = useState(false);
   const [, setTick] = useState(0);
   const forceUpdate = () => setTick((t) => t + 1);
+  const lastUiSnapshot = useRef("");
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
-    window.__NCPX_JSX_PLAYER_HUD = true;
-    window.__NCPX_JSX_WEAPON_HUD = true;
-    window.__NCPX_JSX_MINIMAP_HUD = true;
+    window.__NCPX_LOW_FX = PERFORMANCE_MODE;
+    window.__NCPX_JSX_PLAYER_HUD = !PERFORMANCE_MODE;
+    window.__NCPX_JSX_WEAPON_HUD = !PERFORMANCE_MODE;
+    window.__NCPX_JSX_MINIMAP_HUD = !PERFORMANCE_MODE;
     return () => {
       window.__NCPX_JSX_PLAYER_HUD = false;
       window.__NCPX_JSX_WEAPON_HUD = false;
       window.__NCPX_JSX_MINIMAP_HUD = false;
+      window.__NCPX_LOW_FX = false;
     };
   }, []);
 
   // Sync state loop from window.G
   useEffect(() => {
     if (typeof window !== "undefined") {
-      window.__NCPX_JSX_BANNERS = true;
+      window.__NCPX_JSX_BANNERS = !PERFORMANCE_MODE;
     }
-    let animFrame;
+    let timer;
     const poll = () => {
       try {
         if (typeof window !== "undefined" && window.G) {
-          setActiveUi(window.G.ui);
-          setPlayerState({
-            eddies: window.G.eddies || 0,
-            lvl: window.G.lvl || 1,
-            xp: window.G.xp || 0,
-            maxdocs: window.G.maxdocs || 0,
-            gender: window.G.gender || "m",
-            skin: window.G.skin !== undefined ? window.G.skin : null,
-            cyber: window.G.cyber ? { ...window.G.cyber } : {},
-            os: window.G.os,
-            weapons: window.G.weapons ? { ...window.G.weapons } : {},
-            cars: window.G.cars ? { ...window.G.cars } : {},
-            activeCar: window.G.activeCar,
-            loadout: window.G.loadout ? [...window.G.loadout] : [],
-            talk: window.G.talk ? { ...window.G.talk } : null,
-            gang: window.G.gang,
-            gangNameSel: window.G.gangNameSel || 0,
-            gangIconSel: window.G.gangIconSel || 0,
-            playerInvite: window.G.playerInvite,
-            gangInvite: window.G.gangInvite,
-            gangJoinReq: window.G.gangJoinReq,
-            stats: window.G.stats ? { ...window.G.stats } : {},
-            hp: window.G.p ? window.G.p.hp : 100,
-            maxhp: window.G.p ? window.G.p.maxhp : 100,
-            armor: window.G.p ? window.G.p.armor || 0 : 0,
-            slot: window.G.slot || 0,
-            reloadT: window.G.p ? window.G.p.reloadT || 0 : 0,
-          });
-
-          // Sync JSX Banner state
-          if (window.G.bannerO && window.G.bannerO.t > 0) {
-            setJsxBanner({
-              text: window.G.bannerO.text,
-              sub: window.G.bannerO.sub,
-              col: window.G.bannerO.col,
-              t: window.G.bannerO.t,
-            });
-          } else {
-            setJsxBanner(null);
+          const g = window.G;
+          const nextUi = g.ui || null;
+          if (PERFORMANCE_MODE && !nextUi) {
+            if (lastUiSnapshot.current !== "perf:null") {
+              lastUiSnapshot.current = "perf:null";
+              setActiveUi(null);
+              setJsxBanner(null);
+              setJsxMsgs([]);
+            }
+            return;
+          }
+          const nextPlayer = {
+            eddies: g.eddies || 0,
+            lvl: g.lvl || 1,
+            xp: g.xp || 0,
+            maxdocs: g.maxdocs || 0,
+            gender: g.gender || "m",
+            skin: g.skin !== undefined ? g.skin : null,
+            cyber: g.cyber ? { ...g.cyber } : {},
+            os: g.os,
+            weapons: g.weapons ? { ...g.weapons } : {},
+            cars: g.cars ? { ...g.cars } : {},
+            activeCar: g.activeCar,
+            loadout: g.loadout ? [...g.loadout] : [],
+            talk: g.talk ? { ...g.talk } : null,
+            gang: g.gang,
+            gangNameSel: g.gangNameSel || 0,
+            gangIconSel: g.gangIconSel || 0,
+            playerInvite: g.playerInvite,
+            gangInvite: g.gangInvite,
+            gangJoinReq: g.gangJoinReq,
+            stats: g.stats ? { ...g.stats } : {},
+            hp: g.p ? Math.ceil(g.p.hp) : 100,
+            maxhp: g.p ? g.p.maxhp : 100,
+            armor: g.p ? g.p.armor || 0 : 0,
+            slot: g.slot || 0,
+            reloadT: g.p ? Math.ceil((g.p.reloadT || 0) * 10) / 10 : 0,
+          };
+          const nextBanner = g.bannerO && g.bannerO.t > 0
+            ? { text: g.bannerO.text, sub: g.bannerO.sub, col: g.bannerO.col, t: Math.ceil(g.bannerO.t * 10) / 10 }
+            : null;
+          const nextMsgs = g.msgs
+            ? g.msgs.map((m) => ({ text: m.text, col: m.col, t: Math.ceil(m.t * 10) / 10 }))
+            : [];
+          const snap = JSON.stringify({ ui: nextUi, p: nextPlayer, b: nextBanner, m: nextMsgs });
+          if (snap !== lastUiSnapshot.current) {
+            lastUiSnapshot.current = snap;
+            setActiveUi(nextUi);
+            setPlayerState(nextPlayer);
+            setJsxBanner(nextBanner);
+            setJsxMsgs(nextMsgs);
           }
 
-          // Sync JSX Messages state
-          if (window.G.msgs) {
-            setJsxMsgs(
-              window.G.msgs.map((m) => ({
-                text: m.text,
-                col: m.col,
-                t: m.t,
-              })),
-            );
-          } else {
-            setJsxMsgs([]);
-          }
         }
       } catch (err) {
         // Safe check: do not halt the animation loop if some objects are not initialized yet
       }
-      animFrame = requestAnimationFrame(poll);
     };
     poll();
-    return () => cancelAnimationFrame(animFrame);
+    timer = window.setInterval(poll, 125);
+    return () => window.clearInterval(timer);
   }, []);
 
   // Initialize selected items based on active UI
@@ -3739,17 +3750,50 @@ export default function GameCanvas() {
 
   const renderInventory = () => {
     if (typeof window === "undefined" || !window.G) return null;
-    const invTabs = ["WEAPONS", "CYBERWARE", "GARAGE", "MAP", "STATS"];
+    const invTabs = ["WEAPONS", "CYBERWARE", "GARAGE", "MAP", "STATS", "RANKING"];
     const invTabsVi = [
       "VŨ KHÍ",
       "CẤY GHÉP CHROME",
       "NHÀ XE",
       "BẢN ĐỒ",
       "THÔNG SỐ",
+      "XẾP HẠNG",
     ];
 
     const getDps = (w) => Math.round(w.dmg * (w.pellets || 1) * w.rof);
     const fmt = (val) => Number(val).toLocaleString();
+
+    const getRepRanking = () => {
+      const legends = [
+        { id: "legend1", name: "MORGAN BLACKHAND", lvl: 50, status: "LEGEND / MISSING", color: "#f9f002", isPlayer: false },
+        { id: "legend2", name: "ADAM SMASHER", lvl: 45, status: "ARASAKA ENFORCER", color: "#ff2a6d", isPlayer: false },
+        { id: "legend3", name: "ROGUE AMENDIARES", lvl: 40, status: "AFTERLIFE QUEEN", color: "#00ff9f", isPlayer: false },
+        { id: "legend4", name: "WEYLAND FANG", lvl: 35, status: "BOY TOY LEGEND", color: "#bd00ff", isPlayer: false },
+        { id: "legend5", name: "KERRY EURODYNE", lvl: 30, status: "ROCKERBOY ICON", color: "#05d9e8", isPlayer: false },
+        { id: "legend6", name: "SPIDER MURPHY", lvl: 25, status: "LEGEND NETRUNNER", color: "#05d9e8", isPlayer: false },
+        { id: "legend7", name: "DAVID MARTINEZ", lvl: 20, status: "FLATLINED (2076)", color: "#ff8c00", isPlayer: false },
+        { id: "legend8", name: "MAINE", lvl: 15, status: "FLATLINED (2076)", color: "#8a93a6", isPlayer: false },
+        { id: "legend9", name: "REBECCA", lvl: 10, status: "FLATLINED (2076)", color: "#8a93a6", isPlayer: false },
+      ];
+
+      const playerLvl = playerState.lvl || 1;
+      const playerRow = {
+        id: "player_v",
+        name: (playerName || "V").toUpperCase() + " (YOU)",
+        lvl: playerLvl,
+        status: playerLvl >= 50 ? "NIGHT CITY LEGEND" : "ACTIVE MERC",
+        color: "var(--cyber-cyan)",
+        isPlayer: true
+      };
+
+      const combined = [...legends, playerRow];
+      combined.sort((a, b) => {
+        if (b.lvl !== a.lvl) return b.lvl - a.lvl;
+        return a.isPlayer ? -1 : 1;
+      });
+
+      return combined;
+    };
 
     return (
       <div
@@ -3819,19 +3863,9 @@ export default function GameCanvas() {
                       return (
                         <div
                           key={w.id}
+                          className={`inv-weapon-slot ${selectedInvWeaponId === w.id ? "active" : ""} ${have ? "have" : ""}`}
                           style={{
                             height: "52px",
-                            background:
-                              selectedInvWeaponId === w.id
-                                ? "rgba(249,240,2,0.12)"
-                                : "rgba(255,255,255,0.04)",
-                            border: "1px solid",
-                            borderColor:
-                              selectedInvWeaponId === w.id
-                                ? "var(--cyber-yellow)"
-                                : have
-                                  ? rarColors[w.rar] || "rgba(255,255,255,0.1)"
-                                  : "rgba(255,255,255,0.05)",
                             padding: "4px",
                             display: "flex",
                             flexDirection: "column",
@@ -4391,6 +4425,93 @@ export default function GameCanvas() {
                 </div>
               );
             })()}
+
+          {selectedInvTab === 5 &&
+            (() => {
+              const ranking = getRepRanking();
+              return (
+                <div
+                  className="rep-ranking-container"
+                  style={{
+                    height: "340px",
+                    padding: "8px",
+                    overflowY: "auto",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "6px",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: "11px",
+                      color: "var(--cyber-cyan)",
+                      fontWeight: "bold",
+                      marginBottom: "6px",
+                      borderBottom: "2px solid rgba(5, 217, 232, 0.3)",
+                      paddingBottom: "4px",
+                      display: "grid",
+                      gridTemplateColumns: "40px 140px 60px 1fr",
+                      fontFamily: "var(--font-title)",
+                    }}
+                  >
+                    <span>RANK</span>
+                    <span>OPERATIVE</span>
+                    <span style={{ textAlign: "center" }}>CRED LVL</span>
+                    <span style={{ textAlign: "right" }}>STATUS</span>
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "4px",
+                    }}
+                  >
+                    {ranking.map((row, idx) => {
+                      const rankNum = idx + 1;
+                      const isTop3 = rankNum <= 3;
+                      const badgeCol = rankNum === 1 ? "#f9f002" : rankNum === 2 ? "#cfd6e4" : rankNum === 3 ? "#d87d4a" : "#3a414e";
+                      return (
+                        <div
+                          key={row.id}
+                          className={`rep-ranking-row ${row.isPlayer ? "player-row" : ""}`}
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "40px 140px 60px 1fr",
+                            alignItems: "center",
+                            fontSize: "10px",
+                            padding: "6px 8px",
+                            background: row.isPlayer ? "rgba(5, 217, 232, 0.15)" : "rgba(255, 255, 255, 0.02)",
+                            border: row.isPlayer ? "1px solid var(--cyber-cyan)" : "1px solid rgba(255,255,255,0.05)",
+                            color: row.isPlayer ? "#fff" : "#cfd6e4",
+                            boxShadow: row.isPlayer ? "0 0 8px rgba(5, 217, 232, 0.2)" : "none",
+                            fontFamily: "var(--font-mono)",
+                          }}
+                        >
+                          <span 
+                            style={{ 
+                              color: badgeCol, 
+                              fontWeight: "bold",
+                              textShadow: isTop3 ? `0 0 4px ${badgeCol}` : "none" 
+                            }}
+                          >
+                            #{rankNum}
+                          </span>
+                          <span style={{ color: row.isPlayer ? "#fff" : row.color, fontWeight: row.isPlayer ? "bold" : "normal" }}>
+                            {row.name}
+                          </span>
+                          <span style={{ textAlign: "center", color: row.isPlayer ? "var(--cyber-yellow)" : "#cfd6e4" }}>
+                            {row.lvl}
+                          </span>
+                          <span style={{ textAlign: "right", fontSize: "9px", color: row.isPlayer ? "var(--cyber-cyan)" : "#8a93a6" }}>
+                            {row.status}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
         </div>
       </div>
     );
@@ -4399,17 +4520,19 @@ export default function GameCanvas() {
   return (
     <main className={`game-shell ${isJackedIn ? "jacked-in" : ""}`}>
       {/* Animated 3DPerspective Cyber-Grid Background */}
-      <div className="cyber-grid-bg" />
+      {!PERFORMANCE_MODE && <div className="cyber-grid-bg" />}
 
       {/* HUD Panels (Top Left / Right) */}
-      <div
-        className={`cloud-panel ${cloudPanelVisible ? "visible" : ""}`}
-        data-status={status}
-      >
-        <span className="cloud-dot" />
-        <span className="cyber-status-text">{message}</span>
-      </div>
-      {isJackedIn && (
+      {!PERFORMANCE_MODE && (
+        <div
+          className={`cloud-panel ${cloudPanelVisible ? "visible" : ""}`}
+          data-status={status}
+        >
+          <span className="cloud-dot" />
+          <span className="cyber-status-text">{message}</span>
+        </div>
+      )}
+      {!PERFORMANCE_MODE && isJackedIn && (
         <PixelUserHud
           account={activeAccount}
           player={playerState}
@@ -4419,14 +4542,14 @@ export default function GameCanvas() {
           token={accountToken}
         />
       )}
-      {isJackedIn && <PixelWeaponHud player={playerState} />}
-      {isJackedIn && <PixelMiniMapHud />}
+      {!PERFORMANCE_MODE && isJackedIn && <PixelWeaponHud player={playerState} />}
+      {!PERFORMANCE_MODE && isJackedIn && <PixelMiniMapHud />}
       {/* Top Center Controls Removed */}
 
       {activeUi && (
         <div className="cyber-modal-overlay" onClick={closeModal}>
           <div
-            className={`cyber-modal-container ${isWideUi(activeUi) ? "wide" : ""}`}
+            className={`cyber-modal-container ${activeUi === "inv" ? "inv-modal" : ""} ${isWideUi(activeUi) ? "wide" : ""}`}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="cyber-modal-header">
@@ -4445,37 +4568,37 @@ export default function GameCanvas() {
       {/* Main Canvas Container with CRT scanning lines filter */}
       <div className={`canvas-wrapper ${crtActive ? "crt-active" : ""}`}>
         <canvas id="cv" width="640" height="360" />
-        
-        {/* Premium JSX Notification Banner */}
-        {jsxBanner && (
-          <div className="jsx-banner-alert" style={{ "--banner-col": jsxBanner.col }}>
-            <div className="banner-alert-hazard-line"></div>
-            <div className="banner-alert-content">
-              <span className="banner-alert-warning-icon">⚠</span>
-              <div className="banner-alert-text-block">
-                <h2 className="banner-alert-title">{jsxBanner.text}</h2>
-                {jsxBanner.sub && <p className="banner-alert-subtitle">{jsxBanner.sub}</p>}
-              </div>
-            </div>
-            <div className="banner-alert-hazard-line"></div>
-          </div>
-        )}
-
-        {/* Premium JSX Messages Logs Overlay */}
-        {jsxMsgs && jsxMsgs.length > 0 && (
-          <div className="jsx-msgs-container">
-            {jsxMsgs.slice(-5).map((m, idx) => (
-              <div key={idx} className="jsx-msg-item" style={{ "--msg-col": m.col, opacity: Math.min(1, m.t) }}>
-                <span className="msg-bullet"></span>
-                <span className="msg-text">{m.text}</span>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
+      {/* Premium JSX Notification Banner */}
+      {!PERFORMANCE_MODE && jsxBanner && (
+        <div className="jsx-banner-alert" style={{ "--banner-col": jsxBanner.col }}>
+          <div className="banner-alert-hazard-line"></div>
+          <div className="banner-alert-content">
+            <span className="banner-alert-warning-icon">⚠</span>
+            <div className="banner-alert-text-block">
+              <h2 className="banner-alert-title">{jsxBanner.text}</h2>
+              {jsxBanner.sub && <p className="banner-alert-subtitle">{jsxBanner.sub}</p>}
+            </div>
+          </div>
+          <div className="banner-alert-hazard-line"></div>
+        </div>
+      )}
+
+      {/* Premium JSX Messages Logs Overlay */}
+      {!PERFORMANCE_MODE && jsxMsgs && jsxMsgs.length > 0 && (
+        <div className="jsx-msgs-container">
+          {jsxMsgs.slice(-5).map((m, idx) => (
+            <div key={idx} className="jsx-msg-item" style={{ "--msg-col": m.col, opacity: Math.min(1, m.t) }}>
+              <span className="msg-bullet"></span>
+              <span className="msg-text">{m.text}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Netrunner Sidebar Database Panel */}
-      {isJackedIn && (
+      {!PERFORMANCE_MODE && isJackedIn && (
         <div className={`cyber-sidebar ${sidebarOpen ? "open" : ""}`}>
           <button
             className="sidebar-toggle-btn"

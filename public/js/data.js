@@ -123,13 +123,14 @@ const CYBER_SLOTS = ['OPERATING SYSTEM','FRONTAL CORTEX','OCULAR SYSTEM','CIRCUL
 // ---- districts & gangs ----
 const DISTRICTS = {
   center:    { name:'CITY CENTER',   danger:1, fac:'scavs',     col:'#f9f002' },
-  watson:    { name:'WATSON',        danger:1, fac:'maelstrom', col:'#05d9e8' },
-  westbrook: { name:'WESTBROOK',     danger:2, fac:'tygers',    col:'#ff2a6d' },
-  santo:     { name:'SANTO DOMINGO', danger:2, fac:'sixth',     col:'#ff9f1c' },
+  watson:    { name:'WATSON',        danger:2, fac:'maelstrom', col:'#05d9e8' },
+  westbrook: { name:'WESTBROOK',     danger:3, fac:'tygers',    col:'#ff2a6d' },
+  santo:     { name:'SANTO DOMINGO', danger:3, fac:'sixth',     col:'#ff9f1c' },
   pacifica:  { name:'PACIFICA',      danger:3, fac:'voodoo',    col:'#00ff9f' },
   dogtown:   { name:'DOGTOWN',       danger:4, fac:'barghest',  col:'#ff6a00' },
 };
 const FACTIONS = {
+  player:    { name:'BĂNG CỦA BẠN', gun:0.65, pal:{ H:'#111116', S:'#d8a87c', E:'#00ff9f', J:'#132420', T:'#00ff9f', P:'#1a2024', B:'#090b0d' } },
   scavs:     { name:'SCAV',        gun:0.55, pal:{ H:'#3a3a3a', S:'#cfa884', E:'#ff4444', J:'#2c2c2c', T:'#884444', P:'#22222a', B:'#101014' } },
   maelstrom: { name:'MAELSTROM',   gun:0.7,  pal:{ H:'#1a1a1a', S:'#b9b3a8', E:'#ff2a3c', J:'#16161a', T:'#ff2a3c', P:'#1a1a20', B:'#0c0c10' } },
   tygers:    { name:'TYGER CLAW',  gun:0.45, pal:{ H:'#101014', S:'#e0b48c', E:'#ff2a6d', J:'#2a1130', T:'#ff2a6d', P:'#1c1424', B:'#101014' } },
@@ -142,6 +143,7 @@ const FACTIONS = {
   arasaka:   { name:'ARASAKA',     gun:0.82, pal:{ H:'#08080a', S:'#d8a87c', E:'#ff2a3c', J:'#151518', T:'#e8f6ff', P:'#101014', B:'#050506' } },
 };
 const FACTION_LABELS = {
+  player: 'BĂNG CỦA BẠN',
   scavs: 'BĂNG NHẶT XÁC',
   maelstrom: 'MAELSTROM',
   tygers: 'MÓNG HỔ',
@@ -165,17 +167,17 @@ const GANG_NPC_NAMES = {
   wraiths: ['DUST KING','RIPPER JACK','NASH II','SALT','RAZOR','DRYLAND'],
   arasaka: ['KENSEN','BLACK SUIT','HANA','TAK','ZERO FOX','KAGE'],
 };
-const SHOP_VENDOR_NAMES = { guns:'QUÂN', ripper:'SƠN', cars:'TÚ', bar:'LAN', casino:'TÀI', clothing:'TRANG' };
+const SHOP_VENDOR_NAMES = { guns:'VŨ KHÍ', ripper:'CYBER', cars:'XE', bar:'BAR', casino:'CASINO', clothing:'THỜI TRANG' };
 const PLAYER_GANG_NAMES = ['BÓNG ĐÊM', 'RỒNG ĐỎ', 'SÓI PHỐ', 'HẮC LONG', 'SAO NEON', 'BỤI ĐỜI', 'LƯỠI ĐÈN', 'MẠCH ĐEN', 'PHỐ MƯA', 'NOVA CREW'];
 const PLAYER_GANG_ICONS = [
-  { mark:'SK', name:'ĐẦU LÂU', col:'#ff2a6d' },
-  { mark:'NX', name:'NEON X', col:'#05d9e8' },
-  { mark:'RG', name:'RỒNG', col:'#ff2a3c' },
-  { mark:'NB', name:'NOVA', col:'#f9f002' },
-  { mark:'6T', name:'SỐ 6', col:'#ff9f1c' },
-  { mark:'VB', name:'VOODOO', col:'#00ff9f' },
-  { mark:'HL', name:'HẮC LONG', col:'#bd00ff' },
-  { mark:'TT', name:'TRAUMA', col:'#e8f6ff' },
+  { mark:'☠', name:'SKULL', col:'#ff2a6d' },
+  { mark:'✦', name:'STAR', col:'#05d9e8' },
+  { mark:'◇', name:'DIAMOND', col:'#f9f002' },
+  { mark:'⬢', name:'HEX', col:'#bd00ff' },
+  { mark:'⚡', name:'BOLT', col:'#ff9f1c' },
+  { mark:'✚', name:'CROSS', col:'#00ff9f' },
+  { mark:'◆', name:'ONYX', col:'#e8f6ff' },
+  { mark:'▲', name:'SPIRE', col:'#ff2a3c' },
 ];
 const PSYCHO_NAMES = ['BLOODY NOX','SCALPEL','TURBO SAINT','NEON REAPER','DUKE OF NUKES','MISS SHRAPNEL','DR. CHROME','ZERO COUNT'];
 

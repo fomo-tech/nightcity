@@ -23,7 +23,7 @@ function uiPanel(c, x, y, w, h, title, col) {
   if (title) {
     c.fillStyle = 'rgba(255,255,255,0.05)'; c.fillRect(x + 1, y + 1, w - 2, 16);
     drawText(c, title, x + 8, y + 6, col, 1);
-    drawTextR(c, '€$' + fmt(G.eddies), x + w - 8, y + 6, '#f9f002', 1);
+    drawTextR(c, '$' + fmt(G.eddies), x + w - 8, y + 6, '#f9f002', 1);
   }
 }
 
@@ -59,7 +59,8 @@ function drawObjectivePanel(c, x, y, w) {
   }
   if (G.airdrop) {
     const d = Math.hypot(G.airdrop.x - p.x, G.airdrop.y - p.y) / 10 | 0;
-    rows.push({ tag: 'DROP', val: (G.airdrop.state === 'falling' ? 'ĐANG RƠI' : Math.ceil(G.airdrop.t) + 'S') + ' · ' + d + 'M', col: '#ff6a00' });
+    const dropT = G.airdrop.state === 'falling' ? Math.ceil(Math.max(0, G.airdrop.alt) / 65) : Math.ceil(Math.max(0, G.airdrop.t));
+    rows.push({ tag: 'DROP', val: (G.airdrop.state === 'falling' ? 'RƠI ' : 'CÒN ') + dropT + 'S · ' + d + 'M', col: '#ff6a00' });
   }
   rows.push({ tag: 'MÙA', val: WEATHERS[G.weather.kind].name, col: '#8a93a6' });
   if (G.marketWarActive) {
@@ -115,6 +116,16 @@ function drawGangBadge(c, x, y, mark, col, sc) {
   c.fillStyle = col; c.fillRect(x + px, y, s - px * 2, px); c.fillRect(x + px, y + s - px, s - px * 2, px);
   c.fillRect(x, y + px, px, s - px * 2); c.fillRect(x + s - px, y + px, px, s - px * 2);
   c.fillStyle = 'rgba(255,255,255,0.12)'; c.fillRect(x + px * 3, y + px * 2, px * 2, px);
+  if (!/^[A-Z0-9]{2}$/.test(mark)) {
+    c.save();
+    c.fillStyle = col;
+    c.font = Math.max(12, Math.round(10 * sc)) + 'px sans-serif';
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    c.fillText(mark.slice(0, 2), x + s / 2, y + s / 2 + px * 0.5);
+    c.restore();
+    return;
+  }
   c.fillStyle = col;
   const p = (a, b, w, h) => c.fillRect(x + a * px, y + b * px, w * px, h * px);
   if (mark === 'SK') {
@@ -135,7 +146,6 @@ function drawGangBadge(c, x, y, mark, col, sc) {
   } else {
     p(3, 3, 7, 1); p(3, 9, 7, 1); p(3, 4, 1, 5); p(9, 4, 1, 5); p(5, 5, 3, 3);
   }
-  if (sc >= 2 && mark) drawTextC(c, mark.slice(0, 2), x + s / 2, y + s + 3, col, 1);
 }
 
 // generic list nav; returns sel
@@ -279,7 +289,7 @@ function drawHUD(c) {
     uiBar(c, hx + 30, hy + 36, 108, 7, p.hp / p.maxhp, p.hp < p.maxhp * 0.35 ? '#ff2a3c' : '#e84545', 'rgba(120,20,30,0.42)');
     drawTextR(c, Math.ceil(p.hp) + '/' + p.maxhp, hx + hw - 12, hy + 35, '#ff8a8a', 1);
 
-    hudReadout(c, hx + 12, hy + 50, 91, '€$', fmt(G.eddies), '#f9f002');
+    hudReadout(c, hx + 12, hy + 50, 91, '$', fmt(G.eddies), '#f9f002');
     hudReadout(c, hx + 107, hy + 50, 41, 'AR', String(p.armor || 0), p.armor > 0 ? '#8a93a6' : '#3a414e');
     hudReadout(c, hx + 152, hy + 50, 42, 'DOC', '×' + G.maxdocs, G.maxdocs > 0 ? '#2ecc71' : '#3a414e');
 
@@ -491,13 +501,13 @@ function drawTouchControls(c) {
       c.beginPath(); c.arc(bx, by, 28, 0, Math.PI * 2); c.stroke();
       c.fillStyle = '#8fd6e8';
       c.beginPath(); c.arc(s.act ? s.kx : bx, s.act ? s.ky : by, 11, 0, Math.PI * 2); c.fill();
-      c.globalAlpha = s.act ? 0.6 : 0.18;
+      c.globalAlpha = s.act ? 0.4 : 0.08;
       drawTextC(c, label, bx, by + 36, '#8fd6e8', 1);
       c.globalAlpha = 1; c.lineWidth = 1;
     };
     const portrait = VIEW_H > VIEW_W;
-    stick(TOUCH.mv, portrait ? 72 : 70, VIEW_H - (portrait ? 96 : 70), 'MOVE', true);
-    stick(TOUCH.aim, VIEW_W - (portrait ? 92 : 68), VIEW_H - (portrait ? 206 : 88), portrait ? 'AIM ZONE' : 'AIM', !G.driving && (!portrait || TOUCH.aim.act));
+    stick(TOUCH.mv, 75, VIEW_H - 75, 'MOVE', true);
+    stick(TOUCH.aim, VIEW_W - (portrait ? 135 : 155), VIEW_H - 75, portrait ? 'AIM ZONE' : 'AIM', !G.driving && (!portrait || TOUCH.aim.act));
     for (const b of touchButtons()) {
       const hot = TOUCH.held[b.k], pulse = b.k === 'use' && G.prompt;
       const tab = b.k === 'inv';
@@ -511,22 +521,25 @@ function drawTouchControls(c) {
       else if (b.k === 'use') { btnColor = '#f9f002'; textColor = '#06060a'; }
       else if (tab) { btnColor = '#00ff9f'; textColor = '#d7fff0'; }
 
-      c.globalAlpha = hot ? 0.75 : pulse ? 0.45 + 0.15 * Math.sin(G.rt * 6) : tab ? 0.28 : 0.22;
-      c.fillStyle = btnColor;
-      
       if (tab) {
-        c.fillRect(b.x - b.r - 4, b.y - b.r + 2, b.r * 2 + 8, b.r * 2 - 4);
-        c.globalAlpha = hot ? 0.95 : 0.72;
-        c.strokeStyle = '#00ff9f';
+        c.globalAlpha = hot ? 0.6 : 0.15;
+        c.strokeStyle = '#00ff9f'; c.lineWidth = 1.2;
         c.strokeRect(b.x - b.r - 3.5, b.y - b.r + 2.5, b.r * 2 + 7, b.r * 2 - 5);
-        c.fillStyle = 'rgba(6,8,14,0.55)';
-        c.fillRect(b.x - b.r + 1, b.y - b.r + 6, b.r * 2 - 2, b.r * 2 - 12);
+        if (hot) {
+          c.fillStyle = 'rgba(0, 255, 159, 0.25)';
+          c.fillRect(b.x - b.r - 3.5, b.y - b.r + 2.5, b.r * 2 + 7, b.r * 2 - 5);
+        }
       } else {
-        c.beginPath(); c.arc(b.x, b.y, b.r, 0, Math.PI * 2); c.fill();
-        c.strokeStyle = btnColor; c.lineWidth = 1;
+        c.globalAlpha = hot ? 0.6 : pulse ? 0.45 + 0.15 * Math.sin(G.rt * 6) : 0.18;
+        c.strokeStyle = btnColor; c.lineWidth = 1.2;
         c.beginPath(); c.arc(b.x, b.y, b.r + 2.5, 0, Math.PI * 2); c.stroke();
+        if (hot || pulse) {
+          c.fillStyle = btnColor;
+          c.globalAlpha = hot ? 0.35 : 0.15;
+          c.beginPath(); c.arc(b.x, b.y, b.r, 0, Math.PI * 2); c.fill();
+        }
       }
-      c.globalAlpha = hot ? 0.95 : tab ? 0.82 : 0.7;
+      c.globalAlpha = hot ? 0.95 : tab ? 0.65 : 0.55;
       drawTextC(c, b.label, b.x, b.y - 2, pulse ? '#06060a' : textColor, 1);
       c.globalAlpha = 1;
     }
@@ -546,7 +559,7 @@ function drawTouchControls(c) {
 }
 
 function drawRotateHint(c) {
-  const w = Math.min(252, VIEW_W - 32), h = 54, x = (VIEW_W - w) / 2, y = 18;
+  const w = Math.min(252, VIEW_W - 32), h = 54, x = (VIEW_W - w) / 2, y = VIEW_H - 145;
   c.save();
   c.globalAlpha = 0.94;
   c.fillStyle = 'rgba(6,8,14,0.92)'; c.fillRect(x, y, w, h);
@@ -564,24 +577,130 @@ function drawRotateHint(c) {
 
 // =================== DEATH ===================
 function drawDead(c) {
-  c.fillStyle = 'rgba(40,0,8,0.55)'; c.fillRect(0, 0, VIEW_W, VIEW_H);
-  drawTextC(c, 'FLATLINED', VIEW_W / 2, 130, '#ff2a3c', 4);
-  drawTextC(c, 'TRAUMA TEAM EXTRACTION FEE: €$' + fmt(G.deathFee || 0), VIEW_W / 2, 170, '#cfd6e4', 1);
-  drawTextC(c, 'REBOOTING IN ' + Math.ceil(G.deadT) + '...', VIEW_W / 2, 186, '#8a93a6', 1);
+  // 1. Dark vignette background overlay using radial gradient
+  const grad = c.createRadialGradient(VIEW_W / 2, VIEW_H / 2, 50, VIEW_W / 2, VIEW_H / 2, VIEW_W / 1.2);
+  grad.addColorStop(0, 'rgba(26, 0, 5, 0.75)');
+  grad.addColorStop(1, 'rgba(6, 2, 3, 0.95)');
+  c.fillStyle = grad;
+  c.fillRect(0, 0, VIEW_W, VIEW_H);
+
+  // 2. Subtle horizontal scanlines
+  c.strokeStyle = 'rgba(255, 42, 60, 0.04)';
+  c.lineWidth = 1;
+  for (let y = 0; y < VIEW_H; y += 4) {
+    c.beginPath();
+    c.moveTo(0, y);
+    c.lineTo(VIEW_W, y);
+    c.stroke();
+  }
+
+  // 3. Central HUD warning panel dimensions
+  const w = 360;
+  const h = 180;
+  const x = (VIEW_W - w) / 2;
+  const y = (VIEW_H - h) / 2;
+
+  // Box backing
+  c.fillStyle = '#0a0203';
+  c.fillRect(x, y, w, h);
+
+  // Neon main border
+  c.strokeStyle = '#ff2a3c';
+  c.lineWidth = 2;
+  c.strokeRect(x - 0.5, y - 0.5, w + 1, h + 1);
+
+  // Inner border
+  c.strokeStyle = '#5c060e';
+  c.lineWidth = 1;
+  c.strokeRect(x + 4.5, y + 4.5, w - 9, h - 9);
+
+  // Corner brackets / visual tech accents
+  c.fillStyle = '#ff2a3c';
+  // Top-left
+  c.fillRect(x - 2, y - 2, 8, 4);
+  c.fillRect(x - 2, y - 2, 4, 8);
+  // Top-right
+  c.fillRect(x + w - 6, y - 2, 8, 4);
+  c.fillRect(x + w - 2, y - 2, 4, 8);
+  // Bottom-left
+  c.fillRect(x - 2, y + h - 2, 8, 4);
+  c.fillRect(x - 2, y + h - 6, 4, 8);
+  // Bottom-right
+  c.fillRect(x + w - 6, y + h - 2, 8, 4);
+  c.fillRect(x + w - 2, y + h - 6, 4, 8);
+
+  // Flashing indicator (approx 4Hz)
+  const flash = Math.floor(G.deadT * 4) % 2 === 0;
+
+  // Header warning banner
+  c.fillStyle = flash ? '#ff2a3c' : '#bd0a1a';
+  c.fillRect(x + 5, y + 5, w - 10, 20);
+
+  // Header text depending on current UI language (with accents!)
+  const isVi = (window.NCPX_I18N && window.NCPX_I18N.lang()) === 'vi';
+  const headerTxt = isVi ? '⚠ CẢNH BÁO: HỆ THỐNG NGƯNG HOẠT ĐỘNG' : '⚠ WARNING: BIOMETRIC LINK SEVERED';
+  drawTextC(c, headerTxt, VIEW_W / 2, y + 18, '#0a0203', 1);
+
+  // Central decorative brackets for a more pixel-game style
+  drawText(c, '[', x + 35, y + 56, 'rgba(255, 42, 60, 0.4)', 2);
+  drawTextR(c, ']', x + w - 35, y + 56, 'rgba(255, 42, 60, 0.4)', 2);
+
+  // Large flatlined title (will auto translate to MẤT SINH HIỆU / FLATLINED)
+  drawTextC(c, 'FLATLINED', VIEW_W / 2 + 1, y + 56 + 1, 'rgba(255, 42, 60, 0.3)', 3);
+  drawTextC(c, 'FLATLINED', VIEW_W / 2, y + 56, '#ff2a3c', 3);
+
+  // Status breakdown rows (with accents!)
+  const rowY1 = y + 86;
+  const rowY2 = y + 104;
+
+  const feeLabel = isVi ? 'PHÍ TRUY THU TRAUMA TEAM:' : 'TRAUMA TEAM FEE:';
+  const feeVal = '$' + fmt(G.deathFee || 0);
+  drawText(c, feeLabel, x + 20, rowY1, '#8a93a6', 1);
+  drawTextR(c, feeVal, x + w - 20, rowY1, '#cfd6e4', 1);
+
+  const statusLabel = isVi ? 'TRẠNG THÁI:' : 'STATUS:';
+  const statusVal = isVi ? 'NGOẠI TUYẾN (PHỤC HỒI HỆ THỐNG)' : 'OFFLINE (COOLDOWN)';
+  drawText(c, statusLabel, x + 20, rowY2, '#8a93a6', 1);
+  drawTextR(c, statusVal, x + w - 20, rowY2, '#ff5a60', 1);
+
+  // Segmented progress bar with retro HSL yellow-to-red gradient color scheme
+  const pct = Math.max(0, Math.min(1, (10 - G.deadT) / 10));
+  const barY = y + 124;
+  const barW = w - 40;
+  const barH = 10;
+
+  c.strokeStyle = '#5c060e';
+  c.lineWidth = 1;
+  c.strokeRect(x + 20 - 0.5, barY - 0.5, barW + 1, barH + 1);
+
+  c.fillStyle = '#1f0408';
+  c.fillRect(x + 20, barY, barW, barH);
+
+  const segments = 20;
+  const fillSegs = Math.floor(pct * segments);
+  const segW = (barW - (segments - 1)) / segments;
+  for (let i = 0; i < fillSegs; i++) {
+    // transition from yellow HSL(60) on right to red HSL(0) on left
+    const hue = 60 - (i / segments) * 60;
+    c.fillStyle = 'hsl(' + hue + ', 100%, 50%)';
+    c.fillRect(x + 20 + i * (segW + 1), barY + 1, segW, barH - 2);
+  }
+
+  // Seconds count message (with accents!)
+  const secText = Math.ceil(G.deadT);
+  const rebootsLabel = isVi ? 'KHỞI ĐỘNG LẠI HỆ THỐNG SAU ' + secText + ' GIÂY...' : 'REBOOTING SYSTEM IN ' + secText + 'S...';
+  drawTextC(c, rebootsLabel, VIEW_W / 2, y + 152, '#8a93a6', 1);
 }
 
 // =================== PAUSE ===================
 function drawPause(c) {
   c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillRect(0, 0, VIEW_W, VIEW_H);
   uiPanel(c, 200, 60, 240, 226, localText('SETTINGS'), '#f9f002');
-  const langVal = (window.NCPX_I18N && window.NCPX_I18N.lang()) || 'vi';
-  const langLabel = langVal === 'vi' ? 'TIẾNG VIỆT' : 'ENGLISH';
   const soundLabel = SFX.muted ? localText('SOUND: OFF') : localText('SOUND: ON');
   const items = [
     localText('RESUME'),
     localText('SAVE GAME'),
     soundLabel,
-    localText('LANGUAGE: ') + langLabel,
     localText('ACCOUNT: ') + G.playerName + ' (' + (window.NCPX_CLOUD_SLOT || 'DEFAULT').toUpperCase() + ')',
     G.uiS.confirm ? localText('CONFIRM WIPE? [ENTER]') : localText('NEW GAME')
   ];
@@ -589,23 +708,17 @@ function drawPause(c) {
   for (let i = 0; i < items.length; i++) {
     const y = 82 + i * 15, hot = uiHot(210, y - 4, 220, 13);
     if (hot && G.mouse.moved) G.uiS.sel = i;
-    drawText(c, (sel === i ? '> ' : '  ') + items[i], 216, y, sel === i ? (i === 5 && G.uiS.confirm ? '#ff2a3c' : '#f9f002') : '#8a93a6', 1);
+    drawText(c, (sel === i ? '> ' : '  ') + items[i], 216, y, sel === i ? (i === 4 && G.uiS.confirm ? '#ff2a3c' : '#f9f002') : '#8a93a6', 1);
   }
   if (uiAct()) {
     if (sel === 0) { G.ui = null; }
     else if (sel === 1) { saveGame(); msg(localText('GAME SAVED'), '#2ecc71'); SFX.buy(); }
     else if (sel === 2) { SFX.toggleMute(); }
     else if (sel === 3) {
-      const nextLang = langVal === 'vi' ? 'en' : 'vi';
-      window.NCPX_LANG = nextLang;
-      try { localStorage.setItem('ncpx_lang', nextLang); } catch (e) {}
-      SFX.ui();
-    }
-    else if (sel === 4) {
       msg(localText('ACCOUNT ACTIVE: ') + G.playerName, '#00ff9f');
       SFX.ui();
     }
-    else if (sel === 5) {
+    else if (sel === 4) {
       if (!G.uiS.confirm) G.uiS.confirm = true;
       else { wipeSave(); G.ui = null; G.state = 'title'; G.titleMode = 'name'; G.uiS = { sel: 0, scroll: 0, tab: 0, confirm: false }; }
     }
@@ -648,7 +761,7 @@ function drawShopGuns(c) {
   const r = shopList(c, stock, (cc, w, x, y, on) => {
     cc.drawImage(SPR.wicon(w.cls, KIND_COL[w.kind]), x, y + 1);
     drawText(cc, trunc(w.name, 26), x + 28, y + 3, G.weapons[w.id] ? '#5a6372' : RAR_COL[w.rar], 1);
-    const right = G.weapons[w.id] ? 'OWNED' : G.lvl < w.lvl ? 'LV' + w.lvl : '€$' + fmt(w.price);
+    const right = G.weapons[w.id] ? 'OWNED' : G.lvl < w.lvl ? 'LV' + w.lvl : '$' + fmt(w.price);
     drawTextR(cc, right, x + 272, y + 3, G.weapons[w.id] ? '#5a6372' : G.lvl < w.lvl ? '#ff5a5a' : G.eddies >= w.price ? '#2ecc71' : '#ff5a5a', 1);
   }, 'ICONIC IRON DROPS FROM CYBERPSYCHOS — GO HUNTING', WORLD.shops.guns.name + ' — WEAPONS', '#f9f002');
   const w = stock[r.sel];
@@ -663,7 +776,7 @@ function drawShopGuns(c) {
     wrapText(w.desc, 40).forEach((ln, i) => drawText(c, ln, dx, dy + 84 + i * 9, '#8a93a6', 1));
     const cur = curWpn();
     if (cur && !G.weapons[w.id]) drawText(c, 'EQUIPPED DPS: ' + dpsOf(cur), dx, dy + 130, '#5a6372', 1);
-    let act = G.weapons[w.id] ? 'OWNED' : G.lvl < w.lvl ? 'REQUIRES LEVEL ' + w.lvl : '[ENTER] BUY — €$' + fmt(w.price);
+    let act = G.weapons[w.id] ? 'OWNED' : G.lvl < w.lvl ? 'REQUIRES LEVEL ' + w.lvl : '[ENTER] BUY — $' + fmt(w.price);
     drawText(c, act, dx, dy + 150, G.weapons[w.id] ? '#5a6372' : '#f9f002', 1);
     if (r.act) buyWeapon(w.id);
   }
@@ -674,7 +787,7 @@ function drawShopCars(c) {
   const r = shopList(c, CARS, (cc, car, x, y, on) => {
     cc.save(); cc.translate(x + 12, y + 8); cc.rotate(Math.PI / 2); cc.drawImage(SPR.car(car.id), -8, -15, 16, 30); cc.restore();
     drawText(cc, trunc(car.name, 24), x + 30, y + 3, G.cars[car.id] ? '#5a6372' : '#cfd6e4', 1);
-    const right = G.cars[car.id] ? (G.activeCar === car.id ? 'ACTIVE' : 'OWNED') : '€$' + fmt(car.price);
+    const right = G.cars[car.id] ? (G.activeCar === car.id ? 'ACTIVE' : 'OWNED') : '$' + fmt(car.price);
     drawTextR(cc, right, x + 272, y + 3, G.cars[car.id] ? (G.activeCar === car.id ? '#00ff9f' : '#5a6372') : G.eddies >= car.price ? '#2ecc71' : '#ff5a5a', 1);
   }, '[V] SUMMONS YOUR ACTIVE RIDE · RESUMMON REPAIRS FREE', WORLD.shops.cars.name + ' — VEHICLES', '#00ff9f');
   const car = CARS[r.sel];
@@ -688,7 +801,7 @@ function drawShopCars(c) {
     statRow(c, dx, dy + 90, 'ACC', car.acc / 320, '#ff5a5a', car.acc);
     statRow(c, dx, dy + 102, 'GRIP', (car.grip - 0.8) / 0.16, '#05d9e8', car.grip);
     statRow(c, dx, dy + 114, 'HP', car.hp / 420, '#00ff9f', car.hp);
-    let act = G.cars[car.id] ? (G.activeCar === car.id ? 'YOUR ACTIVE RIDE' : '[ENTER] SET ACTIVE') : '[ENTER] BUY — €$' + fmt(car.price);
+    let act = G.cars[car.id] ? (G.activeCar === car.id ? 'YOUR ACTIVE RIDE' : '[ENTER] SET ACTIVE') : '[ENTER] BUY — $' + fmt(car.price);
     drawText(c, act, dx, dy + 140, '#f9f002', 1);
     if (r.act) buyCar(car.id);
   }
@@ -729,7 +842,7 @@ function drawRipper(c) {
     else if (tier >= max) { right = cy.os && G.os === cy.id ? 'ACTIVE·MAX' : 'MAXED'; rcol = '#5a6372'; }
     else {
       const t = cy.tiers[tier];
-      right = (G.lvl < t.lvl ? 'LV' + t.lvl : '€$' + fmt(t.price));
+      right = (G.lvl < t.lvl ? 'LV' + t.lvl : '$' + fmt(t.price));
       rcol = G.lvl < t.lvl ? '#ff5a5a' : G.eddies >= t.price ? '#2ecc71' : '#ff5a5a';
     }
     drawTextR(cc, right, x + 272, y + 3, rcol, 1);
@@ -747,7 +860,7 @@ function drawRipper(c) {
     let act;
     if (cy.os && tier && G.os !== cy.id) act = '[ENTER] ACTIVATE OS';
     else if (tier >= cy.tiers.length) act = 'FULLY INSTALLED';
-    else { const t = cy.tiers[tier]; act = G.lvl < t.lvl ? 'REQUIRES LEVEL ' + t.lvl : '[ENTER] ' + (tier ? 'UPGRADE' : 'INSTALL') + ' — €$' + fmt(t.price); }
+    else { const t = cy.tiers[tier]; act = G.lvl < t.lvl ? 'REQUIRES LEVEL ' + t.lvl : '[ENTER] ' + (tier ? 'UPGRADE' : 'INSTALL') + ' — $' + fmt(t.price); }
     drawText(c, act, dx, dy + 150, '#f9f002', 1);
     if (r.act) buyCyber(cy.id);
   } else if (row && row.hdr && r.act) SFX.ui();
@@ -782,9 +895,9 @@ function drawWardrobe(c) {
   const r = shopList(c, stock, (cc, row, x, y, on) => {
     const name = row === null ? (isVi ? 'MẶC ĐỊNH' : 'DEFAULT V') : (isVi ? 'BỘ TRANG PHỤC #' : 'OUTFIT #') + (row + 1);
     drawText(cc, name, x, y + 3, G.skin === row ? '#05d9e8' : '#cfd6e4', 1);
-    const right = G.skin === row ? (isVi ? 'ĐANG MẶC' : 'EQUIPPED') : '€$100';
+    const right = G.skin === row ? (isVi ? 'ĐANG MẶC' : 'EQUIPPED') : '$100';
     drawTextR(cc, right, x + 272, y + 3, G.skin === row ? '#5a6372' : G.eddies >= 100 ? '#2ecc71' : '#ff5a5a', 1);
-  }, isVi ? 'PHÍ THAY ĐỔI DIỆN MẠO: €$100' : 'WARDROBE SERVICE FEE: €$100', isVi ? 'GƯƠNG SOI — TỦ ĐỒ' : 'MIRROR — WARDROBE', '#ff2a6d');
+  }, isVi ? 'PHÍ THAY ĐỔI DIỆN MẠO: $100' : 'WARDROBE SERVICE FEE: $100', isVi ? 'GƯƠNG SOI — TỦ ĐỒ' : 'MIRROR — WARDROBE', '#ff2a6d');
 
   const row = stock[r.sel];
   const pedSpr = row === null ? (SPR.player[G.gender] || SPR.player.m) : SPR.playerCiv(row, G.gender);
@@ -806,7 +919,7 @@ function drawWardrobe(c) {
   if (G.skin === row) {
     act = isVi ? 'ĐÃ ĐƯỢC TRANG BỊ' : 'ALREADY EQUIPPED';
   } else {
-    act = G.eddies < 100 ? (isVi ? 'KHÔNG ĐỦ EDDIES' : 'NOT ENOUGH EDDIES') : (isVi ? '[ENTER] MẶC LÊN — €$100' : '[ENTER] EQUIP — €$100');
+    act = G.eddies < 100 ? (isVi ? 'KHÔNG ĐỦ EDDIES' : 'NOT ENOUGH EDDIES') : (isVi ? '[ENTER] MẶC LÊN — $100' : '[ENTER] EQUIP — $100');
   }
   drawText(c, act, dx, dy + 150, G.skin === row ? '#5a6372' : G.eddies >= 100 ? '#f9f002' : '#ff5a5a', 1);
 
@@ -819,7 +932,7 @@ function drawWardrobe(c) {
 function drawBar(c) {
   c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillRect(0, 0, VIEW_W, VIEW_H);
   uiPanel(c, 220, 110, 200, 130, 'AFTERLIFE', '#ff2a6d');
-  const items = ["'JOHNNY SILVERHAND' — €$100", 'MAXDOC (+1) — €$50', 'LEAVE'];
+  const items = ["'JOHNNY SILVERHAND' — $100", 'MAXDOC (+1) — $50', 'LEAVE'];
   const sel = navList(items.length);
   for (let i = 0; i < items.length; i++) {
     const y = 146 + i * 20, hot = uiHot(228, y - 4, 184, 16);
@@ -846,7 +959,7 @@ function drawCasino(c) {
   // Item 0: Bet Size
   const y0 = 100, hot0 = uiHot(180, y0 - 4, 280, 16);
   if (hot0 && G.mouse.moved) s.sel = 0;
-  drawTextC(c, localText('BET SIZE: ') + '< €$ ' + fmt(s.bet) + ' >', 320, y0, sel === 0 ? '#f9f002' : '#8a93a6', 1);
+  drawTextC(c, localText('BET SIZE: ') + '< $ ' + fmt(s.bet) + ' >', 320, y0, sel === 0 ? '#f9f002' : '#8a93a6', 1);
   if (sel === 0) {
     if (press('ArrowLeft')) { s.bet = Math.max(100, s.bet - 100); SFX.ui(); }
     if (press('ArrowRight')) { s.bet = s.bet + 100; SFX.ui(); }
@@ -955,9 +1068,9 @@ function drawCasino(c) {
     // Draw Win/Loss text
     const resultY = 222;
     if (s.result === 'win') {
-      drawTextC(c, localText('WIN! +€$') + ' ' + fmt(s.bet), 320, resultY, '#2ecc71', 2);
+      drawTextC(c, localText('WIN! +$') + ' ' + fmt(s.bet), 320, resultY, '#2ecc71', 2);
     } else if (s.result === 'lose') {
-      drawTextC(c, localText('LOSE! -€$') + ' ' + fmt(s.bet), 320, resultY, '#ff2a3c', 2);
+      drawTextC(c, localText('LOSE! -$') + ' ' + fmt(s.bet), 320, resultY, '#ff2a3c', 2);
     } else if (s.result === 'triple') {
       drawTextC(c, localText('DEALER WINS ON TRIPLE!'), 320, resultY, '#ff2a3c', 1);
     }
@@ -971,7 +1084,7 @@ const INV_TABS = ['WEAPONS', 'CYBERWARE', 'GARAGE', 'MAP', 'STATS'];
 function drawInv(c) {
   c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillRect(0, 0, VIEW_W, VIEW_H);
   uiPanel(c, 56, 22, 528, 316, null, '#bd00ff');
-  drawTextR(c, '€$' + fmt(G.eddies), 576, 28, '#f9f002', 1);
+  drawTextR(c, '$' + fmt(G.eddies), 576, 28, '#f9f002', 1);
   const s = G.uiS;
   if (press('ArrowLeft')) { s.tab = (s.tab + 4) % 5; s.sel = 0; SFX.ui(); }
   if (press('ArrowRight')) { s.tab = (s.tab + 1) % 5; s.sel = 0; SFX.ui(); }
@@ -1089,7 +1202,7 @@ function invGarage(c) {
       if (hot && G.mouse.click) { G.mouse.click = false; setActiveCar(car.id); }
     } else {
       drawTextC(c, '???', x + (cw - 6) / 2, y + 12, 'rgba(120,130,150,0.4)', 1);
-      drawTextC(c, '€$' + fmt(car.price), x + (cw - 6) / 2, y + 26, 'rgba(120,130,150,0.4)', 1);
+      drawTextC(c, '$' + fmt(car.price), x + (cw - 6) / 2, y + 26, 'rgba(120,130,150,0.4)', 1);
     }
   }
   const car = CARS[s.sel];
@@ -1108,7 +1221,7 @@ function invStats(c) {
   const mins = (st.playT / 60) | 0;
   const lines = [
     ['STREET CRED', 'LV ' + G.lvl + '  (' + G.xp + '/' + xpFor(G.lvl) + ' XP)'],
-    ['NET WORTH', '€$' + fmt(worth)],
+    ['NET WORTH', '$' + fmt(worth)],
     ['ENEMIES FLATLINED', st.kills],
     ['CYBERPSYCHOS DOWNED', st.psychos + '/' + ICONICS.length],
     ['BOUNTIES CLEARED', st.bounties],
@@ -1168,12 +1281,12 @@ function invMap(c) {
   dot(G.p.x, G.p.y, '#05d9e8', 'P', 'PLAYER: ' + cleanPlayerName(G.playerName), localText('YOUR CURRENT POSITION'));
 
   // 2. Shops
-  dot(WORLD.shops.guns.x, WORLD.shops.guns.y, '#f9f002', 'G', 'QU\u00c2N - ' + localText('GUN SHOP'), localText('WEAPONS & AMMO'));
-  dot(WORLD.shops.ripper.x, WORLD.shops.ripper.y, '#05d9e8', 'R', 'S\u01a0N - ' + localText('RIPPERDOC'), localText('CYBERWARE CLINIC'));
-  dot(WORLD.shops.cars.x, WORLD.shops.cars.y, '#00ff9f', 'A', 'T\u00da - AUTOFIXER', localText('VEHICLES AND GARAGE'));
-  dot(WORLD.shops.bar.x, WORLD.shops.bar.y, '#ff2a6d', 'B', 'LAN - AFTERLIFE BAR', localText('ORDER A DRINK'));
-  if (WORLD.shops.casino) dot(WORLD.shops.casino.x, WORLD.shops.casino.y, '#bd00ff', 'C', 'T\u00c0I - ' + localText('CASINO DEALER'), localText('PLAY DICE MINI-GAME'));
-  if (WORLD.shops.clothing) dot(WORLD.shops.clothing.x, WORLD.shops.clothing.y, '#ff69b4', 'T', 'TRANG - ' + localText('MIRROR ROOM'), localText('SWITCH GENDER / SKIN'));
+  dot(WORLD.shops.guns.x, WORLD.shops.guns.y, '#f9f002', 'G', localText('GUN SHOP'), localText('WEAPONS & AMMO'));
+  dot(WORLD.shops.ripper.x, WORLD.shops.ripper.y, '#05d9e8', 'R', localText('RIPPERDOC'), localText('CYBERWARE CLINIC'));
+  dot(WORLD.shops.cars.x, WORLD.shops.cars.y, '#00ff9f', 'A', 'AUTOFIXER', localText('VEHICLES AND GARAGE'));
+  dot(WORLD.shops.bar.x, WORLD.shops.bar.y, '#ff2a6d', 'B', 'AFTERLIFE BAR', localText('ORDER A DRINK'));
+  if (WORLD.shops.casino) dot(WORLD.shops.casino.x, WORLD.shops.casino.y, '#bd00ff', 'C', localText('CASINO DEALER'), localText('PLAY DICE MINI-GAME'));
+  if (WORLD.shops.clothing) dot(WORLD.shops.clothing.x, WORLD.shops.clothing.y, '#ff69b4', 'T', localText('MIRROR ROOM'), localText('SWITCH GENDER / SKIN'));
 
   // 3. NPCs (joy/doll only — casino+stylist now have dedicated buildings)
   for (const n of WORLD.npcs) {
@@ -1215,19 +1328,28 @@ function drawGangMenu(c) {
   uiPanel(c, 126, 50, 388, 264, 'QUẢN LÝ BĂNG', '#00ff9f');
   drawText(c, 'BĂNG HIỆN TẠI', 154, 84, '#5a6372', 1);
   drawText(c, G.gang ? gangLabel(G.gang) : 'CHƯA CÓ BĂNG', 292, 84, G.gang ? factionColor(G.gang) : '#8a93a6', 1);
-  drawText(c, 'CHỌN TÊN', 154, 108, '#5a6372', 1);
+  const members = gangMemberCount(playerProfile());
+  if (G.gang && G.gang !== 'SOLO') drawText(c, members + '/' + MAX_GANG_MEMBERS, 456, 84, members >= MAX_GANG_MEMBERS ? '#ff2a6d' : '#00ff9f', 1);
+  drawText(c, 'TÊN BĂNG', 154, 108, '#5a6372', 1);
   const names = PLAYER_GANG_NAMES;
   if (navLeft()) { G.gangNameSel = (G.gangNameSel - 1 + names.length) % names.length; SFX.ui(); }
   if (navRight()) { G.gangNameSel = (G.gangNameSel + 1) % names.length; SFX.ui(); }
   G.gangNameSel = Math.max(0, Math.min(names.length - 1, G.gangNameSel || 0));
+  if (!G.gangDraft) G.gangDraft = G.playerGangName || names[G.gangNameSel] || 'BĂNG CỦA BẠN';
+  while (G.textQ && G.textQ.length) {
+    const ch = G.textQ.shift();
+    if (ch === '\b') G.gangDraft = G.gangDraft.slice(0, -1);
+    else if (G.gangDraft.length < 18) G.gangDraft = cleanPlayerName(G.gangDraft + ch);
+  }
   const hotName = uiHot(150, 118, 340, 18);
   if (hotName && G.mouse.click) {
     G.mouse.click = false;
     if (G.mouse.sx < 326) G.gangNameSel = (G.gangNameSel - 1 + names.length) % names.length;
     else G.gangNameSel = (G.gangNameSel + 1) % names.length;
+    G.gangDraft = names[G.gangNameSel];
     SFX.ui();
   }
-  drawTextC(c, '< ' + names[G.gangNameSel] + ' >', 326, 128, '#f9f002', 2);
+  drawTextC(c, '< ' + trunc(cleanPlayerName(G.gangDraft || names[G.gangNameSel]), 18) + ' >', 326, 128, '#f9f002', 2);
   const icons = PLAYER_GANG_ICONS;
   if (press('KeyZ')) { G.gangIconSel = (G.gangIconSel - 1 + icons.length) % icons.length; SFX.ui(); }
   if (press('KeyX')) { G.gangIconSel = (G.gangIconSel + 1) % icons.length; SFX.ui(); }
@@ -1241,36 +1363,38 @@ function drawGangMenu(c) {
   }
   const icon = gangIconObj(G.gangIconSel);
   drawText(c, 'BIỂU TƯỢNG', 154, 154, '#5a6372', 1);
-  drawTextC(c, '<        ' + icon.name + ' >', 326, 154, icon.col, 1);
-  drawGangBadge(c, 266, 142, icon.mark, icon.col, 2);
+  drawTextC(c, '<      >', 326, 154, icon.col, 1);
+  drawGangBadge(c, 307, 141, icon.mark, icon.col, 2);
 
-  const inviteTarget = nearestRemotePlayer(rp => G.gang && !sameGangProfile(rp, playerProfile()));
-  const requestTarget = nearestRemotePlayer(rp => !G.gang && rp.gang && rp.gang !== 'SOLO');
+  const full = G.gang && !gangHasRoom(playerProfile());
+  const inviteTarget = nearestRemotePlayer(rp => G.gang && !full && !sameGangProfile(rp, playerProfile()));
+  const requestTarget = nearestRemotePlayer(rp => !G.gang && rp.gang && rp.gang !== 'SOLO' && gangHasRoom(rp));
   const rows = [
     G.gang === 'player' ? 'ĐỔI TÊN BĂNG' : 'TẠO BĂNG',
-    inviteTarget ? 'MỜI ' + cleanPlayerName(inviteTarget.name) : 'KHÔNG CÓ NGƯỜI ĐỂ MỜI',
+    full ? 'BĂNG ĐÃ ĐỦ 10 NGƯỜI' : (inviteTarget ? 'MỜI ' + cleanPlayerName(inviteTarget.name) : 'KHÔNG CÓ NGƯỜI ĐỂ MỜI'),
     requestTarget ? 'XIN VÀO ' + requestTarget.gang : 'KHÔNG CÓ BĂNG ĐỂ XIN',
-    G.gangJoinReq ? 'DUYỆT ' + cleanPlayerName(G.gangJoinReq.fromName) : 'CHƯA CÓ ĐƠN XIN',
-    G.playerInvite ? 'VÀO ' + G.playerInvite.gang : (G.gangInvite ? 'VÀO ' + gangLabel(G.gangInvite) : 'CHƯA CÓ LỜI MỜI'),
+    G.gangJoinReq && !full ? 'DUYỆT ' + cleanPlayerName(G.gangJoinReq.fromName) : (full ? 'ĐỦ 10 — KHÔNG DUYỆT THÊM' : 'CHƯA CÓ ĐƠN XIN'),
+    G.playerInvite && gangHasRoom(G.playerInvite) ? 'VÀO ' + G.playerInvite.gang : (G.gangInvite ? 'VÀO ' + gangLabel(G.gangInvite) : 'CHƯA CÓ LỜI MỜI'),
     'ĐÓNG',
   ];
   const sel = navList(rows.length);
   for (let i = 0; i < rows.length; i++) {
     const y = 184 + i * 18, hot = uiHot(166, y - 5, 308, 15);
-    const enabled = i === 0 || (i === 1 && !!inviteTarget) || (i === 2 && !!requestTarget) || (i === 3 && !!G.gangJoinReq && G.gang) || (i === 4 && (!!G.playerInvite || !!G.gangInvite)) || i === 5;
+    const enabled = i === 0 || (i === 1 && !!inviteTarget) || (i === 2 && !!requestTarget) || (i === 3 && !!G.gangJoinReq && G.gang && !full) || (i === 4 && ((!!G.playerInvite && gangHasRoom(G.playerInvite)) || !!G.gangInvite)) || i === 5;
     if (hot && G.mouse.moved && enabled) s.sel = i;
     drawTextC(c, (sel === i ? '> ' : '') + rows[i] + (sel === i ? ' <' : ''), 320, y, !enabled ? '#3a414e' : sel === i ? '#00ff9f' : '#8a93a6', 1);
     if (hot && G.mouse.click && enabled) { G.mouse.click = false; s.sel = i; gangMenuAct(i); return; }
   }
-  drawTextC(c, '[A/D] TÊN · [Z/X] ICON · [ENTER] CHỌN · [ESC/G] ĐÓNG', VIEW_W / 2, 292, '#5a6372', 1);
+  drawTextC(c, 'GÕ TÊN BĂNG · [A/D] GỢI Ý · [Z/X] ICON · [ENTER] CHỌN', VIEW_W / 2, 292, '#5a6372', 1);
   drawTextC(c, 'CÙNG BĂNG KHÔNG THỂ BẮN NHAU TRONG REALTIME', VIEW_W / 2, 304, '#00ff9f', 1);
   if (press('KeyG') || press('Escape')) { G.ui = null; SFX.ui(); return; }
   if (uiAct()) gangMenuAct(sel);
 }
 
 function gangMenuAct(sel) {
-  if (sel === 0) { setPlayerGang(PLAYER_GANG_NAMES[G.gangNameSel || 0]); G.ui = null; SFX.buy(); return; }
+  if (sel === 0) { setPlayerGang(cleanPlayerName(G.gangDraft || PLAYER_GANG_NAMES[G.gangNameSel || 0])); G.ui = null; SFX.buy(); return; }
   if (sel === 1) {
+    if (!gangHasRoom(playerProfile())) { msg('BĂNG ĐÃ ĐỦ 10 NGƯỜI', '#ff2a6d'); return; }
     const target = nearestRemotePlayer(rp => G.gang && !sameGangProfile(rp, playerProfile()));
     if (target && window.NCPX_NET && window.NCPX_NET.invite) {
       window.NCPX_NET.invite(target.id, playerProfile());
@@ -1280,7 +1404,7 @@ function gangMenuAct(sel) {
     return;
   }
   if (sel === 2) {
-    const target = nearestRemotePlayer(rp => !G.gang && rp.gang && rp.gang !== 'SOLO');
+    const target = nearestRemotePlayer(rp => !G.gang && rp.gang && rp.gang !== 'SOLO' && gangHasRoom(rp));
     if (target && window.NCPX_NET && window.NCPX_NET.requestJoin) {
       window.NCPX_NET.requestJoin(target.id, playerProfile());
       msg('ĐÃ XIN VÀO ' + target.gang, '#f9f002');
@@ -1289,6 +1413,7 @@ function gangMenuAct(sel) {
     return;
   }
   if (sel === 3 && G.gangJoinReq && G.gang && window.NCPX_NET && window.NCPX_NET.invite) {
+    if (!gangHasRoom(playerProfile())) { msg('BĂNG ĐÃ ĐỦ 10 NGƯỜI', '#ff2a6d'); return; }
     window.NCPX_NET.invite(G.gangJoinReq.from, playerProfile());
     msg('ĐÃ DUYỆT ' + cleanPlayerName(G.gangJoinReq.fromName), '#00ff9f');
     G.gangJoinReq = null;
@@ -1297,6 +1422,7 @@ function gangMenuAct(sel) {
     return;
   }
   if (sel === 4 && G.playerInvite) {
+    if (!gangHasRoom(G.playerInvite)) { msg('BĂNG ĐÃ ĐỦ 10 NGƯỜI', '#ff2a6d'); return; }
     joinPlayerGang(G.playerInvite.gang, G.playerInvite.gangIcon, G.playerInvite.gangIconCol);
     G.ui = null;
     SFX.buy();

@@ -26,7 +26,13 @@
     'TAB INVENTORY · M MUTE · ESC PAUSE': 'TAB TUI DO · M TAT TIENG · ESC TAM DUNG',
     'PROGRESS AUTOSAVES EVERY 12S': 'TU DONG LUU MOI 12 GIAY',
     'ROTATE DEVICE — LANDSCAPE PLAYS BEST': 'XOAY NGANG MAY DE CHOI TOT NHAT',
-    'FLATLINED': 'DA NGA XUONG',
+    'FLATLINED': 'MAT SINH HIEU',
+    'COMMON': 'THUONG',
+    'UNCOMMON': 'LA',
+    'RARE': 'HIEM',
+    'EPIC': 'SU THI',
+    'LEGENDARY': 'HUYEN THOAI',
+    'ICONIC': 'KIET TAC',
     'REBOOTING IN ': 'HOI SINH SAU ',
     'TRAUMA TEAM EXTRACTION FEE: ': 'PHI TRAUMA TEAM: ',
     'UNARMED': 'TAY KHONG',
@@ -59,7 +65,7 @@
     'SCRIPT ERROR — CHECK CONSOLE (F12), HARD-REFRESH (CTRL+SHIFT+R)': 'LOI SCRIPT - XEM CONSOLE (F12), TAI LAI MANH (CTRL+SHIFT+R)',
     'EQUIPPED: ': 'DA TRANG BI: ',
     'BIOMONITOR: MAXDOC AUTO-INJECTED': 'BIOMONITOR: TU DONG TIEM MAXDOC',
-    'NO MAXDOCS — VENDING MACHINES SELL THEM FOR €$50': 'HET MAXDOC - MAY BAN HANG BAN GIA €$50',
+    'NO MAXDOCS — VENDING MACHINES SELL THEM FOR $50': 'HET MAXDOC - MAY BAN HANG BAN GIA $50',
     'HP ALREADY FULL': 'MAU DA DAY',
     'LOW HP — PRESS [C] TO USE A MAXDOC': 'MAU THAP - BAM [C] DUNG MAXDOC',
     'LOW HP — BUY A MAXDOC AT A VENDING MACHINE [E]': 'MAU THAP - MUA MAXDOC TAI MAY BAN HANG [E]',
@@ -124,8 +130,8 @@
     'BĂNG: ': 'BĂNG: ',
     'TALK — MIRROR': 'SOI GUONG',
     'MIRROR': 'GUONG SOI',
-    'SWITCH GENDER / SKIN — €$100': 'DOI DIEN MAO — €$100',
-    'WAKE UP, MERC. WANT A NEW SKIN? IT COSTS €$100.': 'BAN CO MUON THAY DOI DIEN MAO KHONG? CHI PHI LA €$100.',
+    'SWITCH GENDER / SKIN — $100': 'DOI DIEN MAO — $100',
+    'WAKE UP, MERC. WANT A NEW SKIN? IT COSTS $100.': 'BAN CO MUON THAY DOI DIEN MAO KHONG? CHI PHI LA $100.',
     'TALK — DEALER': 'CHOI TAI XIU',
     'CASINO — TÀI XỈU': 'SONG BAC — TAI XIU',
     'BET SIZE: ': 'MUC CUOC: ',
@@ -134,8 +140,8 @@
     'XỈU (SMALL)': 'XIU (NHO)',
     'ROLL DICE': 'LAC XUC XAC',
     'LEAVE CASINO': 'ROI SONG BAC',
-    'WIN! +€$': 'THANG! +EU$',
-    'LOSE! -€$': 'THUA! -EU$',
+    'WIN! +$': 'THANG! +$',
+    'LOSE! -$': 'THUA! -$',
     'DEALER WINS ON TRIPLE!': 'NHA CAI AN TRON BAO!',
     'ROLLING...': 'DANG LAC...',
     'BIG': 'TAI',
@@ -167,6 +173,117 @@
     'ACCOUNT ACTIVE: ': 'TAI KHOAN HOAT DONG: ',
     'EQUIP TO SLOT:': 'TRANG BI VAO O:',
   };
+  const EN = {
+    'ĐẶT TÊN NHÂN VẬT': 'NAME YOUR CHARACTER',
+    'GÕ TÊN · BACKSPACE XOÁ · ENTER TIẾP TỤC': 'TYPE NAME · BACKSPACE DELETE · ENTER CONTINUE',
+    '[ESC] QUAY LẠI': '[ESC] BACK',
+    'CHƯA CÓ': 'NONE',
+    'BĂNG: ': 'GANG: ',
+    'BĂNG: CHƯA CÓ': 'GANG: NONE',
+    'MỜI!': 'INVITE!',
+    'XOAY NGANG': 'ROTATE DEVICE',
+    'THAO TAC NHANH HON': 'FASTER CONTROLS',
+    'THAO TÁC NHANH HƠN': 'FASTER CONTROLS',
+    'QUẢN LÝ BĂNG': 'GANG MANAGEMENT',
+    'BĂNG HIỆN TẠI': 'CURRENT GANG',
+    'CHƯA CÓ BĂNG': 'NO GANG',
+    'TÊN BĂNG': 'GANG NAME',
+    'BIỂU TƯỢNG': 'EMBLEM',
+    'ĐỔI TÊN BĂNG': 'RENAME GANG',
+    'TẠO BĂNG': 'CREATE GANG',
+    'BĂNG ĐÃ ĐỦ 10 NGƯỜI': 'GANG FULL: 10 MEMBERS',
+    'KHÔNG CÓ NGƯỜI ĐỂ MỜI': 'NO PLAYER TO INVITE',
+    'KHÔNG CÓ BĂNG ĐỂ XIN': 'NO GANG TO REQUEST',
+    'ĐỦ 10 — KHÔNG DUYỆT THÊM': 'FULL 10 — CANNOT APPROVE',
+    'CHƯA CÓ ĐƠN XIN': 'NO REQUESTS',
+    'CHƯA CÓ LỜI MỜI': 'NO INVITES',
+    'ĐÓNG': 'CLOSE',
+    'GÕ TÊN BĂNG · [A/D] GỢI Ý · [Z/X] ICON · [ENTER] CHỌN': 'TYPE GANG NAME · [A/D] PRESETS · [Z/X] ICON · [ENTER] SELECT',
+    'CÙNG BĂNG KHÔNG THỂ BẮN NHAU TRONG REALTIME': 'SAME-GANG PLAYERS CANNOT HURT EACH OTHER IN REALTIME',
+    'ĐÃ GỬI LỜI MỜI CHO ': 'INVITE SENT TO ',
+    'ĐÃ XIN VÀO ': 'REQUESTED TO JOIN ',
+    'ĐÃ DUYỆT ': 'APPROVED ',
+    'GIA NHẬP BĂNG': 'JOINED GANG',
+    'BẠN ĐÃ VÀO ': 'YOU JOINED ',
+    'BẠN ĐÃ VÀO BĂNG ': 'YOU JOINED GANG ',
+    'ĐỒNG BĂNG KHÔNG THỂ BẮN NHAU': 'GANGMATES CANNOT HURT EACH OTHER',
+    'TẠO BĂNG THÀNH CÔNG': 'GANG CREATED',
+    'ĐÃ VÀO BĂNG': 'JOINED GANG',
+    'BẠN ĐÃ GIA NHẬP ': 'YOU JOINED ',
+    'LỜI MỜI VÀO BĂNG ': 'GANG INVITE: ',
+    ' — MỞ [G]': ' — OPEN [G]',
+    ' XIN VÀO BĂNG — MỞ [G]': ' REQUESTS TO JOIN — OPEN [G]',
+    'ĐÃ CHẶN SÁT THƯƠNG ĐỒNG BĂNG': 'BLOCKED GANGMATE DAMAGE',
+    'KHÔNG THỂ ĐÁNH ĐỒNG BĂNG': 'CANNOT MELEE GANGMATE',
+    'KHÔNG THỂ BẮN ĐỒNG BĂNG': 'CANNOT SHOOT GANGMATE',
+    'CÙNG BĂNG': 'SAME GANG',
+    ' MỜI BẠN VÀO BĂNG — MỞ [G]': ' INVITES YOU TO JOIN — OPEN [G]',
+    'GIAO TRANH BĂNG ĐẢNG': 'GANG SKIRMISH',
+    'ĐẠI CHIẾN BĂNG ĐẢNG': 'GANG WAR',
+    '4 KHU CHỢ ĐÃ MỞ CỬA TRANH CHẤP!': '4 MARKETS ARE OPEN FOR CONTEST!',
+    'KẾT THÚC ĐẠI CHIẾN': 'GANG WAR ENDED',
+    'CÁC KHU CHỢ ĐÃ NGỪNG TRANH CHẤP': 'MARKETS ARE NO LONGER CONTESTED',
+    ' ĐÃ BỊ CHIẾM BỞI BĂNG ': ' CAPTURED BY GANG ',
+    ' TRỞ LẠI TRẠNG THÁI TRANH CHẤP': ' IS CONTESTED AGAIN',
+    'THU NHẬP CHIẾM CHỢ: +': 'MARKET INCOME: +',
+    ' EDDIES': ' EDDIES',
+    'RƠI ': 'FALLING ',
+    'CÒN ': 'LEFT ',
+    'TRUY NÃ': 'BOUNTY',
+    'MÙA': 'WEATHER',
+    'MƯA NHẸ': 'DRIZZLE',
+    'CHỢ': 'MARKET',
+    'TRỐNG': 'EMPTY',
+    'TRANH CHẤP': 'CONTESTED',
+    'ĐANG MẶC': 'EQUIPPED',
+    'MẶC ĐỊNH': 'DEFAULT V',
+    'BỘ TRANG PHỤC #': 'OUTFIT #',
+    'PHÍ THAY ĐỔI DIỆN MẠO: $100': 'WARDROBE SERVICE FEE: $100',
+    'GƯƠNG SOI — TỦ ĐỒ': 'MIRROR — WARDROBE',
+    'GIỚI TÍNH: ': 'GENDER: ',
+    'GIỚI TÍNH: NỮ': 'GENDER: FEMALE',
+    'GIỚI TÍNH: NAM': 'GENDER: MALE',
+    'NỮ': 'FEMALE',
+    'NAM': 'MALE',
+    'MẶT TRƯỚC': 'FRONT',
+    'MẶT BÊN': 'PROFILE',
+    'MẶT SAU': 'BACK',
+    'ĐÃ ĐƯỢC TRANG BỊ': 'ALREADY EQUIPPED',
+    'KHÔNG ĐỦ EDDIES': 'NOT ENOUGH EDDIES',
+    '[ENTER] MẶC LÊN — $100': '[ENTER] EQUIP — $100',
+    'DIỆN MẠO MỚI: ': 'NEW APPEARANCE: ',
+    'ĐÃ THAY ĐỔI TRANG PHỤC: ': 'OUTFIT UPDATED: ',
+    'BẠN ĐANG MẶC TRANG PHỤC NÀY RỒI!': 'ALREADY WEARING THIS OUTFIT!',
+    'TRANG PHỤC #': 'OUTFIT #',
+    'RỜI KHỎI': 'LEAVE',
+    'NÓI CHUYỆN — ': 'TALK — ',
+    'XEM VŨ KHÍ': 'BROWSE WEAPONS',
+    'ĐỘ CYBERWARE': 'INSTALL CYBERWARE',
+    'MUA XE': 'BUY VEHICLES',
+    'GỌI ĐỒ UỐNG': 'ORDER A DRINK',
+    'CHƠI XÚC XẮC': 'PLAY DICE',
+    'ĐỔI THỜI TRANG': 'CHANGE OUTFIT',
+    'BĂNG CỦA BẠN': 'YOUR GANG',
+    'BĂNG NHẶT XÁC': 'SCAVS',
+    'MÓNG HỔ': 'TYGER CLAWS',
+    'ĐƯỜNG 6': '6TH STREET',
+    'BÓNG ĐÊM': 'NIGHT SHADOWS',
+    'RỒNG ĐỎ': 'RED DRAGONS',
+    'SÓI PHỐ': 'STREET WOLVES',
+    'HẮC LONG': 'BLACK DRAGONS',
+    'SAO NEON': 'NEON STARS',
+    'BỤI ĐỜI': 'STREET DUST',
+    'LƯỠI ĐÈN': 'LIGHT BLADES',
+    'MẠCH ĐEN': 'BLACK CIRCUIT',
+    'PHỐ MƯA': 'RAIN STREET',
+    'SÚNG QUÂN': 'GUN SHOP',
+    'CẤY SƠN': 'RIPPERDOC',
+    'XE TÚ': 'AUTOFIXER',
+    'SÒNG TÀI': 'CASINO',
+    'ĐỒ TRANG': 'WARDROBE',
+    'VŨ KHÍ': 'WEAPONS',
+    'THỜI TRANG': 'WARDROBE',
+  };
   const ACCENT = {
     'SONG BAC — TAI XIU': 'SÒNG BẠC — TÀI XỈU',
     'CHOI TAI XIU': 'CHƠI TÀI XỈU',
@@ -176,8 +293,8 @@
     'XIU (NHO)': 'XỈU (NHỎ)',
     'LAC XUC XAC': 'LẮC XÚC XẮC',
     'ROI SONG BAC': 'RỜI SÒNG BẠC',
-    'THANG! +EU$': 'THẮNG! +€$',
-    'THUA! -EU$': 'THUA! -€$',
+    'THANG! +$': 'THẮNG! +$',
+    'THUA! -$': 'THUA! -$',
     'NHA CAI AN TRON BAO!': 'NHÀ CÁI ĂN TRỌN BÃO!',
     'DANG LAC...': 'ĐANG LẮC...',
     'TAI': 'TÀI',
@@ -187,8 +304,8 @@
     'CHOI MOI': 'CHƠI MỚI',
     'SOI GUONG': 'SOI GƯƠNG',
     'GUONG SOI': 'GƯƠNG SOI',
-    'DOI DIEN MAO — €$100': 'ĐỔI DIỆN MẠO — €$100',
-    'BAN CO MUON THAY DOI DIEN MAO KHONG? CHI PHI LA €$100.': 'BẠN CÓ MUỐN THAY ĐỔI DIỆN MẠO KHÔNG? CHI PHÍ LÀ €$100.',
+    'DOI DIEN MAO — $100': 'ĐỔI DIỆN MẠO — $100',
+    'BAN CO MUON THAY DOI DIEN MAO KHONG? CHI PHI LA $100.': 'BẠN CÓ MUỐN THAY ĐỔI DIỆN MẠO KHÔNG? CHI PHÍ LÀ $100.',
     'AM THANH: BAT': 'ÂM THANH: BẬT',
     'AM THANH: TAT': 'ÂM THANH: TẮT',
     'CHON V': 'CHỌN V',
@@ -209,7 +326,13 @@
     'TAB TUI DO · M TAT TIENG · ESC TAM DUNG': 'TAB TÚI ĐỒ · M TẮT TIẾNG · ESC TẠM DỪNG',
     'TU DONG LUU MOI 12 GIAY': 'TỰ ĐỘNG LƯU MỖI 12 GIÂY',
     'XOAY NGANG MAY DE CHOI TOT NHAT': 'XOAY NGANG MÁY ĐỂ CHƠI TỐT NHẤT',
-    'DA NGA XUONG': 'ĐÃ NGÃ XUỐNG',
+    'MAT SINH HIEU': 'MẤT SINH HIỆU',
+    'THUONG': 'THƯỜNG',
+    'LA': 'LẠ',
+    'HIEM': 'HIẾM',
+    'SU THI': 'SỬ THI',
+    'HUYEN THOAI': 'HUYỀN THOẠI',
+    'KIET TAC': 'KIỆT TÁC',
     'HOI SINH SAU ': 'HỒI SINH SAU ',
     'PHI TRAUMA TEAM: ': 'PHÍ TRAUMA TEAM: ',
     'TAY KHONG': 'TAY KHÔNG',
@@ -239,7 +362,7 @@
     'LOI SCRIPT - XEM CONSOLE (F12), TAI LAI MANH (CTRL+SHIFT+R)': 'LỖI SCRIPT - XEM CONSOLE (F12), TẢI LẠI MẠNH (CTRL+SHIFT+R)',
     'DA TRANG BI: ': 'ĐÃ TRANG BỊ: ',
     'BIOMONITOR: TU DONG TIEM MAXDOC': 'BIOMONITOR: TỰ ĐỘNG TIÊM MAXDOC',
-    'HET MAXDOC - MAY BAN HANG BAN GIA €$50': 'HẾT MAXDOC - MÁY BÁN HÀNG BÁN GIÁ €$50',
+    'HET MAXDOC - MAY BAN HANG BAN GIA $50': 'HẾT MAXDOC - MÁY BÁN HÀNG BÁN GIÁ $50',
     'MAU DA DAY': 'MÁU ĐÃ ĐẦY',
     'MAU THAP - BAM [C] DUNG MAXDOC': 'MÁU THẤP - BẤM [C] DÙNG MAXDOC',
     'MAU THAP - MUA MAXDOC TAI MAY BAN HANG [E]': 'MÁU THẤP - MUA MAXDOC TẠI MÁY BÁN HÀNG [E]',
@@ -319,19 +442,30 @@
     'TRANG BI VAO O:': 'TRANG BỊ VÀO Ô:',
   };
   function lang() {
-    try { return window.NCPX_LANG || localStorage.getItem('ncpx_lang') || 'vi'; }
-    catch (e) { return 'vi'; }
+    if (typeof window !== 'undefined' && window.NCPX_LANG === 'en') return 'en';
+    return 'vi';
+  }
+
+  const EN_FROM_VI = Object.assign({}, EN);
+  for (const k in VI) {
+    EN_FROM_VI[VI[k]] = k;
+    if (ACCENT[VI[k]]) EN_FROM_VI[ACCENT[VI[k]]] = k;
+  }
+  function applyMap(s, map) {
+    if (map[s]) return map[s];
+    const keys = Object.keys(map).filter(k => k.length > 2).sort((a, b) => b.length - a.length);
+    for (const k of keys) {
+      if (s.indexOf(k) >= 0) s = s.split(k).join(map[k]);
+    }
+    return s;
   }
 
   function text(input) {
-    if (lang() === 'en') return String(input);
     let s = String(input);
-    if (VI[s]) return ACCENT[VI[s]] || VI[s];
-    const keys = Object.keys(VI).sort((a, b) => b.length - a.length);
-    for (const k of keys) {
-      if (s.indexOf(k) >= 0) s = s.split(k).join(ACCENT[VI[k]] || VI[k]);
-    }
-    return s;
+    if (lang() === 'en') return applyMap(s, EN_FROM_VI);
+    const viMap = {};
+    for (const k in VI) viMap[k] = ACCENT[VI[k]] || VI[k];
+    return applyMap(s, viMap);
   }
 
   window.NCPX_I18N = { text, lang };

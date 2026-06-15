@@ -21,6 +21,7 @@ function genWorld() {
   const t = new Uint8Array(W * H).fill(WT.BLDG);
   const rng = mulberry32(20770612);
   const idx = (x, y) => y * W + x;
+  const irndR = (r, a, b) => Math.floor(a + r() * (b - a + 1));
 
   // ---- carve roads ----
   const lo = RD[0], hi = RD[RD.length - 1] + 3;
@@ -28,9 +29,16 @@ function genWorld() {
     for (let y = lo; y <= hi; y++) for (let x = r; x < r + 4; x++) { t[idx(x, y)] = WT.ROAD; t[idx(y, x)] = WT.ROAD; }
   }
 
-  const bldgs = [], alleys = [], crateSpots = [], vends = [], holos = [], signs = [], lights = [], puddles = [], wrecks = [], trees = [], displays = [], roofs = [], dens = [], npcs = [], obst = [], bushes = [];
+  const bldgs = [], alleys = [], crateSpots = [], giftSpots = [], vends = [], holos = [], signs = [], lights = [], puddles = [], wrecks = [], trees = [], displays = [], roofs = [], dens = [], npcs = [], obst = [], bushes = [];
   const BUSH_BY_DIST = { center: 'hedge', watson: 'bush', westbrook: 'neon', santo: 'scrub', pacifica: 'grass', dogtown: 'dead' };
   const plant = (tx, ty, kind) => bushes.push({ x: tx * TILE + 8, y: ty * TILE + 8, r: 11, kind });
+  const tree = (tx, ty, big) => trees.push({
+    x: tx * TILE + 8 + (rng() * 4 - 2),
+    y: ty * TILE + 8 + (rng() * 4 - 2),
+    r: (big ? 7 : 4) + rng() * (big ? 5 : 3),
+    col: rng() < 0.55 ? '#1f6b3e' : rng() < 0.85 ? '#2f8f46' : '#62b34a'
+  });
+  const gift = (tx, ty, kind) => giftSpots.push({ x: tx * TILE + 8, y: ty * TILE + 8, kind: kind || (rng() < 0.82 ? 'ed' : 'doc'), amt: irndR(rng, 20, 95) });
   const shops = {};
   let spawnPt = null;
 
@@ -57,7 +65,9 @@ function genWorld() {
       spawnPt = { x: (ix + 6) * TILE, y: (iy + 7) * TILE + 8 };
       vends.push({ x: (ix + 1) * TILE + 8, y: (iy + 8) * TILE });
       crateSpots.push({ x: (ix + 10) * TILE, y: (iy + 9) * TILE });
+      gift(ix + 9, iy + 8, 'ed');
       plant(ix + 1, iy + 6, 'hedge'); plant(ix + 11, iy + 6, 'hedge');
+      tree(ix + 2, iy + 10, false); tree(ix + 10, iy + 10, false);
       continue;
     }
     if (isShop) {
@@ -68,6 +78,9 @@ function genWorld() {
       bldgs.push({ x: ix + 1, y: iy, w: 10, h: 6, roof: '#24242e', neon: cols[isShop], sign: { text: names[isShop], col: cols[isShop] }, ent: true, theme: isShop });
       shops[isShop] = { x: (ix + 6) * TILE, y: (iy + 2) * TILE + 8, name: names[isShop] };
       vends.push({ x: (ix + 1) * TILE + 8, y: (iy + 9) * TILE });
+      if (rng() < 0.8) crateSpots.push({ x: (ix + 10) * TILE, y: (iy + 10) * TILE });
+      if (rng() < 0.65) gift(ix + 2 + (rng() * 8 | 0), iy + 8 + (rng() * 3 | 0));
+      tree(ix + 1, iy + 10, false); tree(ix + 11, iy + 10, false);
       if (isShop === 'cars') {
         displays.push({ x: (ix + 3) * TILE, y: (iy + 9) * TILE, id: 'type66' });
         displays.push({ x: (ix + 9) * TILE, y: (iy + 9) * TILE, id: 'shion' });
@@ -86,7 +99,9 @@ function genWorld() {
       obst.push({ x: (ix + 9) * TILE - 4, y: (iy + 9) * TILE + 2, w: 8, h: 9 });
       vends.push({ x: (ix + 1) * TILE + 8, y: (iy + 10) * TILE });
       crateSpots.push({ x: (ix + 10) * TILE, y: (iy + 10) * TILE });
+      gift(ix + 6, iy + 10, 'ed');
       plant(ix + 2, iy + 7, 'neon'); plant(ix + 10, iy + 7, 'neon');
+      tree(ix + 1, iy + 10, false); tree(ix + 11, iy + 10, false);
       continue;
     }
 
@@ -98,6 +113,7 @@ function genWorld() {
         crateSpots.push({ x: (ix + 2 + k * 2) * TILE + 8, y: (iy + 2) * TILE + 8 });
         crateSpots.push({ x: (ix + 2 + k * 2) * TILE + 8, y: (iy + 10) * TILE + 8 });
       }
+      for (let k = 0; k < 3; k++) gift(ix + 2 + (rng() * 8 | 0), iy + 3 + (rng() * 7 | 0));
       obst.push({ x: (ix + 2) * TILE, y: (iy + 5) * TILE, w: 32, h: 16 });
       obst.push({ x: (ix + 8) * TILE, y: (iy + 5) * TILE, w: 32, h: 16 });
       const dKind = BUSH_BY_DIST[distK] || 'bush';
@@ -105,6 +121,7 @@ function genWorld() {
       plant(ix + 11, iy + 1, dKind);
       plant(ix + 1, iy + 11, dKind);
       plant(ix + 11, iy + 11, dKind);
+      for (let k = 0; k < 5; k++) tree(ix + 1 + (rng() * 10 | 0), iy + 1 + (rng() * 10 | 0), false);
       continue;
     }
 
@@ -112,20 +129,25 @@ function genWorld() {
     const roll = rng();
     if (roll < 0.14) { // plaza
       setRect(ix, iy, 12, 12, WT.PLAZA);
-      for (let k = 0; k < 3; k++) crateSpots.push({ x: (ix + 1 + (rng() * 10 | 0)) * TILE + 8, y: (iy + 1 + (rng() * 10 | 0)) * TILE + 8 });
+      for (let k = 0; k < 5; k++) crateSpots.push({ x: (ix + 1 + (rng() * 10 | 0)) * TILE + 8, y: (iy + 1 + (rng() * 10 | 0)) * TILE + 8 });
+      for (let k = 0; k < 2; k++) gift(ix + 1 + (rng() * 10 | 0), iy + 1 + (rng() * 10 | 0));
       vends.push({ x: (ix + (rng() * 11 | 0)) * TILE + 8, y: iy * TILE + 8 });
       holos.push({ x: (ix + 6) * TILE, y: (iy + 6) * TILE, text: BRANDS[rng() * BRANDS.length | 0], col: NEON[rng() * NEON.length | 0] });
       for (let k = 0; k < 3; k++) plant(ix + 1 + (rng() * 10 | 0), iy + 1 + (rng() * 10 | 0), dKind);
+      for (let k = 0; k < 4; k++) tree(ix + 1 + (rng() * 10 | 0), iy + 1 + (rng() * 10 | 0), false);
     } else if (roll < 0.24) { // park
       setRect(ix, iy, 12, 12, WT.PARK);
-      for (let k = 0; k < 7; k++) trees.push({ x: (ix + 1 + rng() * 10) * TILE, y: (iy + 1 + rng() * 10) * TILE, r: 5 + rng() * 6, col: rng() < 0.5 ? '#1d4030' : '#3a2a4a' });
-      for (let k = 0; k < 2; k++) crateSpots.push({ x: (ix + 1 + (rng() * 10 | 0)) * TILE + 8, y: (iy + 1 + (rng() * 10 | 0)) * TILE + 8 });
+      for (let k = 0; k < 13; k++) tree(ix + 1 + (rng() * 10 | 0), iy + 1 + (rng() * 10 | 0), true);
+      for (let k = 0; k < 4; k++) crateSpots.push({ x: (ix + 1 + (rng() * 10 | 0)) * TILE + 8, y: (iy + 1 + (rng() * 10 | 0)) * TILE + 8 });
+      for (let k = 0; k < 2; k++) gift(ix + 1 + (rng() * 10 | 0), iy + 1 + (rng() * 10 | 0), rng() < 0.3 ? 'doc' : 'ed');
       for (let k = 0; k < 6; k++) plant(ix + 1 + (rng() * 10 | 0), iy + 1 + (rng() * 10 | 0), rng() < 0.5 ? 'grass' : dKind);
     } else if (roll < 0.32) { // parking lot
       setRect(ix, iy, 12, 12, WT.PLAZA);
       for (let k = 0; k < 3; k++) wrecks.push({ x: (ix + 1 + (rng() * 9 | 0)) * TILE, y: (iy + 1 + (rng() * 9 | 0)) * TILE, a: rng() * 6.3 });
-      for (let k = 0; k < 2; k++) crateSpots.push({ x: (ix + 1 + (rng() * 10 | 0)) * TILE + 8, y: (iy + 1 + (rng() * 10 | 0)) * TILE + 8 });
+      for (let k = 0; k < 4; k++) crateSpots.push({ x: (ix + 1 + (rng() * 10 | 0)) * TILE + 8, y: (iy + 1 + (rng() * 10 | 0)) * TILE + 8 });
+      if (rng() < 0.65) gift(ix + 1 + (rng() * 10 | 0), iy + 1 + (rng() * 10 | 0));
       for (let k = 0; k < 2; k++) plant(ix + 1 + (rng() * 10 | 0), iy + 1 + (rng() * 10 | 0), rng() < 0.5 ? 'scrub' : dKind);
+      for (let k = 0; k < 2; k++) tree(ix + 1 + (rng() * 10 | 0), iy + 1 + (rng() * 10 | 0), false);
     } else { // buildings with alleys
       const pat = rng();
       const rects = [];
@@ -145,14 +167,90 @@ function genWorld() {
         if (rng() < 0.32) { b.ent = true; b.den = rng() < 0.5; b.theme = b.den ? 'den' : 'flat'; }
         bldgs.push(b);
       }
-      if (rng() < 0.5 && alleys.length) { const a = alleys[alleys.length - 1]; crateSpots.push({ x: a.x * TILE + 8, y: a.y * TILE + 8 }); }
+      if (rng() < 0.8 && alleys.length) { const a = alleys[alleys.length - 1]; crateSpots.push({ x: a.x * TILE + 8, y: a.y * TILE + 8 }); }
+      if (rng() < 0.35 && alleys.length) { const a = alleys[(rng() * alleys.length) | 0]; gift(a.x, a.y); }
       if (rng() < 0.45 && alleys.length) { const a = alleys[(rng() * alleys.length) | 0]; plant(a.x, a.y, dKind); }
       // street planters on the sidewalk ring
       if (rng() < 0.75) plant(bx + 1 + (rng() * 12 | 0), rng() < 0.5 ? by : by + 13, dKind);
       if (rng() < 0.75) plant(rng() < 0.5 ? bx : bx + 13, by + 1 + (rng() * 12 | 0), dKind);
+      if (rng() < 0.7) tree(bx + 1 + (rng() * 12 | 0), rng() < 0.5 ? by : by + 13, false);
+      if (rng() < 0.7) tree(rng() < 0.5 ? bx : bx + 13, by + 1 + (rng() * 12 | 0), false);
       if (rng() < 0.45) holos.push({ x: (ix + 3 + rng() * 6) * TILE, y: (iy + 3 + rng() * 6) * TILE, text: BRANDS[rng() * BRANDS.length | 0], col: NEON[rng() * NEON.length | 0] });
     }
   }
+
+  // ---- edge sprawl: continue the same 4-road / 14-block city rhythm to the map edge ----
+  for (const r of RD) {
+    setRect(RD[RD.length - 1] + 4, r, 22, 4, WT.ROAD);
+    setRect(r, RD[RD.length - 1] + 4, 4, 22, WT.ROAD);
+  }
+  setRect(RD[RD.length - 1] + 18, lo, 4, RD[RD.length - 1] + 22 - lo, WT.ROAD);
+  setRect(lo, RD[RD.length - 1] + 18, RD[RD.length - 1] + 22 - lo, 4, WT.ROAD);
+
+  const addFringeBlock = (bx, by, label) => {
+    if (bx < 1 || by < 1 || bx + 14 >= W - 1 || by + 14 >= H - 1) return;
+    setRect(bx, by, 14, 14, WT.WALK);
+    const ix = bx + 1, iy = by + 1, iw = 12, ih = 12;
+    const distK = _districtOfTile(bx + 7, by + 7);
+    const dCol = DISTRICTS[distK].col;
+    const dKind = BUSH_BY_DIST[distK] || 'bush';
+    const roll = rng();
+    if (roll < 0.10) {
+      setRect(ix, iy, iw, ih, WT.PLAZA);
+      holos.push({ x: (ix + 6) * TILE, y: (iy + 6) * TILE, text: label || BRANDS[rng() * BRANDS.length | 0], col: NEON[rng() * NEON.length | 0] });
+      for (let k = 0; k < 5; k++) crateSpots.push({ x: (ix + 1 + (rng() * 10 | 0)) * TILE + 8, y: (iy + 1 + (rng() * 10 | 0)) * TILE + 8 });
+      for (let k = 0; k < 2; k++) gift(ix + 1 + (rng() * 10 | 0), iy + 1 + (rng() * 10 | 0));
+      if (rng() < 0.65) plant(ix + 1 + (rng() * 10 | 0), iy + 1 + (rng() * 10 | 0), dKind);
+      for (let k = 0; k < 4; k++) tree(ix + 1 + (rng() * 10 | 0), iy + 1 + (rng() * 10 | 0), false);
+      return;
+    }
+
+    const rects = [];
+    const pat = rng();
+    if (pat < 0.22) rects.push([ix, iy, 12, 12]);
+    else if (pat < 0.50) {
+      rects.push([ix, iy, 12, 5], [ix, iy + 7, 12, 5]);
+      setRect(ix, iy + 5, 12, 2, WT.WALK);
+      _markAlley(alleys, ix, iy + 5, 12, 2);
+    } else if (pat < 0.78) {
+      rects.push([ix, iy, 5, 12], [ix + 7, iy, 5, 12]);
+      setRect(ix + 5, iy, 2, 12, WT.WALK);
+      _markAlley(alleys, ix + 5, iy, 2, 12);
+    } else {
+      const leftW = Math.max(5, Math.min(7, (iw / 2) | 0));
+      const topH = Math.max(5, Math.min(7, (ih / 2) | 0));
+      const rightX = ix + leftW + 2, botY = iy + topH + 2;
+      rects.push(
+        [ix, iy, leftW, topH],
+        [rightX, iy, Math.max(4, iw - leftW - 2), topH],
+        [ix, botY, leftW, Math.max(4, ih - topH - 2)],
+        [rightX, botY, Math.max(4, iw - leftW - 2), Math.max(4, ih - topH - 2)]
+      );
+      setRect(ix + leftW, iy, 2, ih, WT.WALK);
+      setRect(ix, iy + topH, iw, 2, WT.WALK);
+      _markAlley(alleys, ix + leftW, iy, 2, ih);
+      _markAlley(alleys, ix, iy + topH, iw, 2);
+    }
+    const roofsCol = ['#1c1c26', '#202030', '#24222e', '#1e242c', '#2a1d25'];
+    for (const r of rects) {
+      setRect(r[0], r[1], r[2], r[3], WT.BLDG);
+      const b = { x: r[0], y: r[1], w: r[2], h: r[3], roof: roofsCol[rng() * roofsCol.length | 0], neon: rng() < 0.55 ? dCol : null, sign: null };
+      if (rng() < 0.42) b.sign = { text: BRANDS[rng() * BRANDS.length | 0], col: NEON[rng() * NEON.length | 0] };
+      if (rng() < 0.24 && r[2] >= 6 && r[3] >= 6) { b.ent = true; b.theme = rng() < 0.35 ? 'den' : 'flat'; b.den = b.theme === 'den'; }
+      bldgs.push(b);
+    }
+    if (rng() < 0.82 && alleys.length) { const a = alleys[alleys.length - 1]; crateSpots.push({ x: a.x * TILE + 8, y: a.y * TILE + 8 }); }
+    if (rng() < 0.35 && alleys.length) { const a = alleys[(rng() * alleys.length) | 0]; gift(a.x, a.y); }
+    if (rng() < 0.75) plant(bx + 1 + (rng() * 12 | 0), rng() < 0.5 ? by : by + 13, dKind);
+    if (rng() < 0.75) plant(rng() < 0.5 ? bx : bx + 13, by + 1 + (rng() * 12 | 0), dKind);
+    if (rng() < 0.72) tree(bx + 1 + (rng() * 12 | 0), rng() < 0.5 ? by : by + 13, false);
+    if (rng() < 0.72) tree(rng() < 0.5 ? bx : bx + 13, by + 1 + (rng() * 12 | 0), false);
+    if (rng() < 0.45) holos.push({ x: (ix + 3 + rng() * 6) * TILE, y: (iy + 3 + rng() * 6) * TILE, text: BRANDS[rng() * BRANDS.length | 0], col: NEON[rng() * NEON.length | 0] });
+  };
+
+  for (let bj = 0; bj < RD.length - 1; bj++) addFringeBlock(RD[RD.length - 1] + 4, RD[bj] + 4, 'EAST');
+  for (let bi = 0; bi < RD.length - 1; bi++) addFringeBlock(RD[bi] + 4, RD[RD.length - 1] + 4, 'SOUTH');
+  addFringeBlock(RD[RD.length - 1] + 4, RD[RD.length - 1] + 4, 'EDGE');
 
   // ---- carve interiors: floors, doors, indoor loot, gang dens ----
   for (const b of bldgs) {
@@ -199,10 +297,12 @@ function genWorld() {
   }
   // lane dashes
   c.fillStyle = '#34344a';
-  const inRoadSpan = p => RD.some(r => p >= r && p < r + 4);
-  for (const r of RD) {
+  const roadStarts = RD.concat([RD[RD.length - 1] + 18]);
+  const inRoadSpan = p => roadStarts.some(r => p >= r && p < r + 4);
+  const dashHi = RD[RD.length - 1] + 21;
+  for (const r of roadStarts) {
     const m = (r + 2) * TILE;
-    for (let p = lo * TILE; p < (hi + 1) * TILE; p += 12) {
+    for (let p = lo * TILE; p < (dashHi + 1) * TILE; p += 12) {
       if (!inRoadSpan(Math.floor(p / TILE))) { c.fillRect(m, p, 1, 6); c.fillRect(p, m, 6, 1); }
     }
   }
@@ -268,7 +368,7 @@ function genWorld() {
   ];
 
   WORLD = {
-    W, H, t, cv, mini, shops, vends, holos, signs, lights, puddles, crateSpots, displays, spawn, skippySpot, roofs, dens, npcs, obst, bushes, markets,
+    W, H, t, cv, mini, shops, vends, holos, signs, lights, puddles, crateSpots, giftSpots, displays, spawn, skippySpot, roofs, dens, npcs, obst, bushes, trees, markets,
     solidAt(tx, ty) { return tx < 0 || ty < 0 || tx >= W || ty >= H || t[ty * W + tx] === WT.BLDG; },
     solidPx(x, y) { return this.solidAt(Math.floor(x / TILE), Math.floor(y / TILE)); },
     // walls + furniture/NPC bodies: blocks movers; bullets use solidPx and fly over furniture
@@ -355,7 +455,7 @@ function _bakeInterior(c, b, r, rng, npcs, obst) {
     c.fillStyle = floorCol; c.fillRect(dx * TILE, py + ph - TILE, TILE, TILE);
     c.fillStyle = '#2a3a44'; c.fillRect(dx * TILE + 3, py + ph - 10, 10, 6);
   }
-  const cx = fx + fw / 2, NAMES = typeof SHOP_VENDOR_NAMES !== 'undefined' ? SHOP_VENDOR_NAMES : { guns: 'QUÂN', ripper: 'SƠN', cars: 'TÚ', bar: 'LAN', casino: 'TÀI', clothing: 'TRANG' };
+  const cx = fx + fw / 2, NAMES = typeof SHOP_VENDOR_NAMES !== 'undefined' ? SHOP_VENDOR_NAMES : { guns: 'VŨ KHÍ', ripper: 'CYBER', cars: 'XE', bar: 'BAR', casino: 'CASINO', clothing: 'THỜI TRANG' };
   const solid = (x, y, w, h) => obst.push({ x, y, w, h });
   const counter = col => {
     c.fillStyle = col; c.fillRect(fx + 4, fy + 12, fw - 8, 9);

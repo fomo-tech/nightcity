@@ -36,7 +36,7 @@ const SAMPLE_MOD = {
 
   // ---- event hooks: (data, G) => { ... } ----
   on: {
-    kill: (d, g) => { if (Math.random() < 0.04) { g.eddies += 25; msg('LUCKY SCRAP: +€$25', '#2ecc71'); } },
+    kill: (d, g) => { if (Math.random() < 0.04) { g.eddies += 25; msg('LUCKY SCRAP: +$25', '#2ecc71'); } },
     levelup: d => { if (d.lvl === 10) banner('MOD MILESTONE', 'LEVEL 10 — THE STREETS KNOW YOUR NAME', '#00ff9f'); },
   },
 };

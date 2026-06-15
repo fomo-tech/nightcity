@@ -38,6 +38,10 @@ function cleanText(value, fallback, max) {
   return String(value || fallback).replace(/[^\p{L}\p{N}_ -]/gu, '').trim().slice(0, max) || fallback;
 }
 
+function cleanIcon(value, fallback) {
+  return String(value || fallback || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 4) || fallback || '';
+}
+
 function cleanRoom(value) {
   return String(value || 'default').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40) || 'default';
 }
@@ -191,7 +195,7 @@ async function main() {
           fromName: p.name,
           gang: cleanText(msg.gang || p.gang, p.gang, 18).toUpperCase(),
           gangKey: cleanText(msg.gangKey || p.gangKey, p.gangKey, 18).toLowerCase(),
-          gangIcon: cleanText(msg.gangIcon || p.gangIcon, p.gangIcon, 4).toUpperCase(),
+          gangIcon: cleanIcon(msg.gangIcon || p.gangIcon, p.gangIcon),
           gangIconCol: cleanColor(msg.gangIconCol || p.gangIconCol, p.gangIconCol),
         }));
         return;
@@ -300,7 +304,7 @@ async function main() {
       p.name = cleanText(msg.name, 'MERC', 18).toUpperCase();
       p.gang = cleanText(msg.gang, 'SOLO', 18).toUpperCase();
       p.gangKey = cleanText(msg.gangKey, 'solo', 18).toLowerCase();
-      p.gangIcon = cleanText(msg.gangIcon, '', 4).toUpperCase();
+      p.gangIcon = cleanIcon(msg.gangIcon, '');
       p.gangIconCol = cleanColor(msg.gangIconCol, '#8a93a6');
       p.x = Number.isFinite(msg.x) ? msg.x : p.x;
       p.y = Number.isFinite(msg.y) ? msg.y : p.y;

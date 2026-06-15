@@ -5,7 +5,7 @@ let CV = null, C = null, G = null;
 function activeSaveKey() {
   return (typeof window !== 'undefined' && window.NCPX_SAVE_KEY) || SAVE_KEY;
 }
-const WORLD_ZOOM = 1.0;
+let WORLD_ZOOM = 1.0;
 
 // ---- helpers ----
 function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
@@ -68,6 +68,15 @@ function sameGangProfile(a, b) {
   const bg = String((b && b.gang) || '').toUpperCase();
   return ak && bk && ak !== 'SOLO' && bk !== 'SOLO' ? ak === bk && ag === bg : ag && ag !== 'SOLO' && ag === bg;
 }
+const MAX_GANG_MEMBERS = 10;
+function gangMemberCount(profile) {
+  profile = profile || playerProfile();
+  if (!profile || !profile.gang || profile.gang === 'SOLO') return 0;
+  let n = sameGangProfile(profile, playerProfile()) ? 1 : 0;
+  for (const rp of G.remotePlayers || []) if (Number(rp.hp) > 0 && sameGangProfile(rp, profile)) n++;
+  return n;
+}
+function gangHasRoom(profile) { return gangMemberCount(profile) < MAX_GANG_MEMBERS; }
 function sendRemoteHit(rp, dmg, crit, weapon) {
   if (!rp || !rp.id) return;
   const amt = Math.max(0, Math.round(dmg) || 0);
@@ -165,39 +174,37 @@ const TOUCH = {
 function touchButtons() {
   const comfy = !!window.__NCPX_MOBILE_COMFY;
   const portrait = VIEW_H > VIEW_W;
-  const right = VIEW_W - (comfy ? 36 : 32);
-  const topY = portrait ? 96 : 24;
   if (portrait) {
     const B = [
-      { k: 'pause', x: right, y: topY - 48, r: comfy ? 18 : 15, label: 'II' },
-      { k: 'radio', x: right, y: topY, r: comfy ? 18 : 15, label: 'FM' },
-      { k: 'fire', x: right, y: VIEW_H - 82, r: comfy ? 26 : 22, label: 'FIRE' },
-      { k: 'dash', x: right, y: VIEW_H - 146, r: comfy ? 20 : 17, label: 'DASH' },
-      { k: 'reload', x: right - 55, y: VIEW_H - 160, r: comfy ? 18 : 15, label: 'REL' },
-      { k: 'doc', x: right - 55, y: VIEW_H - 215, r: comfy ? 18 : 15, label: 'C' },
-      { k: 'use', x: right, y: VIEW_H - 210, r: comfy ? 18 : 15, label: 'E' },
-      { k: 'wpn', x: right, y: VIEW_H - 270, r: comfy ? 18 : 15, label: 'WPN' },
-      { k: 'car', x: right - 55, y: VIEW_H - 270, r: comfy ? 18 : 15, label: 'V' },
-      { k: 'inv', x: right - 55, y: VIEW_H - 325, r: comfy ? 18 : 15, label: 'TAB' },
+      { k: 'pause', x: 25, y: 76, r: comfy ? 18 : 15, label: 'II' },
+      { k: 'radio', x: 63, y: 76, r: comfy ? 18 : 15, label: 'FM' },
+      { k: 'car', x: 101, y: 76, r: comfy ? 18 : 15, label: 'V' },
+      { k: 'inv', x: 139, y: 76, r: comfy ? 18 : 15, label: 'TAB' },
+      { k: 'fire', x: VIEW_W - 90, y: VIEW_H - 75, r: comfy ? 26 : 22, label: 'FIRE' },
+      { k: 'dash', x: VIEW_W - 35, y: VIEW_H - 75, r: comfy ? 20 : 17, label: 'DASH' },
+      { k: 'doc', x: VIEW_W - 90, y: VIEW_H - 130, r: comfy ? 18 : 15, label: 'C' },
+      { k: 'use', x: VIEW_W - 35, y: VIEW_H - 130, r: comfy ? 18 : 15, label: 'E' },
+      { k: 'wpn', x: VIEW_W - 90, y: VIEW_H - 185, r: comfy ? 18 : 15, label: 'WPN' },
+      { k: 'reload', x: VIEW_W - 35, y: VIEW_H - 185, r: comfy ? 18 : 15, label: 'REL' },
     ];
-    if (G.os) B.push({ k: 'os', x: right, y: VIEW_H - 325, r: comfy ? 18 : 15, label: 'Q' });
-    if (G.cyber.camo) B.push({ k: 'camo', x: right, y: VIEW_H - 380, r: comfy ? 18 : 15, label: 'F' });
+    if (G.os) B.push({ k: 'os', x: VIEW_W - 35, y: VIEW_H - 240, r: comfy ? 18 : 15, label: 'Q' });
+    if (G.cyber.camo) B.push({ k: 'camo', x: VIEW_W - 90, y: VIEW_H - 240, r: comfy ? 18 : 15, label: 'F' });
     return B;
   }
   const B = [
-    { k: 'fire', x: VIEW_W - 60, y: VIEW_H - 60, r: comfy ? 26 : 22, label: 'FIRE' },
-    { k: 'dash', x: VIEW_W - 60, y: VIEW_H - 120, r: comfy ? 20 : 17, label: 'DASH' },
-    { k: 'reload', x: VIEW_W - 120, y: VIEW_H - 120, r: comfy ? 18 : 15, label: 'REL' },
-    { k: 'doc', x: VIEW_W - 170, y: VIEW_H - 120, r: comfy ? 18 : 15, label: 'C' },
-    { k: 'use', x: VIEW_W - 220, y: VIEW_H - 120, r: comfy ? 18 : 15, label: 'E' },
-    { k: 'wpn', x: VIEW_W - 120, y: VIEW_H - 25, r: comfy ? 18 : 15, label: 'WPN' },
-    { k: 'car', x: VIEW_W - 170, y: VIEW_H - 25, r: comfy ? 18 : 15, label: 'V' },
-    { k: 'inv', x: VIEW_W - 220, y: VIEW_H - 25, r: comfy ? 18 : 15, label: 'TAB' },
-    { k: 'pause', x: VIEW_W - 166, y: 24, r: comfy ? 19 : 16, label: 'II' },
-    { k: 'radio', x: VIEW_W - 70, y: 24, r: comfy ? 19 : 16, label: 'FM' },
+    { k: 'pause', x: 175, y: 26, r: comfy ? 19 : 16, label: 'II' },
+    { k: 'radio', x: 215, y: 26, r: comfy ? 19 : 16, label: 'FM' },
+    { k: 'car', x: 255, y: 26, r: comfy ? 19 : 16, label: 'V' },
+    { k: 'inv', x: 295, y: 26, r: comfy ? 19 : 16, label: 'TAB' },
+    { k: 'fire', x: VIEW_W - 105, y: VIEW_H - 75, r: comfy ? 26 : 22, label: 'FIRE' },
+    { k: 'dash', x: VIEW_W - 45, y: VIEW_H - 75, r: comfy ? 22 : 18, label: 'DASH' },
+    { k: 'doc', x: VIEW_W - 105, y: VIEW_H - 135, r: comfy ? 18 : 15, label: 'C' },
+    { k: 'use', x: VIEW_W - 45, y: VIEW_H - 135, r: comfy ? 18 : 15, label: 'E' },
+    { k: 'wpn', x: VIEW_W - 105, y: VIEW_H - 195, r: comfy ? 18 : 15, label: 'WPN' },
+    { k: 'reload', x: VIEW_W - 45, y: VIEW_H - 195, r: comfy ? 18 : 15, label: 'REL' },
   ];
-  if (G.os) B.push({ k: 'os', x: VIEW_W - 270, y: VIEW_H - 25, r: comfy ? 18 : 15, label: 'Q' });
-  if (G.cyber.camo) B.push({ k: 'camo', x: VIEW_W - 270, y: VIEW_H - 120, r: comfy ? 18 : 15, label: 'F' });
+  if (G.os) B.push({ k: 'os', x: VIEW_W - 45, y: VIEW_H - 255, r: comfy ? 18 : 15, label: 'Q' });
+  if (G.cyber.camo) B.push({ k: 'camo', x: VIEW_W - 105, y: VIEW_H - 255, r: comfy ? 18 : 15, label: 'F' });
   return B;
 }
 
@@ -234,27 +241,23 @@ function touchStartPt(id, pt) {
     G.mouse.sx = pt.x; G.mouse.sy = pt.y; G.mouse.moved = true;
     return;
   }
-  // Keep the weapon card tappable even when mobile action buttons sit nearby.
-  const preWcx = VIEW_W - 188, preWcy = VIEW_H - 56;
-  if (pt.x >= preWcx && pt.y >= preWcy) {
-    for (let i = 0; i < 3; i++) {
-      const bx = preWcx + 120 + i * 20;
-      if (pt.x >= bx - 2 && pt.x < bx + 20 && pt.y >= preWcy + 18 && pt.y < preWcy + 40) {
-        if (G.loadout[i]) { G.slot = i; cycleSlot(0); }
-        return;
-      }
-    }
-    G.pressed.add('KeyR');
-    return;
-  }
+  let bestBtn = null;
+  let bestDist = Infinity;
   for (const b of touchButtons()) {
     const slop = window.__NCPX_MOBILE_COMFY ? 16 : 10;
-    if (Math.hypot(pt.x - b.x, pt.y - b.y) <= b.r + slop) {
-      TOUCH.ids.set(id, { role: 'btn', k: b.k });
-      TOUCH.held[b.k] = true;
-      touchBtnDown(b.k);
-      return;
+    const dist = Math.hypot(pt.x - b.x, pt.y - b.y);
+    if (dist <= b.r + slop) {
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestBtn = b;
+      }
     }
+  }
+  if (bestBtn) {
+    TOUCH.ids.set(id, { role: 'btn', k: bestBtn.k });
+    TOUCH.held[bestBtn.k] = true;
+    touchBtnDown(bestBtn.k);
+    return;
   }
   // weapon card: tap a slot box to equip it, tap the card body to reload
   const wcx = VIEW_W - 188, wcy = VIEW_H - 56;
@@ -422,7 +425,7 @@ function newGame() {
     weapons: {}, loadout: [null, null, null], slot: 0,
     cars: {}, activeCar: null, car: null, driving: false, summonCd: 0,
     cyber: {}, os: null,
-    enemies: [], enemySeq: 0, bullets: [], parts: [], texts: [], pickups: [], crates: [], civs: [], civSeq: 0, slashes: [], glows: [], remotePlayers: [], remoteLerp: {}, onlineCount: 0, onlineRoom: 'default', roomIsHost: false, npcSyncT: 0, npcSyncSeq: 0, netAct: null, netActSeq: 0, netActRepeat: 0,
+    enemies: [], enemySeq: 0, bullets: [], parts: [], decals: [], texts: [], pickups: [], crates: [], civs: [], civSeq: 0, slashes: [], glows: [], remotePlayers: [], remoteLerp: {}, onlineCount: 0, onlineRoom: 'default', roomIsHost: false, npcSyncT: 0, npcSyncSeq: 0, netAct: null, netActSeq: 0, netActRepeat: 0,
     bounty: null, bountyT: 10, bountyCount: 0, psychoPending: 0,
     airdrop: null, airdropT: 90, talk: null, fade: null,
     skippyFound: false, skippyHintT: 0,
@@ -545,6 +548,9 @@ function startGame(cont, gender) {
   G.gender = (gender || profileGender) === 'f' ? 'f' : 'm';
   G.p = makePlayer(WORLD.spawn.x, WORLD.spawn.y);
   G.crates = WORLD.crateSpots.map(s => ({ x: s.x, y: s.y, hp: 1, respT: 0 }));
+  G.pickups = WORLD.giftSpots.map(s => s.kind === 'doc'
+    ? { kind: 'doc', x: s.x, y: s.y, vx: 0, vy: 0, t: 240 }
+    : { kind: 'ed', amt: s.amt || irnd(20, 95), x: s.x, y: s.y, vx: 0, vy: 0, t: 240 });
   if (cont && applySave()) {
     recalcStats(); G.p.hp = clamp(G.p.hp, 1, G.p.maxhp);
     banner('WELCOME BACK TO NIGHT CITY', DISTRICTS[WORLD.districtAt(G.p.x, G.p.y)].name, '#05d9e8');
@@ -587,7 +593,7 @@ function boot() {
   window.addEventListener('keydown', e => {
     if (['Tab', 'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
     if (e.repeat) return;
-    if (G && G.state === 'title' && G.titleMode === 'name') {
+    if (G && ((G.state === 'title' && G.titleMode === 'name') || (G.state === 'play' && G.ui === 'gang'))) {
       if (e.key && e.key.length === 1) G.textQ.push(e.key);
       else if (e.code === 'Backspace') G.textQ.push('\b');
     }
@@ -804,6 +810,7 @@ function cycleSlot(d) {
 // =================== main step ===================
 function step(dt) {
   window.G = G;
+  WORLD_ZOOM = TOUCH.on ? 1.35 : 1.0;
   G.rt += dt; G.frame++;
   updateRain(dt);
   applyTouch();
@@ -848,6 +855,7 @@ function step(dt) {
     if (!npcReplica) updateCivs(dtW);
     if (!npcReplica) updateSpawns(dt);
     if (!npcReplica) updateGangWars(dt);
+    updateGangBots(dt);
     updateMarketWar(dt);
     if (!npcReplica) updateAirdrop(dt, dtW);
     updateWeather(dt);
@@ -1181,7 +1189,7 @@ function updatePlayer(dt, dtP) {
     G.maxdocs--; p.useT = 0.4; p.bioCd = 45; msg('BIOMONITOR: MAXDOC AUTO-INJECTED', '#2ecc71');
   }
   if (press('KeyC') && p.useT <= 0) {
-    if (G.maxdocs <= 0) { msg('NO MAXDOCS — VENDING MACHINES SELL THEM FOR €$50', '#ff5a5a'); SFX.deny(); }
+    if (G.maxdocs <= 0) { msg('NO MAXDOCS — VENDING MACHINES SELL THEM FOR $50', '#ff5a5a'); SFX.deny(); }
     else if (p.hp >= p.maxhp) { msg('HP ALREADY FULL', '#8a93a6'); }
     else { G.maxdocs--; p.useT = 1.0; SFX.drink(); }
   }
@@ -1301,12 +1309,12 @@ function moveCollide(ent, dx, dy, r) {
 }
 
 const SHOP_PROMPTS = {
-  guns: 'XEM SÚNG — ' + SHOP_VENDOR_NAMES.guns,
-  ripper: 'ĐỘ CYBERWARE — ' + SHOP_VENDOR_NAMES.ripper,
-  cars: 'MUA XE — ' + SHOP_VENDOR_NAMES.cars,
-  bar: 'GỌI ĐỒ UỐNG — ' + SHOP_VENDOR_NAMES.bar,
-  casino: 'CHƠI XÚC XẮC — ' + SHOP_VENDOR_NAMES.casino,
-  clothing: 'ĐỔI DIỆN MẠO — ' + SHOP_VENDOR_NAMES.clothing,
+  guns: 'XEM VŨ KHÍ',
+  ripper: 'ĐỘ CYBERWARE',
+  cars: 'MUA XE',
+  bar: 'GỌI ĐỒ UỐNG',
+  casino: 'CHƠI XÚC XẮC',
+  clothing: 'ĐỔI THỜI TRANG',
 };
 
 function interactScan() {
@@ -1353,7 +1361,7 @@ function interactScan() {
   }
   for (const v of WORLD.vends) {
     if (distPx(p.x, p.y, v.x, v.y) < 22) {
-      G.prompt = '[E] MAXDOC — €$50' + (G.maxdocs >= 5 ? ' (FULL)' : '');
+      G.prompt = '[E] MAXDOC — $50' + (G.maxdocs >= 5 ? ' (FULL)' : '');
       if (press('KeyE')) vendBuy();
       return;
     }
@@ -1532,7 +1540,9 @@ function updateBullets(dt) {
           }
         }
         for (const cr of G.crates) {
-          if (cr.hp > 0 && distPx(b.x, b.y, cr.x, cr.y) < 8) { breakCrate(cr); if (!b.pierce) b.dead = true; }
+          if (cr.hp <= 0) continue;
+          const dx = b.x - cr.x, dy = b.y - cr.y;
+          if (dx * dx + dy * dy < 64) { breakCrate(cr); if (!b.pierce) b.dead = true; }
         }
       } else {
         if (G.driving && G.car && distPx(b.x, b.y, G.car.x, G.car.y) < 12) { damageCar(b.dmg); b.dead = true; break; }
@@ -1608,7 +1618,7 @@ function killEnemy(e) {
     const next = ICONICS.find(id => !G.weapons[id]);
     if (next) G.pickups.push({ kind: 'wpn', id: next, x: e.x, y: e.y, vx: 0, vy: 0, t: 120 });
     else G.pickups.push({ kind: 'ed', amt: 5000, x: e.x, y: e.y, vx: 0, vy: 0, t: 120 });
-    banner('CYBERPSYCHO NEUTRALIZED', e.name + ' — ' + (next ? 'DROPPED: ' + WPN[next].name : '+€$5,000'), '#bd00ff');
+    banner('CYBERPSYCHO NEUTRALIZED', e.name + ' — ' + (next ? 'DROPPED: ' + WPN[next].name : '+$5,000'), '#bd00ff');
     SFX.levelup();
   } else if (Math.random() < 0.09) {
     const pool = WEAPONS.filter(w => !w.iconic && !w.granted && !w.hidden && w.lvl <= G.lvl + 3 && w.price > 0);
@@ -1628,7 +1638,7 @@ function killEnemy(e) {
       dn.cleared = true;
       const bonus = 120 + 90 * e.tier;
       G.eddies += bonus;
-      msg('HIDEOUT CLEARED: +€$' + fmt(bonus), '#2ecc71');
+      msg('HIDEOUT CLEARED: +$' + fmt(bonus), '#2ecc71');
       xpGain(30 + 12 * e.tier);
       SFX.buy();
     }
@@ -1690,7 +1700,7 @@ function dropPlayerDeathLoot() {
     const x = p.x + rnd(-8, 8), y = p.y + rnd(-8, 8);
     G.pickups.push({ kind: 'ed', deathDrop: true, amt, x, y, vx: rnd(-28, 28), vy: rnd(-28, 28), t: 10 });
     drops.push({ kind: 'ed', amt, x, y });
-    addTxt(p.x, p.y - 24, '-€$' + fmt(amt), '#f9f002');
+    addTxt(p.x, p.y - 24, '-$' + fmt(amt), '#f9f002');
     G.eddies = 0;
   }
   const wid = G.loadout[G.slot];
@@ -1749,10 +1759,12 @@ function factionHostile(a, b) {
 }
 
 function findGangTarget(e) {
-  if (!e.war) return null;
+  if (!e.war && !e.ally) return null;
   let best = null, bd = 1e9;
   for (const o of G.enemies) {
-    if (o === e || o.dead || !o.war || !factionHostile(e.fac, o.fac)) continue;
+    if (o === e || o.dead || !factionHostile(e.fac, o.fac)) continue;
+    if (e.war && !o.war) continue;
+    if (e.ally && (o.ally || distPx(o.x, o.y, G.p.x, G.p.y) > 360)) continue;
     const d = distPx(e.x, e.y, o.x, o.y);
     if (d < bd && d < 260 && WORLD.losClear(e.x, e.y - 4, o.x, o.y - 4)) { best = o; bd = d; }
   }
@@ -1797,9 +1809,21 @@ function updateEnemies(dt) {
       e.kbx *= Math.max(0, 1 - 8 * dt); e.kby *= Math.max(0, 1 - 8 * dt);
       if (Math.abs(e.kbx) < 4) e.kbx = 0; if (Math.abs(e.kby) < 4) e.kby = 0;
     }
-    const playerD = distPx(e.x, e.y, px, py);
+    const pdx = e.x - px, pdy = e.y - py;
+    const playerD2 = pdx * pdx + pdy * pdy;
+    const playerD = Math.sqrt(playerD2);
     // despawn strays (den dwellers stay home)
-    if (playerD > 950 && !e.bounty && !e.psycho && e.denId == null && !e.war) { e.dead = true; e.silent = true; continue; }
+    if (playerD > 950 && !e.bounty && !e.psycho && e.denId == null && !e.war && !e.mapSpawn) { e.dead = true; e.silent = true; continue; }
+    // Map-wide patrols exist to populate districts, but far-away AI should not
+    // run vision, LOS, pathing and pack separation every frame.
+    if (playerD2 > 760 * 760 && e.mapSpawn && !e.bounty && !e.psycho && !e.war && !e.ally && !e.alerted && !e.burnT && !e.kbx && !e.kby) {
+      e.sleepT = (e.sleepT || 0) - dt;
+      if (e.sleepT <= 0) {
+        e.sleepT = rnd(1.5, 3.5);
+        e.lookA += rnd(-0.5, 0.5);
+      }
+      continue;
+    }
     const gangTarget = findGangTarget(e);
     const friendlyPlayer = !gangTarget && G.gang && e.fac === G.gang;
     const tx = gangTarget ? gangTarget.x : px, ty = gangTarget ? gangTarget.y : py;
@@ -1919,8 +1943,11 @@ function updateEnemies(dt) {
   // soft separation so packs don't stack into one blob
   for (let i = 0; i < G.enemies.length; i++) {
     const a = G.enemies[i]; if (a.dead) continue;
+    const adx = a.x - px, ady = a.y - py;
+    if (a.mapSpawn && adx * adx + ady * ady > 760 * 760) continue;
     for (let j = i + 1; j < G.enemies.length; j++) {
       const b = G.enemies[j]; if (b.dead) continue;
+      if ((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) > 100) continue;
       const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
       if (d > 0.01 && d < 9) {
         const push = (9 - d) / 2, nx = dx / d, ny = dy / d;
@@ -1939,6 +1966,17 @@ function findSpot(cx, cy, rMin, rMax) {
     const x = clamp(cx + Math.cos(a) * r, 100, WORLD.W * TILE - 100);
     const y = clamp(cy + Math.sin(a) * r, 100, WORLD.H * TILE - 100);
     if (!WORLD.solidPx(x, y) && WORLD.tileAt(x, y) < 5) return { x, y }; // outdoors only
+  }
+  return null;
+}
+
+function findRandomSpot(minDanger) {
+  for (let k = 0; k < 120; k++) {
+    const x = rnd(100, WORLD.W * TILE - 100), y = rnd(100, WORLD.H * TILE - 100);
+    if (WORLD.solidPx(x, y) || WORLD.tileAt(x, y) >= 5) continue;
+    const dist = DISTRICTS[WORLD.districtAt(x, y)];
+    if (minDanger && dist.danger < minDanger) continue;
+    return { x, y, dist };
   }
   return null;
 }
@@ -2034,7 +2072,7 @@ function buyWardrobeOutfit(row) {
 function openTalk(n) {
   G.ui = 'talk';
   G.uiS = { sel: 0, scroll: 0, tab: 0, confirm: false };
-  G.talk = { npc: n, text: n.kind === 'stylist' ? localText('WAKE UP, MERC. WANT A NEW SKIN? IT COSTS €$100.') : pick(n.kind === 'doll' ? DOLL_GREET : JOY_GREET) };
+  G.talk = { npc: n, text: n.kind === 'stylist' ? localText('WAKE UP, MERC. WANT A NEW SKIN? IT COSTS $100.') : pick(n.kind === 'doll' ? DOLL_GREET : JOY_GREET) };
   SFX.ui();
 }
 function talkOptions(n) {
@@ -2043,12 +2081,12 @@ function talkOptions(n) {
     const opts = [];
     opts.push(isVi ? 'MẶC ĐỊNH' : 'DEFAULT V');
     for (let i = 1; i <= 10; i++) {
-      opts.push((isVi ? 'TRANG PHỤC #' : 'OUTFIT #') + i + ' — €$100');
+      opts.push((isVi ? 'TRANG PHỤC #' : 'OUTFIT #') + i + ' — $100');
     }
     opts.push(isVi ? 'RỜI KHỎI' : 'LEAVE');
     return opts;
   }
-  return n.kind === 'doll' ? ['TALK', 'BRAINDANCE BLISS — €$300', 'LEAVE'] : ['FLIRT', 'GOOD TIME — €$100', 'LEAVE'];
+  return n.kind === 'doll' ? ['TALK', 'BRAINDANCE BLISS — $300', 'LEAVE'] : ['FLIRT', 'GOOD TIME — $100', 'LEAVE'];
 }
 function talkSelect(i) {
   const n = G.talk.npc;
@@ -2131,6 +2169,32 @@ function spawnPack(x, y, n, opts, rMin, rMax) {
   return tier;
 }
 
+function spawnMapGangPack(minDanger) {
+  const wantDanger = minDanger || (Math.random() < 0.72 ? 3 : 0);
+  for (let tries = 0; tries < 8; tries++) {
+    const s = findRandomSpot(wantDanger);
+    if (!s) continue;
+    const danger = s.dist.danger;
+    const n = danger >= 3 ? irnd(3, 5) : irnd(1, 3);
+    const tier = danger + Math.floor(G.lvl / 4);
+    const before = G.enemies.length;
+    for (let i = 0, guard = 0; i < n && guard < n * 5; guard++) {
+      const spot = findSpot(s.x, s.y, 8, danger >= 3 ? 92 : 64);
+      if (!spot) continue;
+      const dk = WORLD.districtAt(spot.x, spot.y);
+      const dist = DISTRICTS[dk];
+      if (wantDanger && dist.danger < wantDanger) continue;
+      const fac = dist.fac || s.dist.fac;
+      const gun = Math.random() < FACTIONS[fac].gun;
+      const heavy = tier >= 3 && Math.random() < 0.18;
+      G.enemies.push(makeEnemy(spot.x, spot.y, tier, fac, heavy ? 'heavy' : gun ? 'gun' : 'melee', { fac, mapSpawn: true }));
+      i++;
+    }
+    if (G.enemies.length > before) return G.enemies.length - before;
+  }
+  return 0;
+}
+
 function updateGangWars(dt) {
   if (G.gangInvite && press('KeyJ')) {
     G.gang = G.gangInvite;
@@ -2152,6 +2216,43 @@ function updateGangWars(dt) {
   spawnPack(s.x + 28, s.y, irnd(2, 3), { fac: facB, war: true, alerted: true, alertT: 20, lkx: s.x - 30, lky: s.y }, 6, 60);
   G.gangWar = { x: s.x, y: s.y, a: facA, b: facB, t: 28, tier };
   banner('GIAO TRANH BĂNG ĐẢNG', gangLabel(facA) + ' VS ' + gangLabel(facB), '#f9f002');
+}
+
+function updateGangBots(dt) {
+  const profile = playerProfile();
+  const hasGang = G.gang && profile.gang && profile.gang !== 'SOLO';
+  if (!hasGang || isRealtimeNpcReplica()) {
+    G.enemies = G.enemies.filter(e => !e.ally);
+    G.gangBotT = 1;
+    return;
+  }
+  const allies = G.enemies.filter(e => !e.dead && e.ally);
+  const want = Math.min(3, Math.max(1, MAX_GANG_MEMBERS - 1));
+  for (const e of allies) {
+    const d = distPx(e.x, e.y, G.p.x, G.p.y);
+    if (d > 760) { e.dead = true; e.silent = true; continue; }
+    if (!findGangTarget(e)) {
+      e.alerted = false; e.alertT = 0;
+      if (d > 92) { e.alerted = true; e.alertT = 0.25; e.lkx = G.p.x + rnd(-24, 24); e.lky = G.p.y + rnd(-24, 24); }
+    }
+  }
+  G.gangBotT = (G.gangBotT || 0) - dt;
+  if (G.gangBotT > 0) return;
+  G.gangBotT = 6;
+  const live = G.enemies.filter(e => !e.dead && e.ally).length;
+  for (let i = live; i < want; i++) {
+    const s = findSpot(G.p.x, G.p.y, 52, 160);
+    if (!s) break;
+    const bot = makeEnemy(s.x, s.y, Math.max(1, Math.floor(G.lvl / 4) + 1), 'player', Math.random() < 0.65 ? 'gun' : 'melee', {
+      ally: true,
+      name: profile.gang,
+      alerted: true,
+      alertT: 0.25,
+      lkx: G.p.x,
+      lky: G.p.y,
+    });
+    G.enemies.push(bot);
+  }
 }
 
 function updateMarketWar(dt) {
@@ -2278,12 +2379,22 @@ function updateSpawns(dt) {
   // ambient packs
   G.ambientT = (G.ambientT || 0) - dt;
   if (G.ambientT <= 0) {
-    G.ambientT = 5;
-    const ambient = G.enemies.filter(e => !e.bounty && !e.psycho).length;
-    if (ambient < 8) {
+    const localDanger = DISTRICTS[WORLD.districtAt(G.p.x, G.p.y)].danger;
+    G.ambientT = Math.max(2.8, 6 - localDanger * 0.7);
+    const ambient = G.enemies.filter(e => !e.bounty && !e.psycho && !e.ally && !e.mapSpawn).length;
+    const cap = localDanger >= 3 ? 12 + localDanger * 2 : 7 + localDanger;
+    if (ambient < cap) {
       const s = findSpot(G.p.x, G.p.y, 420, 640);
-      if (s) spawnPack(s.x, s.y, irnd(2, 3));
+      if (s) spawnPack(s.x, s.y, localDanger >= 3 ? irnd(3, 5) : irnd(2, 3));
     }
+  }
+  // map-wide gang patrols: dangerous districts seed more bodies even before V arrives
+  G.mapSpawnT = (G.mapSpawnT || 0) - dt;
+  if (G.mapSpawnT <= 0) {
+    G.mapSpawnT = 3.5;
+    const mapBots = G.enemies.filter(e => !e.dead && e.mapSpawn).length;
+    const mapCap = 22 + Math.min(10, G.lvl);
+    if (mapBots < mapCap) spawnMapGangPack();
   }
   // bounties
   if (!G.bounty) {
@@ -2306,7 +2417,7 @@ function spawnBounty() {
   const tier = spawnPack(s.x, s.y, n, { bounty: true });
   const danger = DISTRICTS[WORLD.districtAt(s.x, s.y)].danger;
   G.bounty = { x: s.x, y: s.y, left: G.enemies.filter(e => e.bounty).length, reward: Math.round(280 * danger + 45 * G.lvl), psycho: false };
-  msg('REGINA: BOUNTY POSTED — ' + G.bounty.left + ' TARGETS, €$' + fmt(G.bounty.reward), '#ff9f1c');
+  msg('REGINA: BOUNTY POSTED — ' + G.bounty.left + ' TARGETS, $' + fmt(G.bounty.reward), '#ff9f1c');
   SFX.msg();
 }
 
@@ -2330,7 +2441,7 @@ function completeBounty() {
   G.stats.bounties++;
   G.eddies += b.reward;
   xpGain(40 + 20 * G.lvl);
-  msg('BOUNTY COMPLETE: +€$' + fmt(b.reward), '#2ecc71');
+  msg('BOUNTY COMPLETE: +$' + fmt(b.reward), '#2ecc71');
   SFX.buy();
   if (!b.psycho) {
     // guaranteed gear drop at site
@@ -2349,16 +2460,22 @@ function updatePickups(dt) {
   const p = G.p;
   for (const pk of G.pickups) {
     pk.t -= dt;
-    const d = distPx(pk.x, pk.y, p.x, p.y);
-    if (d < 52 && d > 1 && !G.driving) { pk.vx = (p.x - pk.x) / d * 130; pk.vy = (p.y - pk.y) / d * 130; }
-    pk.x += (pk.vx || 0) * dt; pk.y += (pk.vy || 0) * dt;
-    pk.vx *= Math.max(0, 1 - 3 * dt); pk.vy *= Math.max(0, 1 - 3 * dt);
-    if (d < 12 && !G.driving) {
+    const dx = p.x - pk.x, dy = p.y - pk.y, d2 = dx * dx + dy * dy;
+    if (d2 > 90 * 90 && !pk.vx && !pk.vy) continue;
+    const d = Math.sqrt(d2);
+    if (d < 52 && d > 1 && !G.driving) { pk.vx = dx / d * 130; pk.vy = dy / d * 130; }
+    if (pk.vx || pk.vy) {
+      pk.x += (pk.vx || 0) * dt; pk.y += (pk.vy || 0) * dt;
+      pk.vx *= Math.max(0, 1 - 3 * dt); pk.vy *= Math.max(0, 1 - 3 * dt);
+      if (Math.abs(pk.vx) < 0.5) pk.vx = 0;
+      if (Math.abs(pk.vy) < 0.5) pk.vy = 0;
+    }
+    if (d2 < 12 * 12 && !G.driving) {
       pk.t = -1;
-      if (pk.kind === 'ed') { G.eddies += pk.amt; addTxt(p.x, p.y - 16, '+€$' + fmt(pk.amt), '#f9f002'); SFX.coin(); }
+      if (pk.kind === 'ed') { G.eddies += pk.amt; addTxt(p.x, p.y - 16, '+$' + fmt(pk.amt), '#f9f002'); SFX.coin(); }
       else if (pk.kind === 'doc') {
         if (G.maxdocs < 5) { G.maxdocs++; msg('MAXDOC +1', '#2ecc71'); }
-        else { G.eddies += 25; addTxt(p.x, p.y - 16, '+€$25', '#f9f002'); }
+        else { G.eddies += 25; addTxt(p.x, p.y - 16, '+$25', '#f9f002'); }
         SFX.coin();
       } else if (pk.kind === 'wpn') giveWeapon(pk.id);
     }
@@ -2383,8 +2500,12 @@ function breakCrate(cr) {
 }
 
 function updateCrates(dt) {
+  G.crateStepT = (G.crateStepT || 0) + dt;
+  if (G.crateStepT < 0.2) return;
+  const tick = G.crateStepT;
+  G.crateStepT = 0;
   for (const cr of G.crates) {
-    if (cr.hp <= 0) { cr.respT -= dt; if (cr.respT <= 0) cr.hp = 1; }
+    if (cr.hp <= 0) { cr.respT -= tick; if (cr.respT <= 0) cr.hp = 1; }
   }
 }
 
@@ -2553,14 +2674,22 @@ function updateCar(dt, rdt) {
     if ((c.bloodT || 0) > 0) {
       c.bloodT -= dt;
       if (sp > 50) {
-        const wc = worldCtx(), nx = -hy, ny = hx;
-        wc.fillStyle = 'rgba(110,12,22,' + (0.42 * Math.min(1, c.bloodT / 0.6)).toFixed(2) + ')';
+        const nx = -hy, ny = hx;
+        const col = 'rgba(110,12,22,' + (0.42 * Math.min(1, c.bloodT / 0.6)).toFixed(2) + ')';
         const span = sp * dt, n2 = Math.max(1, Math.round(span / 2));
+        if (!G.decals) G.decals = [];
         for (let k = 0; k < n2; k++) {
           const back = 9 + (k / n2) * span;
           const bx = c.x - hx * back, by = c.y - hy * back;
-          wc.fillRect(Math.round(bx + nx * 4 + rnd(-0.6, 0.6)) - 1, Math.round(by + ny * 4) - 1, 2, 2);
-          wc.fillRect(Math.round(bx - nx * 4) - 1, Math.round(by - ny * 4 + rnd(-0.6, 0.6)) - 1, 2, 2);
+          const px1 = Math.round(bx + nx * 4 + rnd(-0.6, 0.6));
+          const py1 = Math.round(by + ny * 4);
+          const px2 = Math.round(bx - nx * 4);
+          const py2 = Math.round(by - ny * 4 + rnd(-0.6, 0.6));
+          G.decals.push({ x: px1, y: py1, rect: true, w: 2, h: 2, col: col });
+          G.decals.push({ x: px2, y: py2, rect: true, w: 2, h: 2, col: col });
+        }
+        if (G.decals.length > 500) {
+          G.decals.splice(0, G.decals.length - 500);
         }
       }
     }
@@ -2583,7 +2712,7 @@ function giveWeapon(id, silent) {
   if (G.weapons[id]) {
     const scrap = Math.max(10, Math.round(w.price * 0.25));
     G.eddies += scrap;
-    if (!silent) msg('DUPLICATE ' + w.name + ' SCRAPPED: +€$' + fmt(scrap), '#8a93a6');
+    if (!silent) msg('DUPLICATE ' + w.name + ' SCRAPPED: +$' + fmt(scrap), '#8a93a6');
     return;
   }
   G.weapons[id] = { mag: w.mag || 0 };
@@ -2686,20 +2815,37 @@ function addP(n, x, y, o) {
   }
 }
 
-// ---- gore decals: baked into the prerendered city so stains stay forever ----
-function worldCtx() { return WORLD.ctx2 || (WORLD.ctx2 = WORLD.cv.getContext('2d')); }
+// ---- gore decals: stored in G.decals array for high performance (avoids marking giant WORLD.cv canvas dirty) ----
 function bloodStain(x, y, dir, power) {
-  const wc = worldCtx();
+  if (!G.decals) G.decals = [];
+  const splatters = [];
   const n = Math.round(5 + power * 14);
   for (let i = 0; i < n; i++) {
     const a = dir != null ? dir + rnd(-0.75, 0.75) : rnd(0, Math.PI * 2);
     const d = rnd(1, 7 + power * 18);
     const s = Math.random() < 0.3 ? 2 : 1;
-    wc.fillStyle = Math.random() < 0.5 ? 'rgba(122,14,28,0.55)' : 'rgba(160,24,40,0.45)';
-    wc.fillRect(Math.round(x + Math.cos(a) * d), Math.round(y + Math.sin(a) * d * 0.7), s, s);
+    const col = Math.random() < 0.5 ? 'rgba(122,14,28,0.55)' : 'rgba(160,24,40,0.45)';
+    splatters.push({
+      dx: Math.round(Math.cos(a) * d),
+      dy: Math.round(Math.sin(a) * d * 0.7),
+      sz: s,
+      col: col
+    });
   }
-  wc.fillStyle = 'rgba(110,12,24,0.5)';
-  wc.beginPath(); wc.ellipse(x, y, 1.5 + power * 3.5, 1 + power * 2.2, 0, 0, Math.PI * 2); wc.fill();
+
+  G.decals.push({
+    x: x, y: y,
+    splatters: splatters,
+    ellipse: {
+      rx: 1.5 + power * 3.5,
+      ry: 1 + power * 2.2,
+      col: 'rgba(110,12,24,0.5)'
+    }
+  });
+
+  if (G.decals.length > 500) {
+    G.decals.shift();
+  }
 }
 function addTxt(x, y, text, col) { G.texts.push({ x, y, text, col, t: 0.8 }); }
 function msg(text, col) {
@@ -2762,24 +2908,49 @@ function drawPed(c, ped, face, flip, frame, x, y, alpha, scale) {
 
 function visible(x, y, m) {
   m = m || 40;
-  const wv_w = VIEW_W / WORLD_ZOOM;
-  const wv_h = VIEW_H / WORLD_ZOOM;
+  if (G && G.view) return x > G.view.x0 - m && x < G.view.x1 + m && y > G.view.y0 - m && y < G.view.y1 + m;
+  const wv_w = VIEW_W / WORLD_ZOOM, wv_h = VIEW_H / WORLD_ZOOM;
   return x > G.cam.x - m && x < G.cam.x + wv_w + m && y > G.cam.y - m && y < G.cam.y + wv_h + m;
 }
 
 function indoorAt(x, y) { return WORLD.tileAt(x, y) >= 5; } // FLOOR or DOOR
 
+function prepRenderView(camX, camY, wvW, wvH) {
+  G.view = { x0: camX, y0: camY, x1: camX + wvW, y1: camY + wvH };
+  const vis = G.vis || (G.vis = {});
+  collectVisible(vis.bushes || (vis.bushes = []), WORLD.bushes, 40);
+  collectVisible(vis.signs || (vis.signs = []), WORLD.signs, 60);
+  collectVisible(vis.holos || (vis.holos = []), WORLD.holos, 60);
+  collectVisible(vis.vends || (vis.vends = []), WORLD.vends, 40);
+  collectVisible(vis.lights || (vis.lights = []), WORLD.lights, 30);
+  collectVisible(vis.displays || (vis.displays = []), WORLD.displays, 40);
+  collectVisible(vis.pickups || (vis.pickups = []), G.pickups, 40);
+  collectVisible(vis.crates || (vis.crates = []), G.crates, 40, cr => cr.hp > 0);
+}
+
+function collectVisible(out, list, m, keep) {
+  out.length = 0;
+  const v = G.view;
+  for (let i = 0; i < list.length; i++) {
+    const o = list[i];
+    if (keep && !keep(o)) continue;
+    if (o.x > v.x0 - m && o.x < v.x1 + m && o.y > v.y0 - m && o.y < v.y1 + m) out.push(o);
+  }
+  return out;
+}
+
 // One pass per depth layer: indoor entities draw under the roof canvases,
 // outdoor entities draw over them (you stand in FRONT of a south facade).
 function drawWorldEntities(c, indoor) {
   const p = G.p;
+  const vis = G.vis || {};
   // pickups
-  for (const pk of G.pickups) {
-    if (!visible(pk.x, pk.y) || indoorAt(pk.x, pk.y) !== indoor) continue;
+  for (const pk of vis.pickups || G.pickups) {
+    if (indoorAt(pk.x, pk.y) !== indoor) continue;
     const bob = Math.sin(G.rt * 4 + pk.x) * 1.5;
     if (pk.kind === 'ed') {
       c.fillStyle = '#f9f002'; c.fillRect(pk.x - (pk.deathDrop ? 2 : 1), pk.y - (pk.deathDrop ? 2 : 1) + bob, pk.deathDrop ? 5 : 3, pk.deathDrop ? 5 : 3);
-      if (pk.deathDrop) drawWorldTextC(c, '€$' + fmt(pk.amt), pk.x, pk.y - 16 + bob, '#f9f002', 0.68);
+      if (pk.deathDrop) drawWorldTextC(c, '$' + fmt(pk.amt), pk.x, pk.y - 16 + bob, '#f9f002', 0.68);
     }
     else if (pk.kind === 'doc') { c.fillStyle = '#fff'; c.fillRect(pk.x - 3, pk.y - 1 + bob, 6, 2); c.fillRect(pk.x - 1, pk.y - 3 + bob, 2, 6); }
     else {
@@ -2855,7 +3026,8 @@ function drawWorldEntities(c, indoor) {
   for (const n of WORLD.npcs) {
     if (!visible(n.x, n.y) || indoorAt(n.x, n.y) !== indoor) continue;
     drawPed(c, SPR.civ(n.i), 'down', false, 0, n.x, n.y);
-    drawWorldTextC(c, n.name, n.x, n.y - 34, n.kind === 'joy' || n.kind === 'doll' ? '#ff2a6d' : '#5a6372', 0.66);
+    const shopNpc = n.kind === 'stylist' || n.kind === 'casino' || ['VŨ KHÍ','CYBER','XE','BAR','THỜI TRANG'].indexOf(n.name) >= 0;
+    drawWorldTextC(c, n.name, n.x, n.y - (shopNpc ? 30 : 34), n.kind === 'joy' || n.kind === 'doll' ? '#ff2a6d' : '#5a6372', shopNpc ? 0.5 : 0.66);
   }
   // airdrop: chute on the way down, beacon container on the ground
   if (!indoor && G.airdrop && visible(G.airdrop.x, G.airdrop.y, 80)) {
@@ -2931,7 +3103,34 @@ function render() {
   // ground
   const wv_w = VIEW_W / WORLD_ZOOM;
   const wv_h = VIEW_H / WORLD_ZOOM;
+  prepRenderView(camX, camY, wv_w, wv_h);
+  const vis = G.vis;
   c.drawImage(WORLD.cv, camX, camY, wv_w, wv_h, camX, camY, wv_w, wv_h);
+
+  // blood decals
+  if (G.decals) {
+    for (let i = 0; i < G.decals.length; i++) {
+      const d = G.decals[i];
+      if (d.x > camX - 30 && d.x < camX + wv_w + 30 && d.y > camY - 30 && d.y < camY + wv_h + 30) {
+        if (d.rect) {
+          c.fillStyle = d.col;
+          c.fillRect(d.x - 1, d.y - 1, d.w, d.h);
+        } else if (d.splatters) {
+          for (let j = 0; j < d.splatters.length; j++) {
+            const sp = d.splatters[j];
+            c.fillStyle = sp.col;
+            c.fillRect(d.x + sp.dx, d.y + sp.dy, sp.sz, sp.sz);
+          }
+          if (d.ellipse) {
+            c.fillStyle = d.ellipse.col;
+            c.beginPath();
+            c.ellipse(d.x, d.y, d.ellipse.rx, d.ellipse.ry, 0, 0, Math.PI * 2);
+            c.fill();
+          }
+        }
+      }
+    }
+  }
 
   // market territories on the ground
   for (const m of WORLD.markets || []) {
@@ -2982,15 +3181,10 @@ function render() {
   }
   c.globalAlpha = 1;
   // crates & vends & displays
-  for (const cr of G.crates) if (cr.hp > 0 && visible(cr.x, cr.y)) c.drawImage(SPR.crate, cr.x - 6, cr.y - 6);
-  for (const v of WORLD.vends) if (visible(v.x, v.y)) c.drawImage(SPR.vend, v.x - 6, v.y - 12);
-  for (const d of WORLD.displays) {
-    if (!visible(d.x, d.y)) continue;
-    c.drawImage(SPR.car(d.id), d.x - 8, d.y - 15);
-  }
-  for (const b of WORLD.bushes) {
-    if (visible(b.x, b.y)) c.drawImage(SPR.bush(b.kind), b.x - 8, b.y - 10);
-  }
+  for (const cr of vis.crates) c.drawImage(SPR.crate, cr.x - 6, cr.y - 6);
+  for (const v of vis.vends) c.drawImage(SPR.vend, v.x - 6, v.y - 12);
+  for (const d of vis.displays) c.drawImage(SPR.car(d.id), d.x - 8, d.y - 15);
+  for (const b of vis.bushes) c.drawImage(SPR.bush(b.kind), b.x - 8, b.y - 10);
   // entities under roofs (indoors) — hidden until the roof fades
   drawWorldEntities(c, true);
   // roofs of enterable buildings (fade away when V is inside)
@@ -3002,8 +3196,7 @@ function render() {
   }
   c.globalAlpha = 1;
   // neon signs sit on the exterior walls: drawn over the roof layer, fading with it indoors
-  for (const s of WORLD.signs) {
-    if (!visible(s.x, s.y, 60)) continue;
+  for (const s of vis.signs) {
     const flick = Math.random() < 0.02 ? 0.4 : 1;
     const rfA = s.roof != null && WORLD.roofs[s.roof] ? WORLD.roofs[s.roof].a : 1;
     c.globalAlpha = (0.75 + 0.25 * Math.sin(G.rt * 3 + s.x)) * flick * rfA;
@@ -3014,9 +3207,7 @@ function render() {
   drawWorldEntities(c, false);
   // foliage canopy: drawn back over entities so whoever stands in a bush is shrouded
   c.globalAlpha = 0.85;
-  for (const b of WORLD.bushes) {
-    if (visible(b.x, b.y)) c.drawImage(SPR.bush(b.kind), b.x - 8, b.y - 10);
-  }
+  for (const b of vis.bushes) c.drawImage(SPR.bush(b.kind), b.x - 8, b.y - 10);
   c.globalAlpha = 1;
   // glow pass
   c.globalCompositeOperation = 'lighter';
@@ -3024,21 +3215,18 @@ function render() {
     c.globalAlpha = Math.min(1, g.t * 8);
     c.drawImage(SPR.glowS(g.col, Math.round(g.r)), g.x - g.r, g.y - g.r);
   }
-  for (const s of WORLD.signs) {
-    if (!visible(s.x, s.y, 60)) continue;
+  for (const s of vis.signs) {
     const rfA = s.roof != null && WORLD.roofs[s.roof] ? WORLD.roofs[s.roof].a : 1;
     const gr = s.big ? 32 : 22;
     c.globalAlpha = (s.big ? 0.22 : 0.16) + 0.05 * Math.sin(G.rt * 3 + s.x);
     c.globalAlpha *= rfA;
     c.drawImage(SPR.glowS(s.col, gr), s.x - gr, s.y - gr + 4);
   }
-  for (const L of WORLD.lights) {
-    if (!visible(L.x, L.y, 30)) continue;
+  for (const L of vis.lights) {
     c.globalAlpha = 0.25;
     c.drawImage(SPR.glowS('#ffd9a0', 10), L.x - 10, L.y - 10);
   }
-  for (const v of WORLD.vends) {
-    if (!visible(v.x, v.y)) continue;
+  for (const v of vis.vends) {
     c.globalAlpha = 0.3 + 0.1 * Math.sin(G.rt * 2 + v.x);
     c.drawImage(SPR.glowS('#05d9e8', 12), v.x - 12, v.y - 16);
   }
@@ -3049,8 +3237,7 @@ function render() {
       c.drawImage(SPR.glowS(L.col, 18), L.x - 18, L.y - 18);
     }
   }
-  for (const cr of G.crates) { // loot crates pulse so they read as breakable
-    if (cr.hp <= 0 || !visible(cr.x, cr.y)) continue;
+  for (const cr of vis.crates) { // loot crates pulse so they read as breakable
     c.globalAlpha = 0.12 + 0.07 * Math.sin(G.rt * 3 + cr.x);
     c.drawImage(SPR.glowS('#f9f002', 9), cr.x - 9, cr.y - 13);
   }
@@ -3067,8 +3254,7 @@ function render() {
     c.globalAlpha = 0.3;
     c.drawImage(SPR.glowS('#ffe9c0', 26), G.car.x + hx * 26 - 26, G.car.y + hy * 26 - 26);
   }
-  for (const pk of G.pickups) {
-    if (!visible(pk.x, pk.y)) continue;
+  for (const pk of vis.pickups) {
     c.globalAlpha = 0.35 + 0.15 * Math.sin(G.rt * 5);
     const col = pk.kind === 'wpn' ? RAR_COL[WPN[pk.id].rar] : pk.kind === 'ed' ? '#f9f002' : '#2ecc71';
     c.drawImage(SPR.glowS(col, 9), pk.x - 9, pk.y - 9);
@@ -3076,8 +3262,7 @@ function render() {
   c.globalAlpha = 1;
   c.globalCompositeOperation = 'source-over';
   // holo billboards
-  for (const h of WORLD.holos) {
-    if (!visible(h.x, h.y, 60)) continue;
+  for (const h of vis.holos) {
     const bob = Math.sin(G.rt * 1.2 + h.x * 0.1) * 2;
     const hw = Math.max(34, textW(h.text) + 10);
     c.globalAlpha = 0.82 + 0.1 * Math.sin(G.rt * 7 + h.x);

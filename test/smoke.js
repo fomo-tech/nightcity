@@ -51,11 +51,29 @@ vm.runInThisContext(src, { filename: 'bundle.js' });
 const steps = (n, dt) => { for (let i = 0; i < n; i++) window.__step(dt || 1 / 60); };
 const assert = (cond, what) => { if (!cond) throw new Error('ASSERT FAIL: ' + what); };
 
+window.NCPX_LANG = 'vi';
+assert(localText('SETTINGS') === 'THIẾT LẬP', 'english ui text localizes to Vietnamese');
+window.NCPX_LANG = 'en';
+assert(localText('QUẢN LÝ BĂNG') === 'GANG MANAGEMENT', 'vietnamese ui text localizes to English');
+assert(localText('BĂNG: CHƯA CÓ') === 'GANG: NONE', 'mixed Vietnamese hud text localizes to English');
+window.NCPX_LANG = 'vi';
+
 window.__NCPX_SKIP_TITLE_MENU = true;
 window.__boot();
 assert(WORLD && WORLD.W === 176 && WORLD.H === 176 && WORLD.t.length === 176 * 176, 'expanded world generated');
 assert(WORLD.shops.guns && WORLD.shops.ripper && WORLD.shops.cars && WORLD.shops.bar, 'shops placed');
 assert(!WORLD.solidPx(WORLD.spawn.x, WORLD.spawn.y), 'spawn walkable');
+let eastSprawl = 0, southSprawl = 0;
+for (let y = 10; y < 150; y++) for (let x = 154; x < 173; x++) if (WORLD.t[y * WORLD.W + x] !== 2) eastSprawl++;
+for (let y = 154; y < 173; y++) for (let x = 10; x < 150; x++) if (WORLD.t[y * WORLD.W + x] !== 2) southSprawl++;
+assert(eastSprawl > 120 && southSprawl > 120, 'map edge sprawl fills formerly empty district margins');
+let edgeBuildings = 0;
+for (let y = 11; y < 23; y++) for (let x = 155; x < 167; x++) if (WORLD.t[y * WORLD.W + x] === 2) edgeBuildings++;
+assert(edgeBuildings > 20, 'edge sprawl uses real building blocks');
+for (let x = 150; x < 172; x++) assert(!WORLD.solidAt(x, 24), 'east sprawl road connects to main road grid');
+for (let y = 150; y < 172; y++) assert(!WORLD.solidAt(24, y), 'south sprawl road connects to main road grid');
+for (let x = 150; x < 172; x++) assert(!WORLD.solidAt(x, 168), 'edge corner horizontal road is walkable');
+for (let y = 150; y < 172; y++) assert(!WORLD.solidAt(168, y), 'edge corner vertical road is walkable');
 assert(G.state === 'title' && G.titleMode === 'name', 'fresh launch opens character creation');
 steps(5); // title renders
 
@@ -63,6 +81,14 @@ startGame(false, 'f');
 assert(G.state === 'play' && G.gender === 'f', 'new game started as female V');
 assert(Object.keys(G.weapons).length === 1 && G.loadout[0], 'random starter weapon granted');
 assert(Object.keys(G.cars).length === 1 && G.activeCar, 'random starter vehicle granted');
+assert(WORLD.crateSpots.length > 110, 'extra loot crates seeded (' + WORLD.crateSpots.length + ')');
+assert(WORLD.giftSpots.length > 20 && G.pickups.some(pk => pk.kind === 'ed' || pk.kind === 'doc'), 'loose map gifts seeded');
+assert(WORLD.trees.length > 90, 'green pixel trees seeded (' + WORLD.trees.length + ')');
+assert(Object.keys(DISTRICTS).filter(k => DISTRICTS[k].danger >= 3).length >= 3, 'more three-star danger districts');
+G.enemies = [];
+const mapPackN = spawnMapGangPack(3);
+assert(mapPackN >= 3 && G.enemies.every(e => e.mapSpawn && DISTRICTS[WORLD.districtAt(e.x, e.y)].danger >= 3), 'map-wide gang pack spawns in high danger zones');
+G.enemies = [];
 G.p.iframes = 99999; // god mode for the soak; the death test clears it explicitly
 
 // radio dial: cycles all stations + OFF, then wraps
@@ -216,13 +242,25 @@ steps(620);
 assert(!G.pickups.some(pk => pk.deathDrop && (pk.id === 'lexington' || pk.amt === 1234)), 'death drops expire after respawn grace');
 
 // save / load roundtrip
-const eddiesBefore = G.eddies, weaponsBefore = Object.keys(G.weapons).length;
 G.skin = 3;
 G.gangIconSel = 2;
 setPlayerGang('TEST CREW');
-assert(playerProfile().gang === 'TEST CREW' && playerProfile().gangIcon === 'RG', 'player gang icon profile');
-joinPlayerGang('ALLY CREW', 'VB', '#00ff9f');
-assert(playerProfile().gang === 'ALLY CREW' && playerProfile().gangIcon === 'VB', 'joined gang keeps invited icon');
+assert(playerProfile().gang === 'TEST CREW' && playerProfile().gangIcon === '◇', 'player gang icon profile');
+G.enemies = []; G.gangBotT = 0;
+steps(420);
+assert(G.enemies.some(e => e.ally && e.fac === 'player'), 'player gang bots spawn');
+const allyBot = G.enemies.find(e => e.ally && e.fac === 'player');
+allyBot.x = G.p.x; allyBot.y = G.p.y;
+const hostileBot = makeEnemy(allyBot.x + 8, allyBot.y, 1, 'scavs', 'melee', {});
+G.enemies.push(hostileBot);
+assert(findGangTarget(allyBot) === hostileBot, 'player gang bot targets nearby hostile');
+G.enemies = [];
+joinPlayerGang('ALLY CREW', '✚', '#00ff9f');
+assert(playerProfile().gang === 'ALLY CREW' && playerProfile().gangIcon === '✚', 'joined gang keeps invited icon');
+G.remotePlayers = Array.from({ length: 9 }, (_, i) => ({ id: 'ally_' + i, name: 'A' + i, gang: 'ALLY CREW', gangKey: 'player', hp: 100, x: G.p.x + i, y: G.p.y }));
+assert(gangMemberCount(playerProfile()) === 10 && !gangHasRoom(playerProfile()), 'player gang caps at ten members');
+G.remotePlayers = [];
+const eddiesBefore = G.eddies, weaponsBefore = Object.keys(G.weapons).length;
 saveGame();
 startGame(true);
 assert(G.eddies === eddiesBefore, 'eddies persisted');
@@ -230,7 +268,8 @@ assert(Object.keys(G.weapons).length === weaponsBefore, 'weapons persisted');
 assert(G.cars.caliburn && G.cyber.sandevistan, 'cars+chrome persisted');
 assert(G.gender === 'f', 'gender persisted');
 assert(G.skin === 3, 'skin persisted');
-assert(G.playerGangName === 'ALLY CREW' && playerProfile().gangIcon === 'VB', 'gang icon persisted');
+assert(G.playerGangName === 'ALLY CREW' && playerProfile().gangIcon === '✚', 'gang icon persisted');
+G.gang = null; G.playerGangName = null; G.playerGangIcon = null; G.playerGangIconCol = null;
 steps(120);
 
 // long soak: everything running together
@@ -243,6 +282,7 @@ G.mouse.down = false; G.keys.clear();
 G.p.iframes = 99999;
 G.p.x = WORLD.spawn.x; G.p.y = WORLD.spawn.y;
 G.enemies = []; G.bounty = null; G.driving = false; G.car = null;
+G.ambientT = 999; G.mapSpawnT = 999;
 const watcher = makeEnemy(G.p.x + 90, G.p.y, 1, 'scavs', 'gun', {});
 watcher.wanderT = 9999; watcher.wx = 0; watcher.wy = 0; watcher.lookA = 0; // facing away from V
 G.enemies.push(watcher);
@@ -302,9 +342,9 @@ G.p.x = WORLD.shops.guns.x; G.p.y = WORLD.shops.guns.y;
 steps(2);
 G.pressed.add('KeyE'); steps(2);
 assert(G.ui === 'guns', 'walk-in shop counter opens shop');
-assert(G.prompt && G.prompt.includes('QUÂN'), 'counter prompt names the vendor');
+assert(G.prompt && G.prompt.includes('VŨ KHÍ') && !G.prompt.includes('QUÂN'), 'counter prompt uses shop label, not vendor name');
 G.ui = null;
-assert(WORLD.npcs.filter(n => ['QUÂN','SƠN','TÚ','LAN','TÀI','TRANG'].includes(n.name)).length >= 6, 'central shop vendors named');
+assert(WORLD.npcs.filter(n => ['VŨ KHÍ','CYBER','XE','BAR','CASINO','THỜI TRANG'].includes(n.name)).length >= 6, 'central shop npcs use shop labels');
 assert(distPx(WORLD.shops.casino.x, WORLD.shops.casino.y, WORLD.spawn.x, WORLD.spawn.y) < 520, 'casino moved into city center cluster');
 
 // ---- shop marquees stay visible from outside ----
