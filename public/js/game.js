@@ -494,6 +494,9 @@ function saveGame() {
     marketWarActive: G.marketWarActive,
     marketWarT: G.marketWarT,
     marketStates: G.marketStates,
+    state: G.state,
+    deadT: G.deadT,
+    deathFee: G.deathFee,
   };
   try { localStorage.setItem(activeSaveKey(), JSON.stringify(d)); } catch (e) {}
   try { if (window.NCPX_SAVE && window.NCPX_SAVE.put) window.NCPX_SAVE.put(d); } catch (e) {}
@@ -530,7 +533,8 @@ function applySave() {
   G.skippyFound = !!d.skippyFound; G.bountyCount = d.bountyCount || 0;
   (d.dens || []).forEach(id => { const dn = WORLD.dens[id]; if (dn) { dn.cleared = true; dn.done = true; } });
   if (!WORLD.blockedPx(d.px, d.py)) { G.p.x = d.px; G.p.y = d.py; } // saves standing on old-version furniture fall back to spawn
-  G.p.hp = d.hp || 100;
+  G.state = d.state || 'play'; G.deadT = d.deadT || 0; G.deathFee = d.deathFee || 0;
+  G.p.hp = d.hp !== undefined ? d.hp : 100;
   return true;
 }
 
@@ -554,7 +558,13 @@ function startGame(cont, gender) {
     ? { kind: 'doc', x: s.x, y: s.y, vx: 0, vy: 0, t: 240 }
     : { kind: 'ed', amt: s.amt || irnd(20, 95), x: s.x, y: s.y, vx: 0, vy: 0, t: 240 });
   if (cont && applySave()) {
-    recalcStats(); G.p.hp = clamp(G.p.hp, 1, G.p.maxhp);
+    recalcStats();
+    if (G.state === 'dead') {
+      G.p.hp = 0;
+    } else {
+      G.p.hp = clamp(G.p.hp, 1, G.p.maxhp);
+      G.state = 'play';
+    }
     banner('CHÀO MỪNG TRỞ LẠI NIGHT CITY', DISTRICTS[WORLD.districtAt(G.p.x, G.p.y)].name, '#05d9e8');
   } else {
     // random starter kit: one weapon, one ride
@@ -566,8 +576,9 @@ function startGame(cont, gender) {
     msg('STARTER KIT: ' + WPN[sw].name + ' + ' + CARD[sc].name + ' [V]', '#2ecc71');
     TIPS.forEach((tip, i) => G.tipsQ.push({ at: 3 + i * 6, text: tip }));
     NCPX.emit('newgame', { gender: G.gender });
+    G.state = 'play';
   }
-  G.state = 'play'; G.ui = null;
+  G.ui = null;
   snapCam();
   maintainCivs();
 }
@@ -613,8 +624,15 @@ function boot() {
   window.addEventListener('keyup', e => G.keys.delete(e.code));
   CV.addEventListener('mousemove', e => {
     const r = CV.getBoundingClientRect();
-    G.mouse.sx = (e.clientX - r.left) * (VIEW_W / r.width);
-    G.mouse.sy = (e.clientY - r.top) * (VIEW_H / r.height);
+    if (window.innerHeight > window.innerWidth) {
+      const pctX = r.width > 0 ? (e.clientX - r.left) / r.width : 0;
+      const pctY = r.height > 0 ? (e.clientY - r.top) / r.height : 0;
+      G.mouse.sx = pctY * VIEW_W;
+      G.mouse.sy = (1 - pctX) * VIEW_H;
+    } else {
+      G.mouse.sx = (e.clientX - r.left) * (VIEW_W / r.width);
+      G.mouse.sy = (e.clientY - r.top) * (VIEW_H / r.height);
+    }
     G.mouse.moved = true;
   });
   CV.addEventListener('mousedown', e => { SFX.init(); G.mouse.down = true; G.mouse.click = true; e.preventDefault(); });
@@ -624,7 +642,13 @@ function boot() {
   TOUCH.on = ('ontouchstart' in window) || (typeof navigator !== 'undefined' && (navigator.maxTouchPoints | 0) > 0);
   const toPt = t => {
     const r = CV.getBoundingClientRect();
-    return { x: (t.clientX - r.left) * (VIEW_W / r.width), y: (t.clientY - r.top) * (VIEW_H / r.height) };
+    if (window.innerHeight > window.innerWidth) {
+      const pctX = r.width > 0 ? (t.clientX - r.left) / r.width : 0;
+      const pctY = r.height > 0 ? (t.clientY - r.top) / r.height : 0;
+      return { x: pctY * VIEW_W, y: (1 - pctX) * VIEW_H };
+    } else {
+      return { x: (t.clientX - r.left) * (VIEW_W / r.width), y: (t.clientY - r.top) * (VIEW_H / r.height) };
+    }
   };
   const onTouch = fn => e => {
     e.preventDefault();
@@ -728,12 +752,14 @@ function fitCanvas() {
   const vv = window.visualViewport;
   const w = Math.round((vv && vv.width) || window.innerWidth);
   const h = Math.round((vv && vv.height) || window.innerHeight);
+  const portrait = h > w;
+  const layoutW = portrait ? h : w;
+  const layoutH = portrait ? w : h;
   if (window.__NCPX_RESPONSIVE_FIT) {
-    const shortSide = Math.min(w, h);
-    const portrait = h > w;
-    const scale = portrait ? 1 : shortSide >= 700 ? 1.5 : shortSide >= 520 ? 1.25 : 1;
-    VIEW_W = Math.max(320, Math.floor(w / scale));
-    VIEW_H = Math.max(180, Math.floor(h / scale));
+    const shortSide = Math.min(layoutW, layoutH);
+    const scale = shortSide >= 700 ? 1.5 : shortSide >= 520 ? 1.25 : 1;
+    VIEW_W = Math.max(320, Math.floor(layoutW / scale));
+    VIEW_H = Math.max(180, Math.floor(layoutH / scale));
     if (CV.width !== VIEW_W || CV.height !== VIEW_H) {
       CV.width = VIEW_W;
       CV.height = VIEW_H;
@@ -741,11 +767,11 @@ function fitCanvas() {
       C.imageSmoothingEnabled = false;
       if (SPR) SPR.scan = null;
     }
-    CV.style.width = '100vw';
-    CV.style.height = 'var(--app-height, 100dvh)';
+    CV.style.width = '100%';
+    CV.style.height = '100%';
     return;
   }
-  let s = Math.min(w * dpr / VIEW_W, h * dpr / VIEW_H);
+  let s = Math.min(layoutW * dpr / VIEW_W, layoutH * dpr / VIEW_H);
   if (s >= 1) s = Math.floor(s);
   CV.style.width = (VIEW_W * s / dpr) + 'px';
   CV.style.height = (VIEW_H * s / dpr) + 'px';
@@ -835,7 +861,9 @@ function step(dt) {
   }
   if (G.state === 'title') { render(); endFrame(); return; }
   if (G.state === 'dead') {
+    const oldSec = Math.ceil(G.deadT);
     G.deadT -= dt;
+    if (Math.ceil(G.deadT) !== oldSec && G.deadT > 0) saveGame();
     if (G.deadT <= 0) respawn();
     render(); endFrame(); return;
   }
@@ -1256,10 +1284,16 @@ function updatePlayer(dt, dtP) {
   if (p.moving) { p.anim += dtP * 9; G.stats.dist += Math.hypot(p.vx, p.vy) * dtP; }
 
   // aim & face
-  p.aim = Math.atan2(G.mouse.wy - p.y, G.mouse.wx - p.x);
-  const ca = Math.cos(p.aim), sa = Math.sin(p.aim);
-  if (Math.abs(ca) > Math.abs(sa)) { p.face = 'side'; p.flip = ca > 0; }
-  else { p.face = sa > 0 ? 'down' : 'up'; }
+  const activeAim = TOUCH.on ? (TOUCH.aim.act || TOUCH.held['fire'] || G.mouse.down) : G.mouse.down;
+  let faceAngle = null;
+  if (p.moving && !activeAim) faceAngle = Math.atan2(p.vy, p.vx);
+  else if (activeAim) faceAngle = Math.atan2(G.mouse.wy - p.y, G.mouse.wx - p.x);
+  p.aim = faceAngle == null ? p.aim : faceAngle;
+  if (faceAngle != null) {
+    const ca = Math.cos(faceAngle), sa = Math.sin(faceAngle);
+    if (Math.abs(ca) > Math.abs(sa)) { p.face = 'side'; p.flip = ca > 0; }
+    else { p.face = sa > 0 ? 'down' : 'up'; }
+  }
 
   // smart lock
   G.lockTarget = null;
@@ -1783,6 +1817,11 @@ function factionHostile(a, b) {
 
 function findGangTarget(e) {
   if (!e.war && !e.ally) return null;
+  const px = G.driving && G.car ? G.car.x : G.p.x, py = G.driving && G.car ? G.car.y : G.p.y;
+  const pDist = distPx(e.x, e.y, px, py);
+  const playerHostile = !e.ally && G.gang !== e.fac;
+  const playerVisible = playerHostile && pDist < 260 && WORLD.losClear(e.x, e.y - 4, px, py - 4);
+
   let best = null, bd = 1e9;
   for (const o of G.enemies) {
     if (o === e || o.dead || !factionHostile(e.fac, o.fac)) continue;
@@ -1790,6 +1829,10 @@ function findGangTarget(e) {
     if (e.ally && (o.ally || distPx(o.x, o.y, G.p.x, G.p.y) > 360)) continue;
     const d = distPx(e.x, e.y, o.x, o.y);
     if (d < bd && d < 260 && WORLD.losClear(e.x, e.y - 4, o.x, o.y - 4)) { best = o; bd = d; }
+  }
+
+  if (playerVisible && (pDist < bd || (e.alerted && e.lkx != null && distPx(e.lkx, e.lky, px, py) < 48))) {
+    return null;
   }
   return best;
 }
@@ -1854,6 +1897,8 @@ function updateEnemies(dt) {
     const targetIsPlayer = !gangTarget && !friendlyPlayer && !escortPlayer;
     const d = distPx(e.x, e.y, tx, ty);
 
+    const isRival = !e.ally && G.gang !== e.fac;
+
     // ---- field of view: facing cone + wall occlusion + proximity sense ----
     const aToV = Math.atan2(ty - e.y, tx - e.x);
     const range = enemyRange(e);
@@ -1869,15 +1914,19 @@ function updateEnemies(dt) {
     } else if (!targetIsPlayer) {
       seen = true;
     } else if (p.camoT <= 0) {
-      const prox = G.driving ? 55 : 30;
+      const prox = G.driving ? 55 : (isRival ? 45 : 30);
+      const fov = isRival ? 1.4 : FOV_HALF;
       const da = Math.abs(((aToV - e.lookA) + Math.PI * 3) % (Math.PI * 2) - Math.PI);
-      const inCone = d < prox || (d < range && (da < FOV_HALF || e.psycho)) || (G.driving && (G.carSpd || 0) > 140 && d < 230);
+      const inCone = d < prox || (d < range && (da < fov || e.psycho)) || (G.driving && (G.carSpd || 0) > 140 && d < 230);
       if (inCone) seen = WORLD.losClear(e.x, e.y - 4, px, py - 4);
       if (seen && !G.driving && G.pHidden && d > 26) seen = false; // V is in the bushes
     }
     e.seen = seen;
     if (seen) {
-      e.detect = e.psycho ? 1 : Math.min(1, e.detect + dt * (1.2 + (1 - Math.min(1, d / range)) * 2.2));
+      e.detect = (e.psycho || isRival) ? 1 : Math.min(1, e.detect + dt * (1.2 + (1 - Math.min(1, d / range)) * 2.2));
+      if (!e.alerted && !e.ally && e.detect < 1) {
+        console.log(`[AI-DETECT] Enemy ${e.name} (${e.fac}) saw player but did not alert. G.gang=${G.gang}, isRival=${isRival}, detect=${e.detect}`);
+      }
       e.lookA = turnToward(e.lookA, aToV, 3.5 * dt); // suspicion: turn toward V
       if (e.detect >= 1) {
         if (!e.alerted) {

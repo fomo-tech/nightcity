@@ -553,9 +553,7 @@ function drawTouchControls(c) {
     drawTextC(c, '×', cx, cy - 5, '#ff5a5a', 3);
     c.globalAlpha = 1;
   }
-  if (window.innerHeight > window.innerWidth && G.state === 'play' && !G.ui && G.rotateHintT > 0) {
-    drawRotateHint(c);
-  }
+  // Rotation hint is disabled since landscape is now automatically forced/managed by CSS rotation.
 }
 
 function drawRotateHint(c) {

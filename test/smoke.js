@@ -118,6 +118,14 @@ steps(240);
 assert(G.stats.dist > 0, 'player moved');
 G.keys.delete('KeyD');
 
+// movement facing follows movement when not actively aiming
+G.mouse.down = false; G.mouse.wx = G.p.x - 200; G.mouse.wy = G.p.y;
+G.keys.add('KeyD'); steps(4); G.keys.delete('KeyD');
+assert(G.p.face === 'side' && G.p.flip === true, 'player faces right while walking right');
+G.mouse.wx = G.p.x + 200;
+G.keys.add('KeyA'); steps(4); G.keys.delete('KeyA');
+assert(G.p.face === 'side' && G.p.flip === false, 'player faces left while walking left');
+
 // combat near player
 spawnPack(G.p.x + 70, G.p.y, 5);
 assert(G.enemies.length >= 3, 'pack spawned');
@@ -243,11 +251,16 @@ steps(20);
 assert(G.state === 'play' && G.p.hp === G.p.maxhp, 'respawned');
 const edAfterRespawn = G.eddies;
 const ownDeathDrop = G.pickups.find(pk => pk.deathDrop && pk.kind === 'ed' && pk.amt === 1234);
-if (ownDeathDrop) { G.p.x = ownDeathDrop.x; G.p.y = ownDeathDrop.y; steps(20); }
+if (ownDeathDrop) {
+  // Clear other pickups nearby to avoid accidental collection of leftover combat drops
+  G.pickups = G.pickups.filter(pk => pk === ownDeathDrop || distPx(pk.x, pk.y, ownDeathDrop.x, ownDeathDrop.y) > 150);
+  G.p.x = ownDeathDrop.x; G.p.y = ownDeathDrop.y; steps(20);
+}
+assert(ownDeathDrop && G.pickups.includes(ownDeathDrop), 'own death eddies still exist on the ground');
 assert(G.eddies === edAfterRespawn, 'player cannot reclaim own death eddies');
 delete window.NCPX_NET;
 G.p.iframes = 99999;
-steps(620);
+steps(1120);
 assert(!G.pickups.some(pk => pk.deathDrop && (pk.id === 'lexington' || pk.id === 'unity' || pk.id === 'knife' || pk.amt === 1234)), 'death drops expire after respawn grace');
 
 // save / load roundtrip
@@ -289,6 +302,7 @@ G.gang = null; G.playerGangName = null; G.playerGangIcon = null; G.playerGangIco
 steps(120);
 
 // long soak: everything running together
+G.p.iframes = 99999;
 spawnPack(G.p.x + 80, G.p.y + 40, 6);
 G.mouse.down = true; G.keys.add('KeyA');
 steps(900);

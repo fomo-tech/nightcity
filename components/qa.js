@@ -15,7 +15,7 @@ const GAME_SCRIPTS = [
   "/js/sprites.js",
   "/js/world.js",
   "/js/ui.js",
-  "/js/game.js?v=2",
+  "/js/game.js",
   "/mods/mods.js",
 ];
 
@@ -251,7 +251,7 @@ function OutfitPreview({ skinId, gender, language }) {
   );
 }
 
-function BootCharacterPreview({ gender, active, skinId }) {
+function BootCharacterPreview({ gender, active }) {
   const canvasRef = useRef(null);
 
   useEffect(() => {
@@ -275,9 +275,7 @@ function BootCharacterPreview({ gender, active, skinId }) {
           ctx.imageSmoothingEnabled = false;
 
           const pedSpr =
-            (skinId !== null && skinId !== undefined && window.SPR.playerCiv)
-              ? window.SPR.playerCiv(skinId, gender)
-              : (window.SPR.player[gender] || window.SPR.player.m);
+            window.SPR.player[gender] || window.SPR.player.m;
           window.drawPed(ctx, pedSpr, "down", false, frame, 45, 90, 1, 3);
         }
       }
@@ -288,7 +286,7 @@ function BootCharacterPreview({ gender, active, skinId }) {
     return () => {
       activeLoop = false;
     };
-  }, [gender, skinId]);
+  }, [gender]);
 
   return (
     <canvas
@@ -475,7 +473,7 @@ function PixelUserHud({
             <span className="pixel-user-provider"> · {provider}</span>
           </div>
         </div>
-        <div className="pixel-user-chip">€${fmtCredits(player.eddies)}</div>
+        <div className="pixel-user-chip">${fmtCredits(player.eddies)}</div>
       </div>
       <div className="pixel-user-bars">
         <div className="pixel-meter hp">
@@ -568,12 +566,20 @@ function PixelDeadOverlay({ player, language }) {
           </div>
           <div className="pixel-dead-progress-container">
             <div className="pixel-dead-progress-bar">
-              {Array.from({ length: totalSegments }).map((_, idx) => (
-                <span
-                  key={idx}
-                  className={`progress-seg ${idx < filledSegments ? "filled" : ""}`}
-                />
-              ))}
+              {Array.from({ length: totalSegments }).map((_, idx) => {
+                const filled = idx < filledSegments;
+                const hue = 60 - (idx / totalSegments) * 60;
+                return (
+                  <span
+                    key={idx}
+                    className={`progress-seg ${filled ? "filled" : ""}`}
+                    style={{
+                      backgroundColor: filled ? `hsl(${hue}, 100%, 50%)` : "transparent",
+                      boxShadow: filled ? `0 0 6px hsl(${hue}, 100%, 50%)` : "none",
+                    }}
+                  />
+                );
+              })}
             </div>
           </div>
           <div className="pixel-dead-footer">{rebootLabel}</div>
@@ -1050,6 +1056,18 @@ export default function GameCanvas() {
   const [sidebarTab, setSidebarTab] = useState("lore");
   const [crtActive, setCrtActive] = useState(false);
   const [volume, setVolume] = useState(80);
+  const [perfMode, setPerfMode] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("ncpx_perf_mode") === "true";
+    }
+    return false;
+  });
+  const [screenShake, setScreenShake] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("ncpx_screen_shake") !== "false";
+    }
+    return true;
+  });
   const [isGlitching, setIsGlitching] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [activeLog, setActiveLog] = useState("");
@@ -1428,6 +1446,7 @@ export default function GameCanvas() {
     gangInvite: null,
     gangJoinReq: null,
     stats: {},
+    outfits: {},
     hp: 100,
     maxhp: 100,
     armor: 0,
@@ -1447,27 +1466,31 @@ export default function GameCanvas() {
   const [, setTick] = useState(0);
   const forceUpdate = () => setTick((t) => t + 1);
   const lastUiSnapshot = useRef("");
-  const tabsRef = useRef(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
-    setLanguage("vi");
-    window.__NCPX_LOW_FX = PERFORMANCE_MODE;
-    window.__NCPX_JSX_PLAYER_HUD = !PERFORMANCE_MODE;
-    window.__NCPX_JSX_WEAPON_HUD = !PERFORMANCE_MODE;
-    window.__NCPX_JSX_MINIMAP_HUD = !PERFORMANCE_MODE;
+    window.__NCPX_LOW_FX = perfMode;
+    window.__NCPX_JSX_PLAYER_HUD = !perfMode;
+    window.__NCPX_JSX_WEAPON_HUD = !perfMode;
+    window.__NCPX_JSX_MINIMAP_HUD = !perfMode;
     return () => {
       window.__NCPX_JSX_PLAYER_HUD = false;
       window.__NCPX_JSX_WEAPON_HUD = false;
       window.__NCPX_JSX_MINIMAP_HUD = false;
       window.__NCPX_LOW_FX = false;
     };
-  }, []);
+  }, [perfMode]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.__NCPX_SCREEN_SHAKE = screenShake;
+    }
+  }, [screenShake]);
 
   // Sync state loop from window.G
   useEffect(() => {
     if (typeof window !== "undefined") {
-      window.__NCPX_JSX_BANNERS = !PERFORMANCE_MODE;
+      window.__NCPX_JSX_BANNERS = !perfMode;
     }
     let timer;
     const poll = () => {
@@ -1475,7 +1498,7 @@ export default function GameCanvas() {
         if (typeof window !== "undefined" && window.G) {
           const g = window.G;
           const nextUi = g.ui || null;
-          if (PERFORMANCE_MODE && !nextUi) {
+          if (perfMode && !nextUi) {
             if (lastUiSnapshot.current !== "perf:null") {
               lastUiSnapshot.current = "perf:null";
               setActiveUi(null);
@@ -1505,6 +1528,7 @@ export default function GameCanvas() {
             gangInvite: g.gangInvite,
             gangJoinReq: g.gangJoinReq,
             stats: g.stats ? { ...g.stats } : {},
+            outfits: g.outfits ? { ...g.outfits } : {},
             hp: g.p ? Math.ceil(g.p.hp) : 100,
             maxhp: g.p ? g.p.maxhp : 100,
             armor: g.p ? g.p.armor || 0 : 0,
@@ -1537,7 +1561,7 @@ export default function GameCanvas() {
     poll();
     timer = window.setInterval(poll, 125);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [perfMode]);
 
   // Initialize selected items based on active UI
   useEffect(() => {
@@ -2705,7 +2729,7 @@ export default function GameCanvas() {
                 : "OWNED"
               : lowLevel
                 ? `LV${w.lvl}`
-                : `€$${fmt(w.price)}`;
+                : `$${fmt(w.price)}`;
 
             const rarColors = {
               0: "#cfd6e4",
@@ -2843,8 +2867,8 @@ export default function GameCanvas() {
                   }}
                 >
                   {language === "vi"
-                    ? `MUA — €$${fmt(selectedWeapon.price)}`
-                    : `BUY — €$${fmt(selectedWeapon.price)}`}
+                    ? `MUA — $${fmt(selectedWeapon.price)}`
+                    : `BUY — $${fmt(selectedWeapon.price)}`}
                 </button>
               )}
             </>
@@ -2887,7 +2911,7 @@ export default function GameCanvas() {
                 ? language === "vi"
                   ? "ĐÃ SỞ HỮU"
                   : "OWNED"
-                : `€$${fmt(car.price)}`;
+                : `$${fmt(car.price)}`;
 
             return (
               <div
@@ -3016,8 +3040,8 @@ export default function GameCanvas() {
                   }}
                 >
                   {language === "vi"
-                    ? `MUA — €$${fmt(selectedCar.price)}`
-                    : `BUY — €$${fmt(selectedCar.price)}`}
+                    ? `MUA — $${fmt(selectedCar.price)}`
+                    : `BUY — $${fmt(selectedCar.price)}`}
                 </button>
               )}
             </>
@@ -3133,7 +3157,7 @@ export default function GameCanvas() {
             } else {
               const t = cy.tiers[tier];
               statusText =
-                playerState.lvl < t.lvl ? `LV${t.lvl}` : `€$${fmt(t.price)}`;
+                playerState.lvl < t.lvl ? `LV${t.lvl}` : `$${fmt(t.price)}`;
               statusColor =
                 playerState.lvl < t.lvl
                   ? "#ff5a5a"
@@ -3281,8 +3305,8 @@ export default function GameCanvas() {
                       }}
                     >
                       {language === "vi"
-                        ? `${currentTier ? "NÂNG CẤP" : "CÀI ĐẶT"} — €$${fmt(t.price)}`
-                        : `${currentTier ? "UPGRADE" : "INSTALL"} — €$${fmt(t.price)}`}
+                        ? `${currentTier ? "NÂNG CẤP" : "CÀI ĐẶT"} — $${fmt(t.price)}`
+                        : `${currentTier ? "UPGRADE" : "INSTALL"} — $${fmt(t.price)}`}
                     </button>
                   );
                 })()
@@ -3323,7 +3347,7 @@ export default function GameCanvas() {
               if (window.barSelect) window.barSelect(0);
             }}
           >
-            &apos;JOHNNY SILVERHAND&apos; — €$100
+            &apos;JOHNNY SILVERHAND&apos; — $100
           </button>
           <button
             className="cyber-modal-btn"
@@ -3333,7 +3357,7 @@ export default function GameCanvas() {
               if (window.barSelect) window.barSelect(1);
             }}
           >
-            MAXDOC (+1) — €$50
+            MAXDOC (+1) — $50
           </button>
           <button
             className="cyber-modal-btn active"
@@ -3390,33 +3414,50 @@ export default function GameCanvas() {
   };
 
   const renderWardrobe = () => {
-    const stock = [null, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    const outfits = typeof window !== "undefined" && window.OUTFITS ? window.OUTFITS : [];
+    const stock = [null, ...outfits.map((o) => o.id)];
     const selectedOutfit = selectedSkinId;
     const fmt = (val) => Number(val).toLocaleString();
+    const getOutfit = (row) =>
+      row === null || row === undefined
+        ? null
+        : outfits.find((o) => o.id === row) || null;
+    const getOutfitName = (row) =>
+      row === null
+        ? language === "vi"
+          ? "MẶC ĐỊNH V"
+          : "DEFAULT V"
+        : getOutfit(row)?.name || `OUTFIT #${row + 1}`;
+    const getOutfitFx = (row) =>
+      typeof window !== "undefined" && window.outfitFxText
+        ? window.outfitFxText(row)
+        : "";
 
     return (
       <div className="cyber-grid-layout">
         <div className="cyber-list">
           {stock.map((row) => {
-            const name =
-              row === null
-                ? language === "vi"
-                  ? "MẶC ĐỊNH V"
-                  : "DEFAULT V"
-                : language === "vi"
-                  ? `BỘ TRANG PHỤC #${row + 1}`
-                  : `OUTFIT #${row + 1}`;
+            const outfit = getOutfit(row);
+            const name = getOutfitName(row);
             const equipped = playerState.skin === row;
+            const owned = row === null || playerState.outfits?.[row];
+            const price = outfit?.price || 0;
             const statusColor = equipped
               ? "#5a6372"
-              : playerState.eddies >= 100
+              : owned
+                ? "#2ecc71"
+                : playerState.eddies >= price
                 ? "#2ecc71"
                 : "#ff5a5a";
             const statusText = equipped
               ? language === "vi"
                 ? "ĐANG MẶC"
                 : "EQUIPPED"
-              : "€$100";
+              : owned
+                ? language === "vi"
+                  ? "ĐÃ MUA"
+                  : "OWNED"
+                : `$${fmt(price)}`;
 
             return (
               <div
@@ -3442,13 +3483,7 @@ export default function GameCanvas() {
             className="cyber-detail-title"
             style={{ color: "var(--cyber-pink)" }}
           >
-            {selectedOutfit === null
-              ? language === "vi"
-                ? "DIỆN MẠO MẶC ĐỊNH V"
-                : "DEFAULT V"
-              : language === "vi"
-                ? `BỘ TRANG PHỤC KHÁC #${selectedOutfit + 1}`
-                : `CIVILIAN OUTFIT #${selectedOutfit + 1}`}
+              {getOutfitName(selectedOutfit)}
           </h3>
           <div className="cyber-detail-subtitle">
             {language === "vi" ? "GIỚI TÍNH: " : "GENDER: "}{" "}
@@ -3467,6 +3502,15 @@ export default function GameCanvas() {
             language={language}
           />
 
+          <div className="cyber-description">
+            {selectedOutfit === null
+              ? language === "vi"
+                ? "Trang phục mặc định, không cộng chỉ số."
+                : "Default outfit with no stat bonus."
+              : getOutfit(selectedOutfit)?.desc}
+          </div>
+          <div className="cyber-detail-stats">{getOutfitFx(selectedOutfit)}</div>
+
           {playerState.skin === selectedOutfit ? (
             <button
               className="cyber-action-btn primary"
@@ -3475,7 +3519,9 @@ export default function GameCanvas() {
             >
               {language === "vi" ? "ĐÃ ĐƯỢC TRANG BỊ" : "ALREADY EQUIPPED"}
             </button>
-          ) : playerState.eddies < 100 ? (
+          ) : selectedOutfit !== null &&
+            !playerState.outfits?.[selectedOutfit] &&
+            playerState.eddies < (getOutfit(selectedOutfit)?.price || 0) ? (
             <button
               className="cyber-action-btn danger"
               disabled
@@ -3492,7 +3538,13 @@ export default function GameCanvas() {
                   window.buyWardrobeOutfit(selectedOutfit);
               }}
             >
-              {language === "vi" ? "TRANG BỊ LÊN — €$100" : "EQUIP — €$100"}
+              {selectedOutfit === null || playerState.outfits?.[selectedOutfit]
+                ? language === "vi"
+                  ? "TRANG BỊ LÊN"
+                  : "EQUIP"
+                : language === "vi"
+                  ? `MUA & MẶC — $${fmt(getOutfit(selectedOutfit)?.price || 0)}`
+                  : `BUY & EQUIP — $${fmt(getOutfit(selectedOutfit)?.price || 0)}`}
             </button>
           )}
         </div>
@@ -3545,7 +3597,7 @@ export default function GameCanvas() {
               ◀
             </button>
             <span style={{ color: "var(--cyber-yellow)", fontWeight: "bold" }}>
-              €$ {fmt(s.bet)}
+              $ {fmt(s.bet)}
             </span>
             <button
               className="gang-nav-btn"
@@ -3618,12 +3670,12 @@ export default function GameCanvas() {
               &middot;{" "}
               {s.result === "win" && (
                 <span style={{ color: "#2ecc71" }}>
-                  {language === "vi" ? "THẮNG!" : "WIN!"} +€${fmt(s.bet)}
+                  {language === "vi" ? "THẮNG!" : "WIN!"} +${fmt(s.bet)}
                 </span>
               )}
               {s.result === "lose" && (
                 <span style={{ color: "#ff2a3c" }}>
-                  {language === "vi" ? "THUA!" : "LOSE!"} -€${fmt(s.bet)}
+                  {language === "vi" ? "THUA!" : "LOSE!"} -${fmt(s.bet)}
                 </span>
               )}
               {s.result === "triple" && (
@@ -3884,184 +3936,576 @@ export default function GameCanvas() {
     );
   };
 
-  const renderSettingsTab = () => {
-    const soundLabel =
-      typeof window !== "undefined" && window.SFX && window.SFX.muted
-        ? language === "vi"
-          ? "ÂM THANH: TẮT"
-          : "SOUND: OFF"
-        : language === "vi"
-          ? "ÂM THANH: BẬT"
-          : "SOUND: ON";
+  const renderInventoryGangTab = () => {
+    if (typeof window === "undefined" || !window.G) return null;
+    const G = window.G;
+    const names = window.PLAYER_GANG_NAMES || ["SOLO"];
+    const icons = window.PLAYER_GANG_ICONS || [];
+    
+    G.gangNameSel = G.gangNameSel || 0;
+    G.gangIconSel = G.gangIconSel || 0;
+    
+    const iconObj = window.gangIconObj
+      ? window.gangIconObj(G.gangIconSel)
+      : (icons[G.gangIconSel] || { mark: "?", name: "SOLO", col: "#8a93a6" });
+
+    const inviteTarget = window.nearestRemotePlayer
+      ? window.nearestRemotePlayer(
+          (rp) => G.gang && !window.sameGangProfile(rp, window.playerProfile()),
+        )
+      : null;
+    const requestTarget = window.nearestRemotePlayer
+      ? window.nearestRemotePlayer(
+          (rp) => !G.gang && rp.gang && rp.gang !== "SOLO",
+        )
+      : null;
+
+    const getGangLabel = (gang) =>
+      window.gangLabel ? window.gangLabel(gang) : "CHƯA CÓ";
+    
+    const fmtName = (name) =>
+      window.cleanPlayerName ? window.cleanPlayerName(name) : name;
+
+    const profile = window.playerProfile ? window.playerProfile() : null;
+
+    // Faction/District influence mapping based on player stats
+    const lvlVal = playerState.lvl || 1;
+    const killsVal = playerState.stats?.kills || 0;
+    const bountiesVal = playerState.stats?.bounties || 0;
+    const airdropsVal = playerState.stats?.airdrops || 0;
+    const cratesVal = playerState.stats?.crates || 0;
+    const psychosVal = playerState.stats?.psychos || 0;
+
+    const infCenter = Math.min(100, Math.round((lvlVal / 50) * 100));
+    const infWatson = Math.min(100, Math.round((bountiesVal / 12) * 100));
+    const infWestbrook = Math.min(100, Math.round((killsVal / 150) * 100));
+    const infSanto = Math.min(100, Math.round((airdropsVal / 8) * 100));
+    const infPacifica = Math.min(100, Math.round((cratesVal / 20) * 100));
+    const infDogtown = Math.min(100, Math.round((psychosVal / 8) * 100));
+
+    const makeBar = (pct) => {
+      const activeBars = Math.round((pct / 100) * 5);
+      return "█".repeat(activeBars) + "░".repeat(5 - activeBars);
+    };
+
+    const districtList = [
+      { id: "center", name: "TRUNG TÂM", faction: "KỀN KỀN (SCAVS)", danger: "★☆☆☆", col: "#f9f002", inf: infCenter, stat: `LV ${lvlVal}` },
+      { id: "watson", name: "WATSON", faction: "HẮC THỦY (MAELSTROM)", danger: "★★☆☆", col: "#05d9e8", inf: infWatson, stat: `${bountiesVal} BOUNTY` },
+      { id: "westbrook", name: "WESTBROOK", faction: "MÃNH HỔ (TYGER CLAWS)", danger: "★★★☆", col: "#ff2a6d", inf: infWestbrook, stat: `${killsVal} KILLS` },
+      { id: "santo", name: "SANTO", faction: "ĐƯỜNG SỐ 6 (6TH ST)", danger: "★★★☆", col: "#ff9f1c", inf: infSanto, stat: `${airdropsVal} DROPS` },
+      { id: "pacifica", name: "PACIFICA", faction: "BÓNG ĐÊM (VOODOO)", danger: "★★★☆", col: "#00ff9f", inf: infPacifica, stat: `${cratesVal} BOXES` },
+      { id: "dogtown", name: "DOGTOWN", faction: "CHIẾN KHUYỂN (BARGHEST)", danger: "★★★★", col: "#ff6a00", inf: infDogtown, stat: `${psychosVal}/8 BOSS` }
+    ];
 
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-        {/* Volume Option */}
-        <div className="cyber-modal-option">
-          <label className="settings-label">
-            {language === "vi"
-              ? "ÂM LƯỢNG HỆ THỐNG: "
-              : "AUDIO INTERFACE VOLUME: "}
-            {volume}%
-          </label>
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={volume}
-            onChange={(e) => {
-              const val = parseInt(e.target.value, 10);
-              setVolume(val);
-              if (
-                typeof window !== "undefined" &&
-                window.SFX &&
-                window.SFX.master
-              ) {
-                window.SFX.master.gain.value = (val / 100) * 0.6;
-              }
-            }}
-            className="slider"
-            style={{ width: "100%" }}
-          />
+      <div className="cyber-grid-layout" style={{ height: "340px" }}>
+        {/* Left column: Gang info and district control */}
+        <div className="cyber-list" style={{ display: "flex", flexDirection: "column", gap: "6px", padding: "6px", overflowY: "auto" }}>
+          
+          {/* Section 1: Active Gang Badge */}
+          <div style={{
+            background: "rgba(0,0,0,0.35)",
+            border: "1px solid rgba(5,217,232,0.25)",
+            padding: "6px 8px",
+            display: "flex",
+            alignItems: "center",
+            gap: "10px"
+          }}>
+            <div style={{ transform: "scale(1.1)", filter: "drop-shadow(0 0 6px rgba(5,217,232,0.3))" }}>
+              {profile?.gangIcon ? (
+                <GangPixelBadge mark={profile.gangIcon} color={profile.gangIconCol} size="sm" />
+              ) : (
+                <span className="pixel-gang-empty" style={{ display: "inline-block", width: "16px", height: "16px", border: "1px solid #3a414e", background: "rgba(0,0,0,0.4)" }} />
+              )}
+            </div>
+            <div>
+              <div style={{
+                fontFamily: "var(--font-pixel)",
+                fontSize: "10px",
+                color: profile?.gangIconCol || "var(--cyber-cyan)",
+                textTransform: "uppercase",
+                textShadow: "0 0 6px currentColor"
+              }}>
+                {profile?.gang || (language === "vi" ? "ĐỘC HÀNH (SOLO)" : "SOLO AGENT")}
+              </div>
+              <div style={{
+                fontFamily: "var(--font-pixel-mono)",
+                fontSize: "8px",
+                color: "#8a93a6",
+                marginTop: "2px"
+              }}>
+                {G.gang
+                  ? (G.isGangLeader
+                    ? (language === "vi" ? "THỦ LĨNH BĂNG // ID: 0xFD4" : "LEADER // ID: 0xFD4")
+                    : (language === "vi" ? "THÀNH VIÊN HOẠT ĐỘNG" : "ACTIVE ENFORCER"))
+                  : (language === "vi" ? "MERCENARY TỰ DO" : "INDEPENDENT MERC")}
+              </div>
+            </div>
+          </div>
+
+          {/* Section 2: District Control Maps */}
+          <div style={{ marginTop: "2px" }}>
+            <div style={{
+              fontFamily: "var(--font-pixel)",
+              fontSize: "8px",
+              color: "var(--cyber-cyan)",
+              marginBottom: "4px",
+              borderBottom: "1px dashed rgba(5, 217, 232, 0.2)",
+              paddingBottom: "2px"
+            }}>
+              ▶ {language === "vi" ? "ĐỊA BÀN KIỂM SOÁT" : "TERRITORY CONTROL INDEX"}
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+              {districtList.map((d) => (
+                <div key={d.id} style={{
+                  display: "grid",
+                  gridTemplateColumns: "1.2fr 1.5fr 0.5fr 1.3fr",
+                  fontSize: "8px",
+                  padding: "3px 4px",
+                  background: "rgba(255,255,255,0.02)",
+                  borderBottom: "1px solid rgba(255,255,255,0.03)",
+                  fontFamily: "var(--font-pixel-mono)",
+                  alignItems: "center"
+                }}>
+                  <span style={{ color: d.col, fontWeight: "bold" }}>{d.name}</span>
+                  <span style={{ color: "#8a93a6", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.faction}</span>
+                  <span style={{ color: "var(--cyber-yellow)" }}>{d.danger}</span>
+                  <span style={{ textAlign: "right", color: "var(--cyber-cyan)", whiteSpace: "nowrap" }}>
+                    <span style={{ color: "#3a5a66", marginRight: "3px", fontSize: "7px" }}>{d.stat}</span>
+                    <span style={{ color: "var(--cyber-cyan)", marginRight: "3px" }}>{makeBar(d.inf)}</span>
+                    <span style={{ display: "inline-block", width: "18px", textAlign: "right" }}>{d.inf}%</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
-        {/* Sound Toggle & CRT screen */}
-        <div style={{ display: "flex", gap: "10px" }}>
-          <div className="cyber-modal-option" style={{ flex: 1 }}>
-            <label className="settings-label">{language === "vi" ? "HIỆU ỨNG ÂM THANH" : "SYSTEM SOUND FX"}</label>
-            <button
-              className="cyber-modal-btn active"
-              style={{ width: "100%", marginTop: "4px" }}
-              onClick={() => {
-                playSynthSfx("click");
-                if (typeof window !== "undefined" && window.SFX) {
-                  window.SFX.toggleMute();
-                  forceUpdate();
+        {/* Right column: Actions & Customization */}
+        <div className="cyber-detail-panel" style={{ display: "flex", flexDirection: "column", gap: "6px", overflowY: "auto", padding: "8px" }}>
+          {/* Customization (Only leader or solos can change) */}
+          {(!G.gang || G.isGangLeader || G.gang === "player") && (
+            <div style={{
+              background: "rgba(249, 240, 2, 0.02)",
+              border: "1px solid rgba(249, 240, 2, 0.2)",
+              padding: "6px 8px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "4px"
+            }}>
+              <div style={{ fontFamily: "var(--font-pixel)", fontSize: "8px", color: "var(--cyber-yellow)", borderBottom: "1px dashed rgba(249, 240, 2, 0.2)", paddingBottom: "2px" }}>
+                🛠 {language === "vi" ? "THIẾT LẬP BĂNG ĐẢNG" : "GANG CONFIGURATION"}
+              </div>
+              
+              {/* Gang Name Selector */}
+              <div>
+                <span style={{ fontSize: "7.5px", color: "#8a93a6" }}>{language === "vi" ? "TÊN BĂNG ĐẢNG:" : "CREW DESIGNATION:"}</span>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#06080e", height: "24px", marginTop: "2px", border: "1px solid rgba(255,255,255,0.05)" }}>
+                  <button style={{ background: "none", border: "none", color: "var(--cyber-yellow)", cursor: "pointer", width: "20px", height: "100%", fontSize: "8px" }} onClick={() => { playSynthSfx("click"); G.gangNameSel = (G.gangNameSel - 1 + names.length) % names.length; forceUpdate(); }}>◀</button>
+                  <span style={{ fontFamily: "var(--font-pixel)", fontSize: "8px", color: "#fff" }}>{names[G.gangNameSel]}</span>
+                  <button style={{ background: "none", border: "none", color: "var(--cyber-yellow)", cursor: "pointer", width: "20px", height: "100%", fontSize: "8px" }} onClick={() => { playSynthSfx("click"); G.gangNameSel = (G.gangNameSel + 1) % names.length; forceUpdate(); }}>▶</button>
+                </div>
+              </div>
+
+              {/* Gang Icon Selector */}
+              <div>
+                <span style={{ fontSize: "7.5px", color: "#8a93a6" }}>{language === "vi" ? "BIỂU TƯỢNG BĂNG:" : "BIỂU TƯỢNG BĂNG:"}</span>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#06080e", padding: "2px 6px", marginTop: "2px", border: "1px solid rgba(255,255,255,0.05)", height: "24px" }}>
+                  <button style={{ background: "none", border: "none", color: "var(--cyber-yellow)", cursor: "pointer", width: "20px", fontSize: "8px" }} onClick={() => { playSynthSfx("click"); G.gangIconSel = (G.gangIconSel - 1 + icons.length) % icons.length; forceUpdate(); }}>◀</button>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <GangPixelBadge mark={iconObj.mark} color={iconObj.col} size="sm" />
+                    <span style={{ fontFamily: "var(--font-pixel-mono)", fontSize: "8px", color: iconObj.col }}>{iconObj.name}</span>
+                  </div>
+                  <button style={{ background: "none", border: "none", color: "var(--cyber-yellow)", cursor: "pointer", width: "20px", fontSize: "8px" }} onClick={() => { playSynthSfx("click"); G.gangIconSel = (G.gangIconSel + 1) % icons.length; forceUpdate(); }}>▶</button>
+                </div>
+              </div>
+
+              <button
+                className="cyber-action-btn primary"
+                style={{ width: "100%", marginTop: "2px", fontSize: "8px", padding: "4px" }}
+                onClick={() => {
+                  playSynthSfx("click");
+                  if (window.gangMenuAct) window.gangMenuAct(0);
+                }}
+              >
+                {G.gang === "player"
+                  ? (language === "vi" ? "CẬP NHẬT BĂNG ĐẢNG" : "UPDATE CREW PROFILE")
+                  : (language === "vi" ? "THÀNH LẬP BĂNG ĐẢNG" : "FOUND NEW CREW")}
+              </button>
+            </div>
+          )}
+
+          {/* Interactive Network Actions */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "4px", marginTop: "2px" }}>
+            <div style={{ fontFamily: "var(--font-pixel)", fontSize: "8px", color: "var(--cyber-cyan)", borderBottom: "1px dashed rgba(5, 217, 232, 0.2)", paddingBottom: "2px" }}>
+              📡 {language === "vi" ? "MẠNG ĐƯỜNG PHỐ" : "CREW NETWORK CONNECTIONS"}
+            </div>
+            
+            {inviteTarget ? (
+              <button className="cyber-modal-btn active" style={{ fontSize: "8px", padding: "4px 6px" }} onClick={() => { playSynthSfx("click"); if (window.gangMenuAct) window.gangMenuAct(1); }}>
+                {language === "vi" ? `MỜI GIA NHẬP: ${fmtName(inviteTarget.name)}` : `INVITE RECRUIT: ${fmtName(inviteTarget.name)}`}
+              </button>
+            ) : (
+              <button className="cyber-modal-btn" style={{ opacity: 0.4, cursor: "not-allowed", fontSize: "8px", padding: "4px 6px" }} disabled>
+                {language === "vi" ? "KHÔNG CÓ NGƯỜI CHƠI GẦN ĐÂY" : "NO SQUAD AGENTS NEARBY"}
+              </button>
+            )}
+
+            {requestTarget ? (
+              <button className="cyber-modal-btn active" style={{ fontSize: "8px", padding: "4px 6px" }} onClick={() => { playSynthSfx("click"); if (window.gangMenuAct) window.gangMenuAct(2); }}>
+                {language === "vi" ? `XIN GIA NHẬP BĂNG: ${requestTarget.gang}` : `REQUEST JOIN: ${requestTarget.gang}`}
+              </button>
+            ) : (
+              <button className="cyber-modal-btn" style={{ opacity: 0.4, cursor: "not-allowed", fontSize: "8px", padding: "4px 6px" }} disabled>
+                {language === "vi" ? "KHÔNG CÓ BĂNG GẦN ĐÂY" : "NO CREWS NEARBY TO JOIN"}
+              </button>
+            )}
+
+            {G.gangJoinReq && G.gang && (
+              <button className="cyber-modal-btn active" style={{ fontSize: "8px", padding: "4px 6px" }} onClick={() => { playSynthSfx("click"); if (window.gangMenuAct) window.gangMenuAct(3); }}>
+                {language === "vi" ? `CHẤP THUẬN: ${fmtName(G.gangJoinReq.fromName)}` : `APPROVE JOIN: ${fmtName(G.gangJoinReq.fromName)}`}
+              </button>
+            )}
+
+            {(G.playerInvite || G.gangInvite) && (
+              <button className="cyber-modal-btn active" style={{ fontSize: "8px", padding: "4px 6px" }} onClick={() => { playSynthSfx("click"); if (window.gangMenuAct) window.gangMenuAct(4); }}>
+                {language === "vi" ? `ĐỒNG Ý GIA NHẬP: ${G.playerInvite ? G.playerInvite.gang : getGangLabel(G.gangInvite)}` : `ACCEPT INVITE: ${G.playerInvite ? G.playerInvite.gang : getGangLabel(G.gangInvite)}`}
+              </button>
+            )}
+            
+            {/* Leave Gang button */}
+            {G.gang && (
+              <button
+                className="cyber-modal-btn"
+                style={{ fontSize: "8px", padding: "4px 6px", borderColor: "var(--cyber-pink)", color: "var(--cyber-pink)" }}
+                onClick={() => {
+                  playSynthSfx("click");
+                  if (G.isGangLeader) {
+                    if (window.gangMenuAct) window.gangMenuAct(0);
+                  } else {
+                    G.gang = null;
+                    if (typeof window !== "undefined" && window.G) {
+                      window.G.gang = null;
+                    }
+                    forceUpdate();
+                  }
+                }}
+              >
+                {G.isGangLeader 
+                  ? (language === "vi" ? "GIẢI TÁN BĂNG ĐẢNG" : "DISBAND CREW SQUAD")
+                  : (language === "vi" ? "RỜI KHỎI BĂNG" : "LEAVE CREW SQUAD")}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderInventorySettingsTab = () => {
+    if (typeof window === "undefined" || !window.SFX) return null;
+    
+    const soundLabel = window.SFX.muted
+      ? (language === "vi" ? "ÂM THANH: TẮT" : "SOUND: OFF")
+      : (language === "vi" ? "ÂM THANH: BẬT" : "SOUND: ON");
+
+    const stations = window.SFX.stations || [];
+    const activeStationName = window.SFX.stationName ? window.SFX.stationName() : "OFF";
+
+    // Volume level indicator string
+    const barCount = 12;
+    const filledCount = Math.round((volume / 100) * barCount);
+    const volumeMeterStr = "█".repeat(filledCount) + "░".repeat(barCount - filledCount);
+
+    return (
+      <div className="cyber-grid-layout" style={{ height: "340px" }}>
+        {/* Left column: System configuration sliders and buttons */}
+        <div className="cyber-list" style={{ display: "flex", flexDirection: "column", gap: "8px", padding: "10px", overflowY: "auto" }}>
+          
+          <div style={{
+            fontFamily: "var(--font-pixel)",
+            fontSize: "8px",
+            color: "var(--cyber-cyan)",
+            borderBottom: "1px dashed rgba(5, 217, 232, 0.2)",
+            paddingBottom: "4px",
+            marginBottom: "4px"
+          }}>
+            ▶ HỆ THỐNG TRUYỀN DẪN // NEURAL FEEDBACK CONFIG
+          </div>
+
+          {/* Setting 1: Language */}
+          <div style={{
+            background: "rgba(0,0,0,0.3)",
+            border: "1px solid rgba(5,217,232,0.12)",
+            padding: "6px 8px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "4px"
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+              <span style={{ fontFamily: "var(--font-pixel)", fontSize: "8.5px", color: "#fff" }}>
+                {language === "vi" ? "NGÔN NGỮ HỆ THỐNG" : "COGNITIVE LANGUAGE"}
+              </span>
+              <span style={{ fontFamily: "var(--font-pixel-mono)", fontSize: "7.5px", color: "var(--cyber-cyan)" }}>
+                [LANG_SEL]
+              </span>
+            </div>
+            <div style={{ display: "flex", gap: "6px", marginTop: "3px" }}>
+              <button
+                className={`cyber-modal-btn ${language === "vi" ? "active" : ""}`}
+                style={{ fontSize: "8px", padding: "3px 6px", flex: 1 }}
+                onClick={() => {
+                  playSynthSfx("click");
+                  setLanguage("vi");
+                  if (typeof window !== "undefined") window.NCPX_LANG = "vi";
+                }}
+              >
+                TIẾNG VIỆT
+              </button>
+              <button
+                className={`cyber-modal-btn ${language === "en" ? "active" : ""}`}
+                style={{ fontSize: "8px", padding: "3px 6px", flex: 1 }}
+                onClick={() => {
+                  playSynthSfx("click");
+                  setLanguage("en");
+                  if (typeof window !== "undefined") window.NCPX_LANG = "en";
+                }}
+              >
+                ENGLISH
+              </button>
+            </div>
+          </div>
+
+          {/* Setting 2: Volume */}
+          <div style={{
+            background: "rgba(0,0,0,0.3)",
+            border: "1px solid rgba(5,217,232,0.12)",
+            padding: "6px 8px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "4px"
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+              <span style={{ fontFamily: "var(--font-pixel)", fontSize: "8.5px", color: "#fff" }}>
+                {language === "vi" ? `ÂM LƯỢNG: ${volume}%` : `INTERFACE AUDIO: ${volume}%`}
+              </span>
+              <span style={{ fontFamily: "var(--font-pixel-mono)", fontSize: "8px", color: "var(--cyber-yellow)", letterSpacing: "0.5px" }}>
+                {volumeMeterStr}
+              </span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={volume}
+              onChange={(e) => {
+                const val = parseInt(e.target.value, 10);
+                setVolume(val);
+                if (window.SFX?.master) {
+                  window.SFX.master.gain.value = (val / 100) * 0.6;
                 }
               }}
+              style={{ width: "100%", accentColor: "var(--cyber-cyan)", cursor: "pointer", marginTop: "2px" }}
+            />
+          </div>
+
+          {/* Setting 3: Sound FX Toggle */}
+          <div style={{
+            background: "rgba(0,0,0,0.3)",
+            border: "1px solid rgba(5,217,232,0.12)",
+            padding: "6px 8px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center"
+          }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "2px", width: "65%" }}>
+              <span style={{ fontFamily: "var(--font-pixel)", fontSize: "8.5px", color: "#fff" }}>
+                {language === "vi" ? "HIỆU ỨNG ÂM THANH" : "SYSTEM SOUND FX"}
+              </span>
+            </div>
+            <button
+              className={`cyber-modal-btn ${!window.SFX?.muted ? "active" : ""}`}
+              style={{ fontSize: "8px", padding: "4px 6px", width: "80px" }}
+              onClick={() => {
+                playSynthSfx("click");
+                window.SFX.toggleMute();
+                forceUpdate();
+              }}
             >
-              {soundLabel}
+              {!window.SFX?.muted 
+                ? (language === "vi" ? "● BẬT" : "● ACTIVE") 
+                : (language === "vi" ? "○ TẮT" : "○ MUTED")}
             </button>
           </div>
 
-          <div className="cyber-modal-option" style={{ flex: 1 }}>
-            <label className="settings-label">{language === "vi" ? "MÀN HÌNH CRT" : "CRT SCANLINE"}</label>
+          {/* Setting 4: CRT Scanlines */}
+          <div style={{
+            background: "rgba(0,0,0,0.3)",
+            border: "1px solid rgba(5,217,232,0.12)",
+            padding: "6px 8px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center"
+          }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "2px", width: "65%" }}>
+              <span style={{ fontFamily: "var(--font-pixel)", fontSize: "8.5px", color: "#fff" }}>
+                {language === "vi" ? "BỘ LỌC MÀN CRT" : "CRT RASTER FILTER"}
+              </span>
+            </div>
             <button
               className={`cyber-modal-btn ${crtActive ? "active" : ""}`}
-              style={{ width: "100%", marginTop: "4px" }}
+              style={{ fontSize: "8px", padding: "4px 6px", width: "80px" }}
               onClick={() => {
                 playSynthSfx("click");
                 setCrtActive(!crtActive);
               }}
             >
               {crtActive
-                ? language === "vi"
-                  ? "KÍCH HOẠT"
-                  : "ENABLED"
-                : language === "vi"
-                  ? "VÔ HIỆU"
-                  : "DISABLED"}
+                ? (language === "vi" ? "● HOẠT ĐỘNG" : "● ENABLED")
+                : (language === "vi" ? "○ VÔ HIỆU" : "○ DISABLED")}
             </button>
           </div>
-        </div>
 
-        {/* Radio Option */}
-        <div className="cyber-modal-option">
-          <label style={{ fontFamily: "var(--font-pixel)", fontSize: "8.5px", color: "var(--cyber-cyan)" }}>{language === "vi" ? "KÊNH PHÁT THANH NET" : "ACTIVE NET RADIO"}</label>
-          <div className="radio-display" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "4px", padding: "6px 8px", background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.08)" }}>
-            <span className="radio-name" style={{ color: "var(--cyber-yellow)", fontFamily: "var(--font-pixel-mono)", fontSize: "10px" }}>
-              {typeof window !== "undefined" &&
-              window.SFX &&
-              window.SFX.stationName() === "OFF"
-                ? language === "vi"
-                  ? "TẮT"
-                  : "OFF"
-                : typeof window !== "undefined" && window.SFX
-                  ? window.SFX.stationName()
-                  : "OFF"}
-            </span>
+          {/* Setting 5: Performance Mode */}
+          <div style={{
+            background: "rgba(0,0,0,0.3)",
+            border: "1px solid rgba(5,217,232,0.12)",
+            padding: "6px 8px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center"
+          }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "2px", width: "65%" }}>
+              <span style={{ fontFamily: "var(--font-pixel)", fontSize: "8.5px", color: "#fff" }}>
+                {language === "vi" ? "HIỆU NĂNG CAO" : "MAX FPS (LOW FX)"}
+              </span>
+            </div>
             <button
-              className="cyber-modal-btn"
+              className={`cyber-modal-btn ${perfMode ? "active" : ""}`}
+              style={{ fontSize: "8px", padding: "4px 6px", width: "80px" }}
               onClick={() => {
                 playSynthSfx("click");
-                if (typeof window !== "undefined" && window.SFX) {
-                  window.SFX.cycleStation();
-                  forceUpdate();
-                }
+                const nextVal = !perfMode;
+                setPerfMode(nextVal);
+                try {
+                  localStorage.setItem("ncpx_perf_mode", String(nextVal));
+                } catch (e) {}
               }}
             >
-              {language === "vi" ? "ĐỔI KÊNH" : "CYCLE"}
+              {perfMode
+                ? (language === "vi" ? "● BẬT" : "● ACTIVE")
+                : (language === "vi" ? "○ TẮT" : "○ STANDARD")}
+            </button>
+          </div>
+
+          {/* Setting 6: Screen Shake */}
+          <div style={{
+            background: "rgba(0,0,0,0.3)",
+            border: "1px solid rgba(5,217,232,0.12)",
+            padding: "6px 8px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center"
+          }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "2px", width: "65%" }}>
+              <span style={{ fontFamily: "var(--font-pixel)", fontSize: "8.5px", color: "#fff" }}>
+                {language === "vi" ? "RUNG LẮC CAMERA" : "SCREEN RECOIL"}
+              </span>
+            </div>
+            <button
+              className={`cyber-modal-btn ${screenShake ? "active" : ""}`}
+              style={{ fontSize: "8px", padding: "4px 6px", width: "80px" }}
+              onClick={() => {
+                playSynthSfx("click");
+                const nextVal = !screenShake;
+                setScreenShake(nextVal);
+                try {
+                  localStorage.setItem("ncpx_screen_shake", String(nextVal));
+                } catch (e) {}
+              }}
+            >
+              {screenShake
+                ? (language === "vi" ? "● CHO PHÉP" : "● ENABLED")
+                : (language === "vi" ? "○ KHÔNG RUNG" : "○ DISABLED")}
             </button>
           </div>
         </div>
 
-        {/* Controls Guide */}
-        <div className="cyber-modal-option">
-          <label style={{ fontFamily: "var(--font-pixel)", fontSize: "8.5px", color: "var(--cyber-cyan)" }}>{language === "vi" ? "HƯỚNG DẪN ĐIỀU KHIỂN" : "CONTROLS GUIDE"}</label>
-          <div
-            style={{
-              fontSize: "9px",
-              color: "#8a93a6",
-              display: "flex",
-              flexDirection: "column",
-              gap: "4px",
-              marginTop: "4px",
-              padding: "8px",
-              background: "rgba(0,0,0,0.2)",
-              border: "1px solid rgba(5, 217, 232, 0.15)",
-              fontFamily: "var(--font-pixel-mono)"
-            }}
-          >
-            <div>WASD: {language === "vi" ? "Di chuyển" : "Move V"} | Mouse: {language === "vi" ? "Ngắm & Bắn" : "Aim & Shoot"}</div>
-            <div>SPACE: {language === "vi" ? "Dash Lướt" : "Dash Action"} | R: {language === "vi" ? "Nạp đạn" : "Reload weapon"}</div>
-            <div>Q: {language === "vi" ? "Kích hoạt OS" : "Use Deck OS"} | F: {language === "vi" ? "Tàng hình" : "Optical Camouflage"}</div>
-            <div>C: {language === "vi" ? "Hồi máu Maxdoc" : "Inject Maxdoc HP"} | V: {language === "vi" ? "Gọi / Lên xe" : "Summon / Drive vehicle"}</div>
-            <div>N: {language === "vi" ? "Đổi kênh Radio" : "Cycle vehicle radio"} | TAB: {language === "vi" ? "Đóng menu" : "Close menu"}</div>
+        {/* Right column: Net Radio Stations selection grid */}
+        <div className="cyber-detail-panel" style={{ display: "flex", flexDirection: "column", gap: "8px", overflowY: "auto", padding: "8px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px dashed rgba(249, 240, 2, 0.2)", paddingBottom: "4px" }}>
+            <div style={{ fontFamily: "var(--font-pixel)", fontSize: "8.5px", color: "var(--cyber-yellow)" }}>
+              📻 MÁY PHÁT THANH / NET RADIO
+            </div>
+            
+            {/* animated equalizer */}
+            <div className={`pixel-visualizer ${activeStationName !== "OFF" ? "playing" : "stopped"}`}>
+              <div className="pixel-visualizer-bar" />
+              <div className="pixel-visualizer-bar" />
+              <div className="pixel-visualizer-bar" />
+              <div className="pixel-visualizer-bar" />
+              <div className="pixel-visualizer-bar" />
+            </div>
           </div>
-        </div>
 
-        {/* Action Buttons */}
-        <div style={{ display: "flex", gap: "10px", marginTop: "8px" }}>
-          <button
-            className="cyber-action-btn primary"
-            style={{ flex: 1 }}
-            onClick={() => {
-              playSynthSfx("click");
-              if (
-                typeof window !== "undefined" &&
-                typeof window.saveGame === "function"
-              ) {
-                window.saveGame();
-                banner(
-                  language === "vi" ? "ĐÃ LƯU TIẾN TRÌNH" : "DATA SEGMENT SYNCED",
-                  language === "vi" ? "ĐÃ LƯU TRÒ CHƠI THÀNH CÔNG" : "SAVE STATE STORED TO CLOUD NEST",
-                  "#00ff9f",
-                );
-              }
-            }}
-          >
-            {language === "vi" ? "LƯU TRÒ CHƠI" : "SAVE GAME STATE"}
-          </button>
+          <div style={{ display: "flex", flexDirection: "column", gap: "4px", marginTop: "4px" }}>
+            {/* OFF Station Option */}
+            <button
+              className={`cyber-list-item ${activeStationName === "OFF" ? "active" : ""}`}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                fontFamily: "var(--font-pixel-mono)",
+                fontSize: "9px",
+                padding: "6px 8px",
+                height: "30px"
+              }}
+              onClick={() => {
+                playSynthSfx("click");
+                if (window.SFX?.setStation) window.SFX.setStation(-1);
+                forceUpdate();
+              }}
+            >
+              <span style={{ color: activeStationName === "OFF" ? "var(--cyber-pink)" : "#fff" }}>
+                [ TẮT PHÁT THANH // RADIO OFF ]
+              </span>
+              <span style={{ color: activeStationName === "OFF" ? "var(--cyber-pink)" : "#8a93a6", fontWeight: "bold" }}>OFF</span>
+            </button>
 
-          <button
-            className="cyber-action-btn"
-            style={{ flex: 1, background: "rgba(255, 42, 60, 0.15)", border: "2px solid #ff2a3c", color: "#ff2a3c" }}
-            onClick={() => {
-              playSynthSfx("click");
-              if (confirm(language === "vi" ? "BẠN CÓ CHẮC MUỐN XÓA TIẾN TRÌNH KHÔNG?" : "ARE YOU SURE YOU WANT TO RESET SAVE STATE?")) {
-                if (typeof window !== "undefined" && typeof window.wipeSave === "function") {
-                  window.wipeSave();
-                  window.G.ui = null;
-                  window.G.state = "title";
-                  window.G.titleMode = "name";
-                  window.G.uiS = { sel: 0, scroll: 0, tab: 0, confirm: false };
-                  forceUpdate();
-                }
-              }
-            }}
-          >
-            {language === "vi" ? "XÓA FILE LƯU" : "WIPE SAVE DATA"}
-          </button>
+            {/* List of active stations */}
+            {stations.map((st, idx) => {
+              const isActive = activeStationName === st.name;
+              const freq = (92.3 + idx * 4.2).toFixed(1);
+              return (
+                <button
+                  key={st.name}
+                  className={`cyber-list-item ${isActive ? "active" : ""}`}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    fontFamily: "var(--font-pixel-mono)",
+                    fontSize: "9px",
+                    padding: "6px 8px",
+                    height: "30px"
+                  }}
+                  onClick={() => {
+                    playSynthSfx("click");
+                    if (window.SFX?.setStation) window.SFX.setStation(idx);
+                    forceUpdate();
+                  }}
+                >
+                  <span style={{ color: isActive ? "var(--cyber-cyan)" : "#fff" }}>
+                    {idx + 1}. {st.name.toUpperCase()}
+                  </span>
+                  <span style={{ color: isActive ? "var(--cyber-cyan)" : "#8a93a6" }}>
+                    {isActive ? `♫ ${freq} FM` : `${freq} FM`}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
     );
@@ -4069,16 +4513,7 @@ export default function GameCanvas() {
 
   const renderInventory = () => {
     if (typeof window === "undefined" || !window.G) return null;
-    const invTabs = [
-      "WEAPONS",
-      "CYBERWARE",
-      "GARAGE",
-      "MAP",
-      "STATS",
-      "RANKING",
-      "GANG",
-      "SETTINGS",
-    ];
+    const invTabs = ["WEAPONS", "CYBERWARE", "GARAGE", "MAP", "STATS", "RANKING", "GANG", "SETTINGS"];
     const invTabsVi = [
       "VŨ KHÍ",
       "CẤY GHÉP CHROME",
@@ -4125,99 +4560,157 @@ export default function GameCanvas() {
       return combined;
     };
 
-    const getGangLabel = (gang) =>
-      window.gangLabel ? window.gangLabel(gang) : "CHƯA CÓ";
-
     return (
-      <div className="inv-modal-inner">
-        {/* Left Column: Character Profile Sheet */}
-        <div className="char-sheet-panel">
-          <h4 className="char-sheet-title">{language === "vi" ? "ĐỐI TƯỢNG" : "OPERATIVE"}</h4>
-          
-          <div className="char-avatar-frame">
-            <BootCharacterPreview gender={playerState.gender} skinId={playerState.skin} active={true} />
-            <div className="char-meta-row">
-              <span className="char-name">{playerName || "V"}</span>
-              <span className="char-sub">LEVEL {playerState.lvl}</span>
-              <span className="char-sub" style={{ color: "var(--cyber-cyan)", fontSize: "7.5px" }}>
-                XP: {fmt(playerState.xp)}
+      <div className="inv-modal-inner" style={{ display: "flex", flexDirection: "column", height: "450px" }}>
+        <div className="inv-char-layout">
+          {/* LEFT SIDE: V Character Status & Profile Panel (Bản thân V) */}
+          <div className="inv-char-profile">
+            <div style={{
+              fontSize: "8.5px",
+              color: "var(--cyber-cyan)",
+              fontWeight: "bold",
+              marginBottom: "8px",
+              borderBottom: "1px dashed rgba(5, 217, 232, 0.3)",
+              paddingBottom: "4px"
+            }}>
+              ▶ MATRIX V_DECK // STATUS
+            </div>
+
+            {/* Avatar block with dynamic scanline */}
+            <div className="char-avatar-box">
+              <div className="char-avatar-grid" />
+              <span className="char-avatar-initial">V</span>
+              <div className="char-avatar-scanline" />
+            </div>
+
+            {/* Basic Info */}
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10px", fontWeight: "bold", color: "#fff", marginBottom: "4px" }}>
+              <span>{(playerName || "V").toUpperCase()}</span>
+              <span style={{ color: "var(--cyber-yellow)" }}>
+                {playerState.lifepath ? playerState.lifepath.toUpperCase() : "STREETKID"}
               </span>
             </div>
-          </div>
 
-          <div className="char-quick-slots-title">
-            {language === "vi" ? "Ô TRANG BỊ" : "QUICK SLOTS"}
-          </div>
-          <div className="char-quick-slots">
+            {/* Level & XP block progress bar */}
+            <div style={{ fontSize: "8.5px", color: "#8a93a6", marginBottom: "6px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "2px" }}>
+                <span>LV {playerState.lvl}</span>
+                <span>XP: {playerState.xp}/{window.xpFor ? window.xpFor(playerState.lvl) : 100}</span>
+              </div>
+              <div style={{ color: "var(--cyber-cyan)" }}>
+                {(() => {
+                  const target = window.xpFor ? window.xpFor(playerState.lvl) : 100;
+                  const pct = Math.min(100, (playerState.xp / target) * 100);
+                  const filled = Math.round((pct / 100) * 10);
+                  return `[${"█".repeat(filled)}${"░".repeat(10 - filled)}]`;
+                })()}
+              </div>
+            </div>
+
+            {/* Vitals: HP progress bar */}
+            <div style={{ fontSize: "8.5px", color: "#8a93a6", marginBottom: "6px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "2px" }}>
+                <span style={{ color: "var(--cyber-pink)" }}>VITALS (HP)</span>
+                <span>{playerState.hp}/{playerState.maxhp}</span>
+              </div>
+              <div style={{ color: "var(--cyber-pink)" }}>
+                {(() => {
+                  const pct = Math.min(100, (playerState.hp / playerState.maxhp) * 100);
+                  const filled = Math.round((pct / 100) * 10);
+                  return `[${"█".repeat(filled)}${"░".repeat(10 - filled)}]`;
+                })()}
+              </div>
+            </div>
+
+            {/* Reputation: Street Cred */}
+            <div style={{ fontSize: "8.5px", color: "#8a93a6", marginBottom: "10px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "2px" }}>
+                <span style={{ color: "var(--cyber-yellow)" }}>STREET CRED</span>
+                <span>LV {playerState.lvl}</span>
+              </div>
+              <div style={{ color: "var(--cyber-yellow)" }}>
+                {(() => {
+                  const pct = Math.min(100, (playerState.lvl / 50) * 100);
+                  const filled = Math.round((pct / 100) * 10);
+                  return `[${"█".repeat(filled)}${"░".repeat(10 - filled)}]`;
+                })()}
+              </div>
+            </div>
+
+            {/* EQUIPPED WEAPON SLOTS */}
+            <div style={{
+              fontSize: "8.5px",
+              color: "var(--cyber-cyan)",
+              fontWeight: "bold",
+              marginBottom: "6px",
+              borderBottom: "1px dashed rgba(5, 217, 232, 0.3)",
+              paddingBottom: "4px"
+            }}>
+              ▶ QUICK WEAPON LOADOUT
+            </div>
+
             {[0, 1, 2].map((slotIdx) => {
-              const wId = playerState.loadout[slotIdx];
-              const w = wId && window.WEAPONS ? window.WEAPONS.find((x) => x.id === wId) : null;
-              const active = selectedInvWeaponId === wId && wId;
-              return (
-                <div
-                  key={slotIdx}
-                  className={`char-quick-slot-card ${active ? "active" : ""}`}
-                  onClick={() => {
-                    if (w) {
-                      playSynthSfx("hover");
-                      setSelectedInvWeaponId(w.id);
-                      setSelectedInvTab(0); // Switch to weapons tab
-                    }
-                  }}
-                >
-                  <span className="char-quick-slot-num">{slotIdx + 1}</span>
-                  <div className="char-quick-slot-preview">
-                    {w ? (
-                      <WeaponPixelPreview weapon={w} />
-                    ) : (
-                      <span style={{ fontSize: "8px", color: "#3a414e" }}>—</span>
-                    )}
+              const wpnId = playerState.loadout[slotIdx];
+              const wpnObj = wpnId && window.WEAPONS ? window.WEAPONS.find(w => w.id === wpnId) : null;
+              
+              if (wpnObj) {
+                const rarColors = {
+                  0: "#cfd6e4",
+                  1: "#00ff9f",
+                  2: "#05d9e8",
+                  3: "#bd00ff",
+                  4: "#f9f002",
+                };
+                return (
+                  <div key={slotIdx} className="char-slot-row">
+                    <span className="char-slot-num">{slotIdx + 1}</span>
+                    <div className="char-slot-preview">
+                      <WeaponPixelPreview weapon={wpnObj} />
+                    </div>
+                    <span className="char-slot-name" style={{ color: rarColors[wpnObj.rar] || "#fff" }}>
+                      {wpnObj.name.toUpperCase()}
+                    </span>
                   </div>
-                  <span className="char-quick-slot-name">
-                    {w ? w.name.split(" ")[0] : (language === "vi" ? "TRỐNG" : "EMPTY")}
-                  </span>
-                </div>
-              );
+                );
+              } else {
+                return (
+                  <div key={slotIdx} className="char-slot-row empty">
+                    <span>{slotIdx + 1}: [ {language === "vi" ? "TRỐNG" : "EMPTY"} ]</span>
+                  </div>
+                );
+              }
             })}
-          </div>
 
-          <div className="char-hp-container">
-            <div className="char-hp-label">
-              <span>HP</span>
-              <span>{playerState.hp} / {playerState.maxhp}</span>
+            {/* Operating System display */}
+            <div style={{
+              marginTop: "auto",
+              paddingTop: "8px",
+              borderTop: "1px solid rgba(255, 255, 255, 0.08)",
+              fontSize: "8.5px",
+              color: "#8a93a6",
+              textAlign: "center"
+            }}>
+              {(() => {
+                const activeOs = window.CYBER && playerState.os
+                  ? window.CYBER.find(c => c.id === playerState.os)
+                  : null;
+                return activeOs
+                  ? `OS: ${activeOs.name.toUpperCase()}`
+                  : `OS: COGNITIVE MATRIX V1.0`;
+              })()}
             </div>
-            <div className="char-hp-bar-track">
-              <div 
-                className="char-hp-bar-fill" 
-                style={{ width: `${Math.max(0, Math.min(100, (playerState.hp / playerState.maxhp) * 100))}%` }} 
-              />
+          </div>
+
+          {/* RIGHT SIDE: Navigation and Tab Content */}
+          <div className="inv-tabs-container">
+            <div className="inv-modal-header" style={{ marginTop: 0 }}>
+              <span className="inv-modal-header-title">
+                {language === "vi" ? "▶ ĐIỀU KHIỂN CHROME" : "▶ NEURAL DECK OVERLAYS"}
+              </span>
+              <span className="inv-modal-header-eddies">$ {fmt(playerState.eddies)}</span>
             </div>
-          </div>
-        </div>
 
-        {/* Right Column: Tabbed Content Area */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-          {/* Header strip */}
-          <div className="inv-modal-header">
-            <span className="inv-modal-header-title">
-              {language === "vi" ? "▶ TÚI ĐỒ / CHỈ SỐ" : "▶ NEURAL GEAR SYSTEM"}
-            </span>
-            <span className="inv-modal-header-eddies">€$ {fmt(playerState.eddies)}</span>
-          </div>
-
-          <div className="cyber-tabs-wrapper">
-            <button
-              className="cyber-tabs-scroll-btn"
-              onClick={() => {
-                if (tabsRef.current) {
-                  playSynthSfx("hover");
-                  tabsRef.current.scrollBy({ left: -100, behavior: "smooth" });
-                }
-              }}
-            >
-              ◀
-            </button>
-            <div className="cyber-tabs" ref={tabsRef}>
+            <div className="cyber-tabs">
               {invTabs.map((tab, idx) => (
                 <button
                   key={tab}
@@ -4231,675 +4724,701 @@ export default function GameCanvas() {
                 </button>
               ))}
             </div>
-            <button
-              className="cyber-tabs-scroll-btn"
-              onClick={() => {
-                if (tabsRef.current) {
-                  playSynthSfx("hover");
-                  tabsRef.current.scrollBy({ left: 100, behavior: "smooth" });
-                }
-              }}
-            >
-              ▶
-            </button>
-          </div>
 
-          <div style={{ flex: 1, overflow: "hidden" }}>
-            {selectedInvTab === 0 &&
-              (() => {
-                if (!window.WEAPONS) return null;
-                const all = window.WEAPONS;
-                const selectedWeapon =
-                  all.find((w) => w.id === selectedInvWeaponId) || all[0];
-                const isEquippedInSlot = selectedWeapon
-                  ? playerState.loadout.indexOf(selectedWeapon.id)
-                  : -1;
+            <div style={{ flex: 1, overflow: "hidden" }}>
+          {selectedInvTab === 0 &&
+            (() => {
+              if (!window.WEAPONS) return null;
+              const all = window.WEAPONS;
+              const selectedWeapon =
+                all.find((w) => w.id === selectedInvWeaponId) || all[0];
+              const isEquippedInSlot = selectedWeapon
+                ? playerState.loadout.indexOf(selectedWeapon.id)
+                : -1;
 
-                const rarColors = {
-                  0: "#cfd6e4",
-                  1: "#00ff9f",
-                  2: "#05d9e8",
-                  3: "#bd00ff",
-                  4: "#f9f002",
-                };
+              const rarColors = {
+                0: "#cfd6e4",
+                1: "#00ff9f",
+                2: "#05d9e8",
+                3: "#bd00ff",
+                4: "#f9f002",
+              };
 
-                return (
-                  <div className="cyber-grid-layout" style={{ height: "340px" }}>
-                    <div
-                      className="cyber-list"
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(2, 1fr)",
-                        gap: "6px",
-                        alignContent: "start",
-                      }}
-                    >
-                      {all.map((w) => {
-                        const have = !!playerState.weapons[w.id];
-                        const slotIdx = playerState.loadout.indexOf(w.id);
-                        return (
-                          <div
-                            key={w.id}
-                            className={`inv-weapon-slot ${selectedInvWeaponId === w.id ? "active" : ""} ${have ? "have" : ""} rar-${w.rar || 0}`}
-                            style={{
-                              height: "52px",
-                              padding: "4px",
-                              display: "flex",
-                              flexDirection: "column",
-                              justifyContent: "space-between",
-                              cursor: "pointer",
-                              position: "relative",
-                            }}
-                            onClick={() => {
-                              playSynthSfx("hover");
-                              setSelectedInvWeaponId(w.id);
-                            }}
-                          >
-                            {slotIdx >= 0 && (
-                              <span
-                                style={{
-                                  position: "absolute",
-                                  left: "3px",
-                                  top: "2px",
-                                  color: "var(--cyber-yellow)",
-                                  fontSize: "9px",
-                                  fontWeight: "bold",
-                                }}
-                              >
-                                {slotIdx + 1}
-                              </span>
-                            )}
-                            <div className="inventory-pixel-preview">
-                              {have ? (
-                                <WeaponPixelPreview weapon={w} />
-                              ) : (
-                                <span>{w.hidden ? "???" : w.name.split(" ")[0]}</span>
-                              )}
-                            </div>
-                            <span
-                              style={{
-                                fontSize: "9px",
-                                color: have
-                                  ? rarColors[w.rar] || "#fff"
-                                  : "#5a6372",
-                                whiteSpace: "nowrap",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                width: "100%",
-                                textAlign: "right",
-                              }}
-                            >
-                              {have
-                                ? w.name
-                                : w.hidden
-                                  ? "???"
-                                  : w.name.split(" ")[0]}
-                            </span>
-                            <span
-                              style={{
-                                fontSize: "8px",
-                                color: "#5a6372",
-                                alignSelf: "flex-start",
-                              }}
-                            >
-                              {weaponLabel(w.cls, language)}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    <div
-                      className="cyber-detail-panel"
-                      style={{ height: "100%" }}
-                    >
-                      {selectedWeapon ? (
-                        <>
-                          <div className="cyber-preview-hero weapon compact">
-                            {playerState.weapons[selectedWeapon.id] ? (
-                              <WeaponPixelPreview weapon={selectedWeapon} large />
-                            ) : (
-                              <span>{selectedWeapon.hidden ? "???" : weaponLabel(selectedWeapon.cls, language)}</span>
-                            )}
-                          </div>
-                          <h3 className="cyber-detail-title">
-                            {playerState.weapons[selectedWeapon.id]
-                              ? selectedWeapon.name
-                              : selectedWeapon.hidden
-                                ? "???"
-                                : selectedWeapon.name}
-                          </h3>
-                          <div className="cyber-detail-subtitle">
-                            {window.RAR_NAME
-                              ? window.RAR_NAME[selectedWeapon.rar]
-                              : "COMMON"}{" "}
-                            · {weaponLabel(selectedWeapon.kind, language)} ·{" "}
-                            {weaponLabel(selectedWeapon.cls, language)}
-                          </div>
-
-                          {playerState.weapons[selectedWeapon.id] ? (
-                            <>
-                              <div
-                                style={{
-                                  fontSize: "9px",
-                                  color: "#cfd6e4",
-                                  display: "flex",
-                                  gap: "8px",
-                                  flexWrap: "wrap",
-                                }}
-                              >
-                                <span>
-                                  DMG:{" "}
-                                  {selectedWeapon.dmg *
-                                    (selectedWeapon.pellets || 1)}
-                                </span>
-                                <span>RPS: {selectedWeapon.rof}</span>
-                                <span>DPS: {getDps(selectedWeapon)}</span>
-                                {selectedWeapon.mag && (
-                                  <span>MAG: {selectedWeapon.mag}</span>
-                                )}
-                              </div>
-                              <div className="cyber-description">
-                                {selectedWeapon.desc}
-                              </div>
-
-                              <div
-                                style={{
-                                  marginTop: "auto",
-                                  borderTop: "1px dashed rgba(255,255,255,0.08)",
-                                  paddingTop: "8px",
-                                }}
-                              >
-                                <span
-                                  style={{
-                                    fontSize: "10px",
-                                    color: "#f9f002",
-                                    display: "block",
-                                    marginBottom: "6px",
-                                  }}
-                                >
-                                  {language === "vi"
-                                    ? "TRANG BỊ VÀO Ô CHỌN NHANH:"
-                                    : "EQUIP TO QUICK SLOT:"}
-                                </span>
-                                <div style={{ display: "flex", gap: "8px" }}>
-                                  {[0, 1, 2].map((slotIdx) => (
-                                    <button
-                                      key={slotIdx}
-                                      className={`cyber-modal-btn ${isEquippedInSlot === slotIdx ? "active" : ""}`}
-                                      style={{ flex: 1, padding: "4px" }}
-                                      onClick={() => {
-                                        playSynthSfx("click");
-                                        if (window.assignSlot)
-                                          window.assignSlot(
-                                            selectedWeapon.id,
-                                            slotIdx,
-                                          );
-                                      }}
-                                    >
-                                      SLOT {slotIdx + 1}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                            </>
-                          ) : (
-                            <div
-                              className="cyber-description"
-                              style={{ color: "#5a6372" }}
-                            >
-                              {selectedWeapon.iconic
-                                ? language === "vi"
-                                  ? "RƠI RA TỪ CÁC PHẦN TỬ CYBERPSYCHOS - HÃY ĐI SĂN HỌ"
-                                  : "DROPS FROM CYBERPSYCHOS — GO HUNTING"
-                                : selectedWeapon.granted
-                                  ? language === "vi"
-                                    ? "ĐƯỢC CÀI ĐẶT BỞI RIPPERDOC VIK"
-                                    : "INSTALLED BY RIPPERDOC VIK"
-                                  : language === "vi"
-                                    ? "ĐƯỢC BÁN TẠI CỬA HÀNG 2ND AMENDMENT"
-                                    : "SOLD AT 2ND AMENDMENT"}
-                            </div>
-                          )}
-                        </>
-                      ) : null}
-                    </div>
-                  </div>
-                );
-              })()}
-
-            {selectedInvTab === 1 &&
-              (() => {
-                if (!window.CYBER || !window.CYBER_SLOTS) return null;
-                const slots = window.CYBER_SLOTS;
-                return (
+              return (
+                <div className="cyber-grid-layout" style={{ height: "340px" }}>
                   <div
                     className="cyber-list"
-                    style={{ height: "340px", padding: "12px", display: "flex", flexDirection: "column" }}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(4, 1fr)",
+                      gap: "6px",
+                      alignContent: "start",
+                    }}
                   >
-                    <div className="inv-cyber-header">
-                      {language === "vi"
-                        ? "HỆ THỐNG CẤY GHÉP THẦN KINH CHI TIẾT"
-                        : "CHROME IMPLANTS SYSTEM DIAGNOSTIC"}
-                    </div>
-                    <div className="inv-cyber-list-container">
-                      {slots.map((slot) => {
-                        const items = window.CYBER.filter(
-                          (x) => x.slot === slot && playerState.cyber[x.id],
-                        );
-                        return (
-                          <div key={slot} className="inv-cyber-row">
-                            <span className="inv-cyber-slot-name">
-                              {slot}
+                    {all.map((w) => {
+                      const have = !!playerState.weapons[w.id];
+                      const slotIdx = playerState.loadout.indexOf(w.id);
+                      return (
+                        <div
+                          key={w.id}
+                          className={`inv-weapon-slot ${selectedInvWeaponId === w.id ? "active" : ""} ${have ? "have" : ""} rar-${w.rar || 0}`}
+                          style={{
+                            height: "52px",
+                            padding: "4px",
+                            display: "flex",
+                            flexDirection: "column",
+                            justifyContent: "space-between",
+                            cursor: "pointer",
+                            position: "relative",
+                          }}
+                          onClick={() => {
+                            playSynthSfx("hover");
+                            setSelectedInvWeaponId(w.id);
+                          }}
+                        >
+                          {slotIdx >= 0 && (
+                            <span
+                              style={{
+                                position: "absolute",
+                                left: "3px",
+                                top: "2px",
+                                color: "var(--cyber-yellow)",
+                                fontSize: "9px",
+                                fontWeight: "bold",
+                              }}
+                            >
+                              {slotIdx + 1}
                             </span>
-                            <span className={`inv-cyber-slot-val ${items.length ? "" : "empty"}`}>
-                              {items.length
-                                ? items
-                                    .map(
-                                      (x) =>
-                                        `${x.name} MK.${playerState.cyber[x.id]}${x.os ? (playerState.os === x.id ? " [ACTIVE]" : " [OFF]") : ""}`,
-                                    )
-                                    .join(" · ")
-                                : language === "vi"
-                                  ? "— TRỐNG —"
-                                  : "— EMPTY —"}
-                            </span>
+                          )}
+                          <div className="inventory-pixel-preview">
+                            {have ? (
+                              <WeaponPixelPreview weapon={w} />
+                            ) : (
+                              <span>{w.hidden ? "???" : w.name.split(" ")[0]}</span>
+                            )}
                           </div>
-                        );
-                      })}
-                    </div>
-                    <div className="inv-cyber-footer">
-                      {language === "vi"
-                        ? "HÃY TỚI GẶP VIK [KÝ HIỆU R TRÊN BẢN ĐỒ] ĐỂ CÀI ĐẶT / NÂNG CẤP CHROME"
-                        : "VISIT VIK [R ON MAP] TO INSTALL AND UPGRADE IMPLANTS"}
-                    </div>
-                  </div>
-                );
-              })()}
-
-            {selectedInvTab === 2 &&
-              (() => {
-                if (!window.CARS) return null;
-                const cars = window.CARS;
-                const selectedCar =
-                  cars.find((c) => c.id === selectedInvCarId) || cars[0];
-
-                return (
-                  <div className="cyber-grid-layout" style={{ height: "340px" }}>
-                    <div
-                      className="cyber-list"
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(2, 1fr)",
-                        gap: "6px",
-                        alignContent: "start",
-                      }}
-                    >
-                      {cars.map((c) => {
-                        const have = !!playerState.cars[c.id];
-                        const active = playerState.activeCar === c.id;
-                        return (
-                          <div
-                            key={c.id}
-                            className={`cyber-list-item ${selectedInvCarId === c.id ? "active" : ""}`}
+                          <span
                             style={{
-                              height: "46px",
-                              display: "grid",
-                              gridTemplateColumns: "58px 1fr",
-                              alignItems: "flex-start",
-                              justifyContent: "center",
-                              opacity: have ? 1 : 0.5,
-                              gap: "6px",
-                            }}
-                            onClick={() => {
-                              playSynthSfx("hover");
-                              setSelectedInvCarId(c.id);
+                              fontSize: "9px",
+                              color: have
+                                ? rarColors[w.rar] || "#fff"
+                                : "#5a6372",
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              width: "100%",
+                              textAlign: "right",
                             }}
                           >
-                            <CarPixelPreview car={c} />
-                            <span className="inventory-car-meta">
-                              <span>{c.name}</span>
+                            {have
+                              ? w.name
+                              : w.hidden
+                                ? "???"
+                                : w.name.split(" ")[0]}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: "8px",
+                              color: "#5a6372",
+                              alignSelf: "flex-start",
+                            }}
+                          >
+                            {weaponLabel(w.cls, language)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div
+                    className="cyber-detail-panel"
+                    style={{ height: "100%" }}
+                  >
+                    {selectedWeapon ? (
+                      <>
+                        <div className="cyber-preview-hero weapon compact">
+                          {playerState.weapons[selectedWeapon.id] ? (
+                            <WeaponPixelPreview weapon={selectedWeapon} large />
+                          ) : (
+                            <span>{selectedWeapon.hidden ? "???" : weaponLabel(selectedWeapon.cls, language)}</span>
+                          )}
+                        </div>
+                        <h3 className="cyber-detail-title">
+                          {playerState.weapons[selectedWeapon.id]
+                            ? selectedWeapon.name
+                            : selectedWeapon.hidden
+                              ? "???"
+                              : selectedWeapon.name}
+                        </h3>
+                        <div className="cyber-detail-subtitle">
+                          {window.RAR_NAME
+                            ? window.RAR_NAME[selectedWeapon.rar]
+                            : "COMMON"}{" "}
+                          · {weaponLabel(selectedWeapon.kind, language)} ·{" "}
+                          {weaponLabel(selectedWeapon.cls, language)}
+                        </div>
+
+                        {playerState.weapons[selectedWeapon.id] ? (
+                          <>
+                            <div
+                              style={{
+                                fontSize: "9px",
+                                color: "#cfd6e4",
+                                display: "flex",
+                                gap: "8px",
+                                flexWrap: "wrap",
+                              }}
+                            >
+                              <span>
+                                DMG:{" "}
+                                {selectedWeapon.dmg *
+                                  (selectedWeapon.pellets || 1)}
+                              </span>
+                              <span>RPS: {selectedWeapon.rof}</span>
+                              <span>DPS: {getDps(selectedWeapon)}</span>
+                              {selectedWeapon.mag && (
+                                <span>MAG: {selectedWeapon.mag}</span>
+                              )}
+                            </div>
+                            <div className="cyber-description">
+                              {selectedWeapon.desc}
+                            </div>
+
+                            <div
+                              style={{
+                                marginTop: "auto",
+                                borderTop: "1px dashed rgba(255,255,255,0.08)",
+                                paddingTop: "8px",
+                              }}
+                            >
                               <span
                                 style={{
-                                  color: active
-                                    ? "#00ff9f"
-                                    : have
-                                      ? "#8a93a6"
-                                      : "#5a6372",
+                                  fontSize: "10px",
+                                  color: "#f9f002",
+                                  display: "block",
+                                  marginBottom: "6px",
                                 }}
                               >
-                                {active
-                                  ? language === "vi"
-                                    ? "ĐANG CHẠY"
-                                    : "ACTIVE"
-                                  : have
-                                    ? language === "vi"
-                                      ? "TRONG KHO"
-                                      : "OWNED"
-                                    : language === "vi"
-                                      ? "CHƯA MUA"
-                                      : "AVAILABLE"}
+                                {language === "vi"
+                                  ? "TRANG BỊ VÀO Ô CHỌN NHANH:"
+                                  : "EQUIP TO QUICK SLOT:"}
                               </span>
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    <div
-                      className="cyber-detail-panel"
-                      style={{ height: "100%" }}
-                    >
-                      {selectedCar ? (
-                        <>
-                          <div className="cyber-preview-hero car compact">
-                            <CarPixelPreview car={selectedCar} large />
-                          </div>
-                          <h3
-                            className="cyber-detail-title"
-                          >
-                            {selectedCar.name}
-                          </h3>
-                          <div className="cyber-detail-subtitle">
-                            {selectedCar.bike ? "MOTORCYCLE" : "CAR"} ·{" "}
-                            {selectedCar.shape.toUpperCase()}
-                          </div>
-
-                          {playerState.cars[selectedCar.id] ? (
-                            <>
-                              <div className="inv-car-specs">
-                                <span>TOP SPEED: {selectedCar.top} KM/H</span>
-                                <span>ACCELERATION: {selectedCar.acc}</span>
-                                <span>GRIP STABILITY: {selectedCar.grip}</span>
-                                <span>STRUCTURE HEALTH: {selectedCar.hp} HP</span>
+                              <div style={{ display: "flex", gap: "8px" }}>
+                                {[0, 1, 2].map((slotIdx) => (
+                                  <button
+                                    key={slotIdx}
+                                    className={`cyber-modal-btn ${isEquippedInSlot === slotIdx ? "active" : ""}`}
+                                    style={{ flex: 1, padding: "4px" }}
+                                    onClick={() => {
+                                      playSynthSfx("click");
+                                      if (window.assignSlot)
+                                        window.assignSlot(
+                                          selectedWeapon.id,
+                                          slotIdx,
+                                        );
+                                    }}
+                                  >
+                                    SLOT {slotIdx + 1}
+                                  </button>
+                                ))}
                               </div>
-
-                              {playerState.activeCar === selectedCar.id ? (
-                                <button
-                                  className="cyber-action-btn primary"
-                                  disabled
-                                  style={{ opacity: 0.5, marginTop: "auto" }}
-                                >
-                                  {language === "vi"
-                                    ? "XE ĐANG DÙNG"
-                                    : "ACTIVE RIDE"}
-                                </button>
-                              ) : (
-                                <button
-                                  className="cyber-action-btn primary"
-                                  style={{ marginTop: "auto" }}
-                                  onClick={() => {
-                                    playSynthSfx("click");
-                                    if (window.setActiveCar)
-                                      window.setActiveCar(selectedCar.id);
-                                  }}
-                                >
-                                  {language === "vi"
-                                    ? "TRIỆU HỒI XE NÀY"
-                                    : "SET AS ACTIVE"}
-                                </button>
-                              )}
-                            </>
-                          ) : (
-                            <div
-                              className="cyber-description"
-                              style={{ color: "#5a6372" }}
-                            >
-                              {language === "vi"
-                                ? `CÓ THỂ MUA TẠI PHÂN HỆ NC AUTOFIXER — GIÁ €$${fmt(selectedCar.price)}`
-                                : `AVAILABLE AT NC AUTOFIXER FOR €$${fmt(selectedCar.price)}`}
                             </div>
-                          )}
-                        </>
-                      ) : null}
-                    </div>
+                          </>
+                        ) : (
+                          <div
+                            className="cyber-description"
+                            style={{ color: "#5a6372" }}
+                          >
+                            {selectedWeapon.iconic
+                              ? language === "vi"
+                                ? "RƠI RA TỪ CÁC PHẦN TỬ CYBERPSYCHOS - HÃY ĐI SĂN HỌ"
+                                : "DROPS FROM CYBERPSYCHOS — GO HUNTING"
+                              : selectedWeapon.granted
+                                ? language === "vi"
+                                  ? "ĐƯỢC CÀI ĐẶT BỞI RIPPERDOC VIK"
+                                  : "INSTALLED BY RIPPERDOC VIK"
+                                : language === "vi"
+                                  ? "ĐƯỢC BÁN TẠI CỬA HÀNG 2ND AMENDMENT"
+                                  : "SOLD AT 2ND AMENDMENT"}
+                          </div>
+                        )}
+                      </>
+                    ) : null}
                   </div>
-                );
-              })()}
+                </div>
+              );
+            })()}
 
-            {selectedInvTab === 3 && <MapTab language={language} />}
+          {selectedInvTab === 1 &&
+            (() => {
+              if (!window.CYBER || !window.CYBER_SLOTS) return null;
+              const slots = window.CYBER_SLOTS;
+              return (
+                <div
+                  className="cyber-list"
+                  style={{ height: "340px", padding: "12px" }}
+                >
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      color: "var(--cyber-cyan)",
+                      marginBottom: "12px",
+                      borderBottom: "1px solid rgba(5, 217, 232, 0.2)",
+                      paddingBottom: "6px",
+                    }}
+                  >
+                    {language === "vi"
+                      ? "HỆ THỐNG CẤY GHÉP THẦN KINH CHI TIẾT"
+                      : "CHROME IMPLANTS SYSTEM DIAGNOSTIC"}
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "8px",
+                    }}
+                  >
+                    {slots.map((slot) => {
+                      const items = window.CYBER.filter(
+                        (x) => x.slot === slot && playerState.cyber[x.id],
+                      );
+                      return (
+                        <div
+                          key={slot}
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            fontSize: "11px",
+                            borderBottom: "1px solid rgba(255,255,255,0.02)",
+                            paddingBottom: "4px",
+                          }}
+                        >
+                          <span
+                            style={{ color: "#3a5a66", fontWeight: "bold" }}
+                          >
+                            {slot}
+                          </span>
+                          <span
+                            style={{
+                              color: items.length ? "#cfd6e4" : "#3a414e",
+                            }}
+                          >
+                            {items.length
+                              ? items
+                                  .map(
+                                    (x) =>
+                                      `${x.name} MK.${playerState.cyber[x.id]}${x.os ? (playerState.os === x.id ? " [ACTIVE]" : " [OFF]") : ""}`,
+                                  )
+                                  .join(" · ")
+                              : language === "vi"
+                                ? "— TRỐNG —"
+                                : "— EMPTY —"}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div
+                    style={{
+                      marginTop: "auto",
+                      fontSize: "9px",
+                      color: "#5a6372",
+                      textAlign: "center",
+                    }}
+                  >
+                    {language === "vi"
+                      ? "HÃY TỚI GẶP VIK [KÝ HIỆU R TRÊN BẢN ĐỒ] ĐỂ CÀI ĐẶT / NÂNG CẤP CHROME"
+                      : "VISIT VIK [R ON MAP] TO INSTALL AND UPGRADE IMPLANTS"}
+                  </div>
+                </div>
+              );
+            })()}
 
-            {selectedInvTab === 4 &&
-              (() => {
-                const st = playerState.stats || {};
-                let worth = playerState.eddies;
+          {selectedInvTab === 2 &&
+            (() => {
+              if (!window.CARS) return null;
+              const cars = window.CARS;
+              const selectedCar =
+                cars.find((c) => c.id === selectedInvCarId) || cars[0];
 
-                if (typeof window !== "undefined") {
-                  if (window.WPN) {
-                    for (const id in playerState.weapons) {
-                      if (window.WPN[id]) worth += window.WPN[id].price;
-                    }
+              return (
+                <div className="cyber-grid-layout" style={{ height: "340px" }}>
+                  <div
+                    className="cyber-list"
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(2, 1fr)",
+                      gap: "6px",
+                      alignContent: "start",
+                    }}
+                  >
+                    {cars.map((c) => {
+                      const have = !!playerState.cars[c.id];
+                      const active = playerState.activeCar === c.id;
+                      return (
+                        <div
+                          key={c.id}
+                          className={`cyber-list-item ${selectedInvCarId === c.id ? "active" : ""}`}
+                          style={{
+                            height: "46px",
+                            display: "grid",
+                            gridTemplateColumns: "58px 1fr",
+                            alignItems: "flex-start",
+                            justifyContent: "center",
+                            opacity: have ? 1 : 0.5,
+                            gap: "6px",
+                          }}
+                          onClick={() => {
+                            playSynthSfx("hover");
+                            setSelectedInvCarId(c.id);
+                          }}
+                        >
+                          <CarPixelPreview car={c} />
+                          <span className="inventory-car-meta">
+                            <span>{c.name}</span>
+                            <span
+                              style={{
+                                color: active
+                                  ? "#00ff9f"
+                                  : have
+                                    ? "#8a93a6"
+                                    : "#5a6372",
+                              }}
+                            >
+                              {active
+                                ? language === "vi"
+                                  ? "ĐANG CHẠY"
+                                  : "ACTIVE"
+                                : have
+                                  ? language === "vi"
+                                    ? "TRONG KHO"
+                                    : "OWNED"
+                                  : language === "vi"
+                                    ? "CHƯA MUA"
+                                    : "AVAILABLE"}
+                            </span>
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div
+                    className="cyber-detail-panel"
+                    style={{ height: "100%" }}
+                  >
+                    {selectedCar ? (
+                      <>
+                        <div className="cyber-preview-hero car compact">
+                          <CarPixelPreview car={selectedCar} large />
+                        </div>
+                        <h3
+                          className="cyber-detail-title"
+                          style={{ color: "var(--cyber-cyan)" }}
+                        >
+                          {selectedCar.name}
+                        </h3>
+                        <div className="cyber-detail-subtitle">
+                          {selectedCar.bike ? "MOTORCYCLE" : "CAR"} ·{" "}
+                          {selectedCar.shape.toUpperCase()}
+                        </div>
+
+                        {playerState.cars[selectedCar.id] ? (
+                          <>
+                            <div
+                              style={{
+                                fontSize: "9px",
+                                color: "#cfd6e4",
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "4px",
+                              }}
+                            >
+                              <span>TOP SPEED: {selectedCar.top} KM/H</span>
+                              <span>ACCELERATION: {selectedCar.acc}</span>
+                              <span>GRIP STABILITY: {selectedCar.grip}</span>
+                              <span>STRUCTURE HEALTH: {selectedCar.hp} HP</span>
+                            </div>
+
+                            {playerState.activeCar === selectedCar.id ? (
+                              <button
+                                className="cyber-action-btn primary"
+                                disabled
+                                style={{ opacity: 0.5, marginTop: "auto" }}
+                              >
+                                {language === "vi"
+                                  ? "XE ĐANG DÙNG"
+                                  : "ACTIVE RIDE"}
+                              </button>
+                            ) : (
+                              <button
+                                className="cyber-action-btn primary"
+                                style={{ marginTop: "auto" }}
+                                onClick={() => {
+                                  playSynthSfx("click");
+                                  if (window.setActiveCar)
+                                    window.setActiveCar(selectedCar.id);
+                                }}
+                              >
+                                {language === "vi"
+                                  ? "TRIỆU HỒI XE NÀY"
+                                  : "SET AS ACTIVE"}
+                              </button>
+                            )}
+                          </>
+                        ) : (
+                          <div
+                            className="cyber-description"
+                            style={{ color: "#5a6372" }}
+                          >
+                            {language === "vi"
+                              ? `CÓ THỂ MUA TẠI PHÂN HỆ NC AUTOFIXER — GIÁ $${fmt(selectedCar.price)}`
+                              : `AVAILABLE AT NC AUTOFIXER FOR $${fmt(selectedCar.price)}`}
+                          </div>
+                        )}
+                      </>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })()}
+
+          {selectedInvTab === 3 && <MapTab language={language} />}
+
+          {selectedInvTab === 4 &&
+            (() => {
+              const st = playerState.stats || {};
+              let worth = playerState.eddies;
+
+              if (typeof window !== "undefined") {
+                if (window.WPN) {
+                  for (const id in playerState.weapons) {
+                    if (window.WPN[id]) worth += window.WPN[id].price;
                   }
-                  if (window.CARD) {
-                    for (const id in playerState.cars) {
-                      if (window.CARD[id]) worth += window.CARD[id].price;
-                    }
+                }
+                if (window.CARD) {
+                  for (const id in playerState.cars) {
+                    if (window.CARD[id]) worth += window.CARD[id].price;
                   }
-                  if (window.CYB) {
-                    for (const id in playerState.cyber) {
-                      const level = playerState.cyber[id];
-                      if (window.CYB[id] && window.CYB[id].tiers) {
-                        for (let k = 0; k < level; k++) {
-                          if (window.CYB[id].tiers[k])
-                            worth += window.CYB[id].tiers[k].price;
-                        }
+                }
+                if (window.CYB) {
+                  for (const id in playerState.cyber) {
+                    const level = playerState.cyber[id];
+                    if (window.CYB[id] && window.CYB[id].tiers) {
+                      for (let k = 0; k < level; k++) {
+                        if (window.CYB[id].tiers[k])
+                          worth += window.CYB[id].tiers[k].price;
                       }
                     }
                   }
                 }
+              }
 
-                const playMins = Math.floor((st.playT || 0) / 60);
+              const playMins = Math.floor((st.playT || 0) / 60);
+              const getGangLabel = (gang) =>
+                window.gangLabel ? window.gangLabel(gang) : "CHƯA CÓ";
 
-                const statRows = [
-                  [
-                    language === "vi"
-                      ? "TIẾNG TĂM ĐƯỜNG PHỐ"
-                      : "STREET CRED CREDIBILITY",
-                    `LV ${playerState.lvl} (${playerState.xp} XP)`,
-                  ],
-                  [
-                    language === "vi"
-                      ? "TỔNG TÀI SẢN NET WORTH"
-                      : "NET WORTH VALUE",
-                    `€$${fmt(worth)}`,
-                  ],
-                  [
-                    language === "vi"
-                      ? "KẺ ĐỊCH ĐÃ FLATLINED"
-                      : "ENEMIES FLATLINED",
-                    st.kills || 0,
-                  ],
-                  [
-                    language === "vi"
-                      ? "TÊN ĐIÊN CYBERPSYCHO"
-                      : "CYBERPSYCHOS DOWNDED",
-                    `${st.psychos || 0}/${window.ICONICS ? window.ICONICS.length : 8}`,
-                  ],
-                  [
-                    language === "vi"
-                      ? "HỢP ĐỒNG SĂN TIỀN THƯỞNG"
-                      : "BOUNTIES CLEARED",
-                    st.bounties || 0,
-                  ],
-                  [
-                    language === "vi"
-                      ? "HÒM THẢ AIRDROP SECURED"
-                      : "AIRDROPS SECURED",
-                    st.airdrops || 0,
-                  ],
-                  [
-                    language === "vi"
-                      ? "HÒM HÀNG CRATES CRACKED"
-                      : "CRATES CRACKED",
-                    st.crates || 0,
-                  ],
-                  [
-                    language === "vi" ? "QUÃNG ĐƯỜNG ĐI LẠI" : "DISTANCE ROAMED",
-                    `${((st.dist || 0) / 1000).toFixed(1)} KM`,
-                  ],
-                  [
-                    language === "vi"
-                      ? "THỜI GIAN TRONG NIGHT CITY"
-                      : "TIME IN NIGHT CITY",
-                    `${playMins} MIN`,
-                  ],
-                  [
-                    language === "vi" ? "BĂNG ĐẢNG HIỆN TẠI" : "PLAYER faction",
-                    playerState.gang
-                      ? getGangLabel(playerState.gang)
-                      : language === "vi"
-                        ? "CHƯA CÓ"
-                        : "NONE",
-                  ],
-                ];
+              const statRows = [
+                [
+                  language === "vi"
+                    ? "TIẾNG TĂM ĐƯỜNG PHỐ"
+                    : "STREET CRED CREDIBILITY",
+                  `LV ${playerState.lvl} (${playerState.xp} XP)`,
+                ],
+                [
+                  language === "vi"
+                    ? "TỔNG TÀI SẢN NET WORTH"
+                    : "NET WORTH VALUE",
+                  `$${fmt(worth)}`,
+                ],
+                [
+                  language === "vi"
+                    ? "KẺ ĐỊCH ĐÃ FLATLINED"
+                    : "ENEMIES FLATLINED",
+                  st.kills || 0,
+                ],
+                [
+                  language === "vi"
+                    ? "TÊN ĐIÊN CYBERPSYCHO"
+                    : "CYBERPSYCHOS DOWNDED",
+                  `${st.psychos || 0}/${window.ICONICS ? window.ICONICS.length : 8}`,
+                ],
+                [
+                  language === "vi"
+                    ? "HỢP ĐỒNG SĂN TIỀN THƯỞNG"
+                    : "BOUNTIES CLEARED",
+                  st.bounties || 0,
+                ],
+                [
+                  language === "vi"
+                    ? "HÒM THẢ AIRDROP SECURED"
+                    : "AIRDROPS SECURED",
+                  st.airdrops || 0,
+                ],
+                [
+                  language === "vi"
+                    ? "HÒM HÀNG CRATES CRACKED"
+                    : "CRATES CRACKED",
+                  st.crates || 0,
+                ],
+                [
+                  language === "vi" ? "QUÃNG ĐƯỜNG ĐI LẠI" : "DISTANCE ROAMED",
+                  `${((st.dist || 0) / 1000).toFixed(1)} KM`,
+                ],
+                [
+                  language === "vi"
+                    ? "THỜI GIAN TRONG NIGHT CITY"
+                    : "TIME IN NIGHT CITY",
+                  `${playMins} MIN`,
+                ],
+                [
+                  language === "vi" ? "BĂNG ĐẢNG HIỆN TẠI" : "PLAYER faction",
+                  playerState.gang
+                    ? getGangLabel(playerState.gang)
+                    : language === "vi"
+                      ? "CHƯA CÓ"
+                      : "NONE",
+                ],
+              ];
 
-                return (
+              return (
+                <div
+                  className="cyber-list"
+                  style={{
+                    height: "340px",
+                    padding: "10px 12px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "0",
+                    overflowY: "auto",
+                  }}
+                >
+                  {statRows.map(([lbl, val]) => (
+                    <div key={lbl} className="inv-pixel-stat-row">
+                      <span className="inv-pixel-stat-label">{lbl}</span>
+                      <span className="inv-pixel-stat-value">{val}</span>
+                    </div>
+                  ))}
                   <div
-                    className="cyber-list"
                     style={{
-                      height: "340px",
-                      padding: "10px 12px",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "0",
-                      overflowY: "auto",
+                      marginTop: "auto",
+                      textAlign: "center",
+                      fontFamily: "var(--font-pixel-mono)",
+                      fontSize: "8px",
+                      color: "#2a3848",
+                      paddingTop: "12px",
+                      letterSpacing: "1px",
                     }}
                   >
-                    {statRows.map(([lbl, val]) => (
-                      <div key={lbl} className="inv-pixel-stat-row">
-                        <span className="inv-pixel-stat-label">{lbl}</span>
-                        <span className="inv-pixel-stat-value">{val}</span>
-                      </div>
-                    ))}
-                    <div
-                      style={{
-                        marginTop: "auto",
-                        textAlign: "center",
-                        fontFamily: "var(--font-pixel-mono)",
-                        fontSize: "8px",
-                        color: "#2a3848",
-                        paddingTop: "12px",
-                        letterSpacing: "1px",
-                      }}
-                    >
-                      &ldquo;{language === "vi" ? "SAI THÀNH PHỐ, SAI KẺ." : "WRONG CITY, WRONG PEOPLE."}&rdquo;
-                    </div>
+                    &ldquo;{language === "vi" ? "SAI THÀNH PHỐ, SAI KẺ." : "WRONG CITY, WRONG PEOPLE."}&rdquo;
                   </div>
-                );
-              })()}
+                </div>
+              );
+            })()}
 
-            {selectedInvTab === 5 &&
-              (() => {
-                const ranking = getRepRanking();
-                return (
+          {selectedInvTab === 5 &&
+            (() => {
+              const ranking = getRepRanking();
+              return (
+                <div
+                  className="rep-ranking-container"
+                  style={{
+                    height: "340px",
+                    padding: "8px",
+                    overflowY: "auto",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "6px",
+                  }}
+                >
                   <div
-                    className="rep-ranking-container"
                     style={{
-                      height: "340px",
-                      padding: "8px",
-                      overflowY: "auto",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "6px",
+                      fontSize: "8px",
+                      color: "var(--cyber-cyan)",
+                      fontWeight: "bold",
+                      marginBottom: "6px",
+                      borderBottom: "2px solid rgba(5, 217, 232, 0.3)",
+                      paddingBottom: "5px",
+                      display: "grid",
+                      gridTemplateColumns: "36px 1fr 52px 1fr",
+                      fontFamily: "var(--font-pixel), monospace",
+                      letterSpacing: "1px",
                     }}
                   >
-                    <div
-                      style={{
-                        fontSize: "8px",
-                        color: "var(--cyber-cyan)",
-                        fontWeight: "bold",
-                        marginBottom: "6px",
-                        borderBottom: "2px solid rgba(5, 217, 232, 0.3)",
-                        paddingBottom: "5px",
-                        display: "grid",
-                        gridTemplateColumns: "36px 1fr 52px 1fr",
-                        fontFamily: "var(--font-pixel), monospace",
-                        letterSpacing: "1px",
-                      }}
-                    >
-                      <span>#</span>
-                      <span>{language === "vi" ? "DANH HIỆU" : "OPERATIVE"}</span>
-                      <span style={{ textAlign: "center" }}>LV</span>
-                      <span style={{ textAlign: "right" }}>{language === "vi" ? "TRẠNG THÁI" : "STATUS"}</span>
-                    </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "4px",
-                      }}
-                    >
-                      {ranking.map((row, idx) => {
-                        const rankNum = idx + 1;
-                        const isTop3 = rankNum <= 3;
-                        const badgeCol = rankNum === 1 ? "#f9f002" : rankNum === 2 ? "#cfd6e4" : rankNum === 3 ? "#d87d4a" : "#3a414e";
-                        return (
-                          <div
-                            key={row.id}
-                            className={`rep-ranking-row ${row.isPlayer ? "player-row" : ""}`}
-                            style={{
-                              display: "grid",
-                              gridTemplateColumns: "36px 1fr 52px 1fr",
-                              alignItems: "center",
-                              fontSize: "9px",
-                              padding: "5px 8px",
-                              background: row.isPlayer ? "rgba(5, 217, 232, 0.12)" : "rgba(0,0,0,0.4)",
-                              border: row.isPlayer ? "2px solid var(--cyber-cyan)" : "2px solid #1c2540",
-                              color: row.isPlayer ? "#fff" : "#cfd6e4",
-                              boxShadow: row.isPlayer ? "2px 2px 0 #000, 0 0 8px rgba(5, 217, 232, 0.2)" : "2px 2px 0 #000",
-                              fontFamily: "var(--font-pixel-mono), monospace",
+                    <span>#</span>
+                    <span>{language === "vi" ? "DANH HIỆU" : "OPERATIVE"}</span>
+                    <span style={{ textAlign: "center" }}>LV</span>
+                    <span style={{ textAlign: "right" }}>{language === "vi" ? "TRẠNG THÁI" : "STATUS"}</span>
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "4px",
+                    }}
+                  >
+                    {ranking.map((row, idx) => {
+                      const rankNum = idx + 1;
+                      const isTop3 = rankNum <= 3;
+                      const badgeCol = rankNum === 1 ? "#f9f002" : rankNum === 2 ? "#cfd6e4" : rankNum === 3 ? "#d87d4a" : "#3a414e";
+                      return (
+                        <div
+                          key={row.id}
+                          className={`rep-ranking-row ${row.isPlayer ? "player-row" : ""}`}
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "36px 1fr 52px 1fr",
+                            alignItems: "center",
+                            fontSize: "9px",
+                            padding: "5px 8px",
+                            background: row.isPlayer ? "rgba(5, 217, 232, 0.12)" : "rgba(0,0,0,0.4)",
+                            border: row.isPlayer ? "2px solid var(--cyber-cyan)" : "2px solid #1c2540",
+                            color: row.isPlayer ? "#fff" : "#cfd6e4",
+                            boxShadow: row.isPlayer ? "2px 2px 0 #000, 0 0 8px rgba(5, 217, 232, 0.2)" : "2px 2px 0 #000",
+                            fontFamily: "var(--font-pixel-mono), monospace",
+                          }}
+                        >
+                          <span 
+                            style={{ 
+                              color: badgeCol, 
+                              fontWeight: "bold",
+                              textShadow: isTop3 ? `0 0 4px ${badgeCol}` : "none" 
                             }}
                           >
-                            <span 
-                              style={{ 
-                                color: badgeCol, 
-                                fontWeight: "bold",
-                                textShadow: isTop3 ? `0 0 4px ${badgeCol}` : "none" 
-                              }}
-                            >
-                              #{rankNum}
-                            </span>
-                            <span style={{ color: row.isPlayer ? "#fff" : row.color, fontWeight: row.isPlayer ? "bold" : "normal" }}>
-                              {row.name}
-                            </span>
-                            <span style={{ textAlign: "center", color: row.isPlayer ? "var(--cyber-yellow)" : "#cfd6e4" }}>
-                              {row.lvl}
-                            </span>
-                            <span style={{ textAlign: "right", fontSize: "9px", color: row.isPlayer ? "var(--cyber-cyan)" : "#8a93a6" }}>
-                              {row.status}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
+                            #{rankNum}
+                          </span>
+                          <span style={{ color: row.isPlayer ? "#fff" : row.color, fontWeight: row.isPlayer ? "bold" : "normal" }}>
+                            {row.name}
+                          </span>
+                          <span style={{ textAlign: "center", color: row.isPlayer ? "var(--cyber-yellow)" : "#cfd6e4" }}>
+                            {row.lvl}
+                          </span>
+                          <span style={{ textAlign: "right", fontSize: "9px", color: row.isPlayer ? "var(--cyber-cyan)" : "#8a93a6" }}>
+                            {row.status}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })()}
-
-            {selectedInvTab === 6 && (
-              <div style={{ height: "340px", overflowY: "auto" }}>
-                {renderGangMenu()}
-              </div>
-            )}
-
-            {selectedInvTab === 7 && (
-              <div style={{ height: "340px", overflowY: "auto", padding: "4px" }}>
-                {renderSettingsTab()}
-              </div>
-            )}
+                </div>
+              );
+            })()}
+            {selectedInvTab === 6 && renderInventoryGangTab()}
+            {selectedInvTab === 7 && renderInventorySettingsTab()}
           </div>
         </div>
       </div>
-    );
-  };
+    </div>
+  );
+};
 
   return (
     <main className={`game-shell ${isJackedIn ? "jacked-in" : ""} ${forcedLandscape ? "forced-landscape" : ""}`}>
       {/* Animated 3DPerspective Cyber-Grid Background */}
-      {!PERFORMANCE_MODE && <div className="cyber-grid-bg" />}
+      {!perfMode && <div className="cyber-grid-bg" />}
 
       {/* HUD Panels (Top Left / Right) */}
-      {!PERFORMANCE_MODE && (
+      {!perfMode && (
         <div
           className={`cloud-panel ${cloudPanelVisible ? "visible" : ""}`}
           data-status={status}
@@ -4908,7 +5427,7 @@ export default function GameCanvas() {
           <span className="cyber-status-text">{message}</span>
         </div>
       )}
-      {!PERFORMANCE_MODE && isJackedIn && playerState.state !== 'title' && (
+      {!perfMode && isJackedIn && playerState.state !== 'title' && (
         <PixelUserHud
           account={activeAccount}
           player={playerState}
@@ -4918,9 +5437,9 @@ export default function GameCanvas() {
           token={accountToken}
         />
       )}
-      {!PERFORMANCE_MODE && isJackedIn && playerState.state !== 'title' && <PixelWeaponHud player={playerState} />}
-      {!PERFORMANCE_MODE && isJackedIn && playerState.state !== 'title' && <PixelMiniMapHud />}
-      {!PERFORMANCE_MODE && isJackedIn && playerState.state === 'dead' && (
+      {!perfMode && isJackedIn && playerState.state !== 'title' && <PixelWeaponHud player={playerState} />}
+      {!perfMode && isJackedIn && playerState.state !== 'title' && <PixelMiniMapHud />}
+      {!perfMode && isJackedIn && playerState.state === 'dead' && (
         <PixelDeadOverlay player={playerState} language={language} />
       )}
       {/* Top Center Controls Removed */}
@@ -4952,7 +5471,7 @@ export default function GameCanvas() {
       ), [crtActive])}
 
       {/* Premium JSX Notification Banner */}
-      {!PERFORMANCE_MODE && jsxBanner && (
+      {!perfMode && jsxBanner && (
         <div className="jsx-banner-alert" style={{ "--banner-col": jsxBanner.col }}>
           <div className="banner-alert-hazard-line"></div>
           <div className="banner-alert-content">
@@ -4967,7 +5486,7 @@ export default function GameCanvas() {
       )}
 
       {/* Premium JSX Messages Logs Overlay */}
-      {!PERFORMANCE_MODE && jsxMsgs && jsxMsgs.length > 0 && (
+      {!perfMode && jsxMsgs && jsxMsgs.length > 0 && (
         <div className="jsx-msgs-container">
           {jsxMsgs.slice(-5).map((m, idx) => (
             <div key={idx} className="jsx-msg-item" style={{ "--msg-col": m.col, opacity: Math.min(1, m.t) }}>
@@ -4979,7 +5498,7 @@ export default function GameCanvas() {
       )}
 
       {/* Netrunner Sidebar Database Panel */}
-      {!PERFORMANCE_MODE && isJackedIn && (
+      {!perfMode && isJackedIn && (
         <div className={`cyber-sidebar ${sidebarOpen ? "open" : ""}`}>
           <button
             className="sidebar-toggle-btn"

@@ -178,6 +178,11 @@ async function main() {
     ws.room = room;
     ws.isAlive = true;
     ws.on('pong', () => { ws.isAlive = true; });
+    ws.on('error', err => {
+      if (err.code !== 'ECONNRESET' && err.code !== 'EPIPE') {
+        console.error(`[WS Error] Player ${id}:`, err);
+      }
+    });
     ws.send(JSON.stringify({ type: 'hello', id, room, hostId, isHost: hostId === id }));
     const cachedNpc = roomInfo(room).npcSnapshot;
     if (cachedNpc && hostId !== id) ws.send(JSON.stringify(cachedNpc));
