@@ -84,6 +84,8 @@ async function main() {
   const players = new Map();
   const rooms = new Map();
   const roomMeta = new Map();
+  const PLAYER_STALE_MS = 12000;
+  const HEARTBEAT_MS = 4000;
 
   function roomPlayers(room) {
     if (!rooms.has(room)) rooms.set(room, new Set());
@@ -343,7 +345,7 @@ async function main() {
     for (const [id, p] of players) {
       const ws = [...wss.clients].find(client => client.playerId === id);
       if (ws && ws.readyState === ws.OPEN) continue;
-      if (now - p.lastSeen > 45000) {
+      if (now - p.lastSeen > PLAYER_STALE_MS) {
         changed.add(p.room);
         forgetPlayer(id);
       }
@@ -364,7 +366,7 @@ async function main() {
       ws.isAlive = false;
       try { ws.ping(); } catch (error) {}
     }
-  }, 10000);
+  }, HEARTBEAT_MS);
 
   server.listen(actualPort, '0.0.0.0', () => {
     console.log(`> Ready locally on http://localhost:${actualPort}`);

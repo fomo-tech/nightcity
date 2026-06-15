@@ -219,7 +219,11 @@ barSelect(0); assert(G.p.hp === G.p.maxhp && G.p.buffT > 0, 'bar drink works');
 
 // death + respawn
 giveWeapon('lexington', true);
+giveWeapon('unity', true);
+giveWeapon('knife', true);
 assignSlot('lexington', 1);
+assignSlot('unity', 0);
+assignSlot('knife', 2);
 G.slot = 1;
 G.eddies = 1234;
 const deathStates = [];
@@ -231,15 +235,20 @@ assert(deathStates.some(s => s.hp === 0), 'death sends hp 0 to realtime room imm
 assert(G.deadT > 9.9, 'death respawn timer is 10 seconds');
 assert(G.eddies === 0, 'death drops all eddies');
 assert(!G.weapons.lexington && G.pickups.some(pk => pk.kind === 'wpn' && pk.id === 'lexington'), 'death drops equipped weapon');
+assert(!G.weapons.unity && !G.weapons.knife && G.loadout.every(id => !id), 'death drops all three loadout weapons');
 assert(G.pickups.some(pk => pk.kind === 'ed' && pk.amt === 1234), 'death leaves eddies pickup');
 steps(590);
 assert(G.state === 'dead' && G.pickups.some(pk => pk.deathDrop), 'death drops stay visible while player is gone');
 steps(20);
 assert(G.state === 'play' && G.p.hp === G.p.maxhp, 'respawned');
+const edAfterRespawn = G.eddies;
+const ownDeathDrop = G.pickups.find(pk => pk.deathDrop && pk.kind === 'ed' && pk.amt === 1234);
+if (ownDeathDrop) { G.p.x = ownDeathDrop.x; G.p.y = ownDeathDrop.y; steps(20); }
+assert(G.eddies === edAfterRespawn, 'player cannot reclaim own death eddies');
 delete window.NCPX_NET;
 G.p.iframes = 99999;
 steps(620);
-assert(!G.pickups.some(pk => pk.deathDrop && (pk.id === 'lexington' || pk.amt === 1234)), 'death drops expire after respawn grace');
+assert(!G.pickups.some(pk => pk.deathDrop && (pk.id === 'lexington' || pk.id === 'unity' || pk.id === 'knife' || pk.amt === 1234)), 'death drops expire after respawn grace');
 
 // save / load roundtrip
 G.skin = 3;

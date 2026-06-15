@@ -4187,134 +4187,405 @@ select {
 }
 
 /* =================== RETRO PIXEL INVENTORY OVERHAUL =================== */
+
+/* ---- Container ---- */
 .cyber-modal-container.inv-modal {
-  background: #080b12 !important;
-  border: 4px double var(--cyber-cyan) !important;
-  border-radius: 0px !important;
-  box-shadow: 
+  background: #07090f !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  clip-path: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  outline: 2px solid #1c2540;
+  /* pixel double-border effect via box-shadow layers */
+  box-shadow:
     0 0 0 2px #000,
     0 0 0 4px var(--cyber-cyan),
-    0 12px 36px rgba(0, 0, 0, 0.95) !important;
-  clip-path: none !important;
-  background-image: 
-    linear-gradient(rgba(5, 217, 232, 0.02) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(5, 217, 232, 0.02) 1px, transparent 1px) !important;
-  background-size: 16px 16px !important;
+    0 0 0 6px #000,
+    0 0 32px rgba(5, 217, 232, 0.18),
+    0 16px 48px rgba(0,0,0,0.97) !important;
+  /* pixel scanline overlay */
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 3px,
+      rgba(0, 0, 0, 0.12) 3px,
+      rgba(0, 0, 0, 0.12) 4px
+    ) !important;
 }
 
-.inv-modal .cyber-tabs {
-  border-bottom: 2px solid var(--cyber-cyan) !important;
-  gap: 6px !important;
+/* pixel corner brackets — implemented as pseudo-elements on inner wrapper */
+.inv-modal-inner {
+  padding: 14px 16px 16px;
+  position: relative;
+}
+.inv-modal-inner::before,
+.inv-modal-inner::after {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-color: var(--cyber-cyan);
+  border-style: solid;
+  opacity: 0.6;
+  pointer-events: none;
+}
+.inv-modal-inner::before {
+  top: 6px; left: 6px;
+  border-width: 2px 0 0 2px;
+}
+.inv-modal-inner::after {
+  bottom: 6px; right: 6px;
+  border-width: 0 2px 2px 0;
 }
 
-.inv-modal .cyber-tab-btn {
-  background: rgba(0, 0, 0, 0.6) !important;
-  border: 2px solid rgba(5, 217, 232, 0.4) !important;
-  border-bottom: none !important;
-  color: var(--cyber-cyan) !important;
+/* ---- Header strip ---- */
+.inv-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  margin-bottom: 8px;
+  background: var(--cyber-cyan);
+  position: relative;
+}
+.inv-modal-header::before {
+  content: '▶';
+  margin-right: 6px;
+  color: #000;
+  font-size: 10px;
+}
+.inv-modal-header-title {
   font-family: var(--font-pixel), monospace !important;
   font-size: 9px !important;
-  padding: 6px 10px !important;
-  border-radius: 0px !important;
+  color: #000 !important;
+  letter-spacing: 2px;
+  font-weight: 900;
+  text-transform: uppercase;
+  line-height: 1;
+}
+.inv-modal-header-eddies {
+  font-family: var(--font-pixel), monospace !important;
+  font-size: 9px !important;
+  color: #000 !important;
+  letter-spacing: 1px;
+  font-weight: 900;
+}
+
+/* ---- Tab bar ---- */
+.inv-modal .cyber-tabs {
+  display: flex !important;
+  gap: 2px !important;
+  margin-bottom: 10px !important;
+  border-bottom: 2px solid var(--cyber-cyan) !important;
+  padding-bottom: 0 !important;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.inv-modal .cyber-tabs::-webkit-scrollbar { display: none; }
+
+.inv-modal .cyber-tab-btn {
+  flex: 0 0 auto !important;
+  background: #0a0d16 !important;
+  border: 2px solid rgba(5, 217, 232, 0.35) !important;
+  border-bottom: none !important;
+  color: #4a7a88 !important;
+  font-family: var(--font-pixel), monospace !important;
+  font-size: 8px !important;
+  padding: 6px 8px !important;
+  border-radius: 0 !important;
   position: relative;
   top: 2px;
-  transition: none !important;
+  transition: color 0.1s !important;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  white-space: nowrap;
 }
-
 .inv-modal .cyber-tab-btn:hover {
-  background: rgba(5, 217, 232, 0.15) !important;
+  background: rgba(5, 217, 232, 0.12) !important;
   border-color: var(--cyber-cyan) !important;
-  color: #fff !important;
+  color: var(--cyber-cyan) !important;
 }
-
 .inv-modal .cyber-tab-btn.active {
-  background: var(--cyber-pink) !important;
-  border-color: var(--cyber-pink) !important;
-  color: #fff !important;
-  text-shadow: 1px 1px 0 #000 !important;
+  background: #07090f !important;
+  border-color: var(--cyber-cyan) !important;
+  border-bottom: 2px solid #07090f !important;
+  color: var(--cyber-cyan) !important;
+  text-shadow: 0 0 8px var(--cyber-cyan) !important;
   font-weight: 900 !important;
-  top: 0px !important;
-  padding-top: 8px !important;
-  box-shadow: 0 -4px 0 rgba(0,0,0,0.2) inset !important;
+  top: 2px !important;
+  z-index: 1;
 }
 
+/* ---- Layout panels ---- */
+.inv-modal .cyber-grid-layout {
+  display: grid !important;
+  grid-template-columns: 1.15fr 1fr !important;
+  gap: 10px !important;
+}
+
+/* left panel: item list */
 .inv-modal .cyber-list {
-  border: 2px solid var(--cyber-cyan) !important;
-  border-radius: 0px !important;
-  background: rgba(6, 8, 14, 0.4) !important;
-  background-image: 
-    linear-gradient(rgba(5, 217, 232, 0.02) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(5, 217, 232, 0.02) 1px, transparent 1px) !important;
-  background-size: 8px 8px !important;
+  border: 2px solid rgba(5, 217, 232, 0.45) !important;
+  border-radius: 0 !important;
+  background: rgba(4, 7, 18, 0.6) !important;
+  background-image:
+    linear-gradient(rgba(5, 217, 232, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(5, 217, 232, 0.025) 1px, transparent 1px) !important;
+  background-size: 10px 10px !important;
+  box-shadow: inset 2px 2px 0 rgba(0,0,0,0.5) !important;
+  padding: 6px !important;
 }
+.inv-modal .cyber-list::-webkit-scrollbar { width: 3px; }
+.inv-modal .cyber-list::-webkit-scrollbar-thumb { background: var(--cyber-cyan); }
+.inv-modal .cyber-list::-webkit-scrollbar-track { background: #000; }
 
+/* right panel: detail */
 .inv-modal .cyber-detail-panel {
-  border: 2px solid var(--cyber-pink) !important;
-  border-radius: 0px !important;
-  background: rgba(255, 42, 109, 0.03) !important;
-  background-image: 
-    linear-gradient(rgba(255, 42, 109, 0.02) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 42, 109, 0.02) 1px, transparent 1px) !important;
-  background-size: 8px 8px !important;
+  border: 2px solid rgba(249, 240, 2, 0.45) !important;
+  border-radius: 0 !important;
+  background: rgba(12, 10, 2, 0.8) !important;
+  background-image:
+    linear-gradient(rgba(249, 240, 2, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(249, 240, 2, 0.02) 1px, transparent 1px) !important;
+  background-size: 10px 10px !important;
+  box-shadow: inset 2px 2px 0 rgba(0,0,0,0.5) !important;
+  padding: 10px 12px !important;
 }
+.inv-modal .cyber-detail-panel::-webkit-scrollbar { width: 3px; }
+.inv-modal .cyber-detail-panel::-webkit-scrollbar-thumb { background: var(--cyber-yellow); }
+.inv-modal .cyber-detail-panel::-webkit-scrollbar-track { background: #000; }
 
-.inv-modal .cyber-detail-title {
-  font-family: var(--font-pixel), monospace !important;
-  font-size: 11px !important;
-  text-shadow: 1px 1px 0 #000 !important;
-  color: var(--cyber-yellow) !important;
-}
-
+/* ---- Weapon grid slots ---- */
 .inv-weapon-slot {
-  background: rgba(0, 0, 0, 0.6) !important;
-  border: 2px solid #243142 !important;
+  background: #0a0d18 !important;
+  border: 2px solid #1c2540 !important;
   box-shadow: 2px 2px 0 #000 !important;
   image-rendering: pixelated;
-  transition: border-color 0.15s;
+  transition: border-color 0.1s, box-shadow 0.1s;
+  position: relative;
 }
-
 .inv-weapon-slot.have {
-  border-color: #5a6372 !important;
+  border-color: #2a4060 !important;
+  background: #080b15 !important;
 }
-
 .inv-weapon-slot:hover {
   border-color: var(--cyber-cyan) !important;
+  box-shadow: 2px 2px 0 #000, 0 0 0 1px var(--cyber-cyan) !important;
+  z-index: 1;
 }
-
 .inv-weapon-slot.active {
-  background: rgba(249, 240, 2, 0.12) !important;
-  border-color: var(--cyber-yellow) !important;
-  box-shadow: 0 0 10px rgba(249, 240, 2, 0.35) !important;
+  background: rgba(5, 217, 232, 0.1) !important;
+  border-color: var(--cyber-cyan) !important;
+  box-shadow: 2px 2px 0 #000, 0 0 12px rgba(5, 217, 232, 0.4) !important;
 }
 
-/* Street Cred Rankings Leaderboard */
-.rep-ranking-container::-webkit-scrollbar {
-  width: 4px;
+/* rarity glow on active */
+.inv-weapon-slot.active.rar-4 { border-color: var(--cyber-yellow) !important; box-shadow: 2px 2px 0 #000, 0 0 12px rgba(249,240,2,0.4) !important; }
+.inv-weapon-slot.active.rar-3 { border-color: #bd00ff !important; box-shadow: 2px 2px 0 #000, 0 0 12px rgba(189,0,255,0.4) !important; }
+.inv-weapon-slot.active.rar-2 { border-color: var(--cyber-cyan) !important; }
+.inv-weapon-slot.active.rar-1 { border-color: #00ff9f !important; box-shadow: 2px 2px 0 #000, 0 0 12px rgba(0,255,159,0.3) !important; }
+
+/* ---- Detail panel text ---- */
+.inv-modal .cyber-detail-title {
+  font-family: var(--font-pixel), monospace !important;
+  font-size: 9px !important;
+  text-shadow: 1px 1px 0 #000, 0 0 8px currentColor !important;
+  color: var(--cyber-yellow) !important;
+  line-height: 1.5 !important;
+  letter-spacing: 0.5px;
+  word-break: break-word;
 }
-.rep-ranking-container::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.02);
+.inv-modal .cyber-detail-subtitle {
+  font-family: var(--font-pixel-mono), monospace !important;
+  font-size: 8px !important;
+  color: var(--cyber-cyan) !important;
+  margin-top: 0 !important;
+  letter-spacing: 1px;
 }
-.rep-ranking-container::-webkit-scrollbar-thumb {
-  background: var(--cyber-cyan);
+
+/* pixel stat bars in detail panel */
+.inv-modal .cyber-stat-bar-track {
+  height: 4px !important;
+  background: #111 !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  image-rendering: pixelated;
 }
+.inv-modal .cyber-stat-bar-fill {
+  height: 100%;
+  image-rendering: pixelated;
+}
+
+/* pixel-style preview hero zone */
+.inv-modal .cyber-preview-hero {
+  background: #000 !important;
+  border: 2px solid rgba(255,255,255,0.07) !important;
+  image-rendering: pixelated;
+  min-height: 56px !important;
+}
+.inv-modal .cyber-preview-hero.weapon {
+  border-color: rgba(249, 240, 2, 0.25) !important;
+}
+.inv-modal .cyber-preview-hero.car {
+  border-color: rgba(0, 255, 159, 0.25) !important;
+}
+
+/* ---- Slot buttons ---- */
+.inv-modal .cyber-modal-btn {
+  background: #0a0d18 !important;
+  border: 2px solid #243142 !important;
+  color: #5a7a88 !important;
+  font-family: var(--font-pixel), monospace !important;
+  font-size: 8px !important;
+  padding: 5px 6px !important;
+  clip-path: none !important;
+  box-shadow: 2px 2px 0 #000 !important;
+  transition: none !important;
+}
+.inv-modal .cyber-modal-btn:hover {
+  background: rgba(5, 217, 232, 0.15) !important;
+  border-color: var(--cyber-cyan) !important;
+  color: var(--cyber-cyan) !important;
+}
+.inv-modal .cyber-modal-btn.active {
+  background: var(--cyber-cyan) !important;
+  border-color: var(--cyber-cyan) !important;
+  color: #000 !important;
+  box-shadow: 2px 2px 0 #000, 0 0 8px rgba(5,217,232,0.5) !important;
+}
+
+/* ---- Action button ---- */
+.inv-modal .cyber-action-btn.primary {
+  background: var(--cyber-yellow) !important;
+  border: 2px solid #a09000 !important;
+  color: #000 !important;
+  font-family: var(--font-pixel), monospace !important;
+  font-size: 8px !important;
+  clip-path: none !important;
+  box-shadow: 3px 3px 0 #000 !important;
+  transition: none !important;
+  padding: 8px 10px !important;
+}
+.inv-modal .cyber-action-btn.primary:hover {
+  background: #fff !important;
+  transform: translate(-1px, -1px) !important;
+  box-shadow: 4px 4px 0 #000 !important;
+}
+.inv-modal .cyber-action-btn.primary:active {
+  transform: translate(1px, 1px) !important;
+  box-shadow: 1px 1px 0 #000 !important;
+}
+
+/* ---- Cyberware list items ---- */
+.inv-modal .cyber-list-item {
+  background: rgba(0,0,0,0.5) !important;
+  border: 2px solid #1c2540 !important;
+  font-family: var(--font-pixel-mono), monospace !important;
+  font-size: 9px !important;
+  box-shadow: 2px 2px 0 #000 !important;
+  transition: border-color 0.1s !important;
+}
+.inv-modal .cyber-list-item:hover {
+  background: rgba(5, 217, 232, 0.08) !important;
+  border-color: rgba(5, 217, 232, 0.5) !important;
+}
+.inv-modal .cyber-list-item.active {
+  background: rgba(5, 217, 232, 0.12) !important;
+  border-color: var(--cyber-cyan) !important;
+  color: #fff !important;
+  box-shadow: 2px 2px 0 #000, 0 0 8px rgba(5,217,232,0.2) !important;
+}
+
+/* ---- Stat rows in Stats tab ---- */
+.inv-pixel-stat-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 10px;
+  align-items: baseline;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.inv-pixel-stat-label {
+  font-family: var(--font-pixel), monospace;
+  font-size: 7.5px;
+  color: #5a7a88;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  line-height: 1.4;
+}
+.inv-pixel-stat-value {
+  font-family: var(--font-pixel-mono), monospace;
+  font-size: 9px;
+  color: var(--cyber-yellow);
+  white-space: nowrap;
+}
+
+/* ---- Mobile responsive: portrait stack ---- */
+@media (max-width: 600px) {
+  .cyber-modal-container.inv-modal {
+    width: 98vw !important;
+    max-width: 98vw !important;
+    max-height: 80vh !important;
+    overflow: hidden;
+  }
+  .inv-modal-inner {
+    padding: 8px 8px 10px !important;
+  }
+  .inv-modal .cyber-tabs {
+    gap: 1px !important;
+  }
+  .inv-modal .cyber-tab-btn {
+    font-size: 7px !important;
+    padding: 5px 6px !important;
+  }
+  .inv-modal .cyber-grid-layout {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: 180px 1fr !important;
+    height: auto !important;
+    gap: 6px !important;
+  }
+  .inv-modal .cyber-list {
+    height: 180px !important;
+  }
+  .inv-modal .cyber-detail-panel {
+    height: 200px !important;
+    min-height: 160px;
+  }
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+  .cyber-modal-container.inv-modal {
+    max-height: 90vh !important;
+    overflow: hidden;
+  }
+  .inv-modal .cyber-grid-layout {
+    height: 250px !important;
+  }
+}
+
+/* ---- Street Cred Rankings ---- */
+.rep-ranking-container::-webkit-scrollbar { width: 3px; }
+.rep-ranking-container::-webkit-scrollbar-track { background: #000; }
+.rep-ranking-container::-webkit-scrollbar-thumb { background: var(--cyber-cyan); }
 
 .rep-ranking-row {
-  transition: all 0.15s;
+  transition: background 0.1s;
 }
-
 .rep-ranking-row:hover {
   background: rgba(255, 255, 255, 0.06) !important;
 }
 
 @keyframes rep-pulse {
-  0% { box-shadow: 0 0 4px rgba(5, 217, 232, 0.2); border-color: rgba(5, 217, 232, 0.3) !important; }
-  50% { box-shadow: 0 0 12px rgba(5, 217, 232, 0.5); border-color: var(--cyber-cyan) !important; }
+  0%   { box-shadow: 0 0 4px rgba(5, 217, 232, 0.2); border-color: rgba(5, 217, 232, 0.3) !important; }
+  50%  { box-shadow: 0 0 12px rgba(5, 217, 232, 0.5); border-color: var(--cyber-cyan) !important; }
   100% { box-shadow: 0 0 4px rgba(5, 217, 232, 0.2); border-color: rgba(5, 217, 232, 0.3) !important; }
 }
-
 .rep-ranking-row.player-row {
   animation: rep-pulse 2s infinite ease-in-out;
 }
+
 
 /* Pixel Game Premium Death Screen Overlay */
 .pixel-dead-overlay {

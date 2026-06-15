@@ -5,7 +5,7 @@ import { useGameStore } from "@/store/useGameStore";
 
 const SAVE_KEY = "ncpx2077_v1";
 const ACCOUNT_KEY = "ncpx_account_v1";
-const SCRIPT_VERSION = "86";
+const SCRIPT_VERSION = "87";
 const PERFORMANCE_MODE = false;
 const GAME_SCRIPTS = [
   "/js/font.js",
@@ -3904,9 +3904,15 @@ export default function GameCanvas() {
     };
 
     return (
-      <div
-        style={{ display: "flex", flexDirection: "column", height: "390px" }}
-      >
+      <div className="inv-modal-inner" style={{ display: "flex", flexDirection: "column", height: "430px" }}>
+        {/* pixel header strip */}
+        <div className="inv-modal-header">
+          <span className="inv-modal-header-title">
+            {language === "vi" ? "▶ TÚI ĐỒ" : "▶ INVENTORY"}
+          </span>
+          <span className="inv-modal-header-eddies">€$ {fmt(playerState.eddies)}</span>
+        </div>
+
         <div className="cyber-tabs">
           {invTabs.map((tab, idx) => (
             <button
@@ -3920,19 +3926,6 @@ export default function GameCanvas() {
               {language === "vi" ? invTabsVi[idx] : tab}
             </button>
           ))}
-          <div
-            style={{
-              marginLeft: "auto",
-              color: "var(--cyber-yellow)",
-              fontFamily: "var(--font-title)",
-              fontSize: "12px",
-              fontWeight: "bold",
-              display: "flex",
-              alignItems: "center",
-            }}
-          >
-            €$ {fmt(playerState.eddies)}
-          </div>
         </div>
 
         <div style={{ flex: 1, overflow: "hidden" }}>
@@ -3971,7 +3964,7 @@ export default function GameCanvas() {
                       return (
                         <div
                           key={w.id}
-                          className={`inv-weapon-slot ${selectedInvWeaponId === w.id ? "active" : ""} ${have ? "have" : ""}`}
+                          className={`inv-weapon-slot ${selectedInvWeaponId === w.id ? "active" : ""} ${have ? "have" : ""} rar-${w.rar || 0}`}
                           style={{
                             height: "52px",
                             padding: "4px",
@@ -4496,39 +4489,31 @@ export default function GameCanvas() {
                   className="cyber-list"
                   style={{
                     height: "340px",
-                    padding: "12px",
+                    padding: "10px 12px",
                     display: "flex",
                     flexDirection: "column",
-                    gap: "8px",
+                    gap: "0",
+                    overflowY: "auto",
                   }}
                 >
                   {statRows.map(([lbl, val]) => (
-                    <div
-                      key={lbl}
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        fontSize: "11px",
-                        borderBottom: "1px solid rgba(255,255,255,0.02)",
-                        paddingBottom: "2px",
-                      }}
-                    >
-                      <span style={{ color: "#5a6372" }}>{lbl}</span>
-                      <span style={{ color: "#e8f6ff", fontWeight: "bold" }}>
-                        {val}
-                      </span>
+                    <div key={lbl} className="inv-pixel-stat-row">
+                      <span className="inv-pixel-stat-label">{lbl}</span>
+                      <span className="inv-pixel-stat-value">{val}</span>
                     </div>
                   ))}
                   <div
                     style={{
                       marginTop: "auto",
                       textAlign: "center",
-                      fontSize: "10px",
-                      color: "#3a414e",
-                      fontStyle: "italic",
+                      fontFamily: "var(--font-pixel-mono)",
+                      fontSize: "8px",
+                      color: "#2a3848",
+                      paddingTop: "12px",
+                      letterSpacing: "1px",
                     }}
                   >
-                    &ldquo;WRONG CITY, WRONG PEOPLE.&rdquo;
+                    &ldquo;{language === "vi" ? "SAI THÀNH PHỐ, SAI KẺ." : "WRONG CITY, WRONG PEOPLE."}&rdquo;
                   </div>
                 </div>
               );
@@ -4551,21 +4536,22 @@ export default function GameCanvas() {
                 >
                   <div
                     style={{
-                      fontSize: "11px",
+                      fontSize: "8px",
                       color: "var(--cyber-cyan)",
                       fontWeight: "bold",
                       marginBottom: "6px",
                       borderBottom: "2px solid rgba(5, 217, 232, 0.3)",
-                      paddingBottom: "4px",
+                      paddingBottom: "5px",
                       display: "grid",
-                      gridTemplateColumns: "40px 140px 60px 1fr",
-                      fontFamily: "var(--font-title)",
+                      gridTemplateColumns: "36px 1fr 52px 1fr",
+                      fontFamily: "var(--font-pixel), monospace",
+                      letterSpacing: "1px",
                     }}
                   >
-                    <span>RANK</span>
-                    <span>OPERATIVE</span>
-                    <span style={{ textAlign: "center" }}>CRED LVL</span>
-                    <span style={{ textAlign: "right" }}>STATUS</span>
+                    <span>#</span>
+                    <span>{language === "vi" ? "DANH HIỆU" : "OPERATIVE"}</span>
+                    <span style={{ textAlign: "center" }}>LV</span>
+                    <span style={{ textAlign: "right" }}>{language === "vi" ? "TRẠNG THÁI" : "STATUS"}</span>
                   </div>
                   <div
                     style={{
@@ -4584,15 +4570,15 @@ export default function GameCanvas() {
                           className={`rep-ranking-row ${row.isPlayer ? "player-row" : ""}`}
                           style={{
                             display: "grid",
-                            gridTemplateColumns: "40px 140px 60px 1fr",
+                            gridTemplateColumns: "36px 1fr 52px 1fr",
                             alignItems: "center",
-                            fontSize: "10px",
-                            padding: "6px 8px",
-                            background: row.isPlayer ? "rgba(5, 217, 232, 0.15)" : "rgba(255, 255, 255, 0.02)",
-                            border: row.isPlayer ? "1px solid var(--cyber-cyan)" : "1px solid rgba(255,255,255,0.05)",
+                            fontSize: "9px",
+                            padding: "5px 8px",
+                            background: row.isPlayer ? "rgba(5, 217, 232, 0.12)" : "rgba(0,0,0,0.4)",
+                            border: row.isPlayer ? "2px solid var(--cyber-cyan)" : "2px solid #1c2540",
                             color: row.isPlayer ? "#fff" : "#cfd6e4",
-                            boxShadow: row.isPlayer ? "0 0 8px rgba(5, 217, 232, 0.2)" : "none",
-                            fontFamily: "var(--font-mono)",
+                            boxShadow: row.isPlayer ? "2px 2px 0 #000, 0 0 8px rgba(5, 217, 232, 0.2)" : "2px 2px 0 #000",
+                            fontFamily: "var(--font-pixel-mono), monospace",
                           }}
                         >
                           <span 
@@ -5477,7 +5463,11 @@ function setupRealtimeBridge(getStore) {
     };
     ws.onclose = () => {
       net.connected = false;
-      net.players = [...net.playerCache.values()];
+      net.players = [];
+      net.playerCache.clear();
+      net.hostId = null;
+      net.isHost = false;
+      net.npcState = null;
       if (!net.closed) {
         const delay = Math.min(3000, 350 + net.retry * 450);
         net.retry++;

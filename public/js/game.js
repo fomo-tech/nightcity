@@ -974,6 +974,7 @@ function sendRealtimeState(hpOverride) {
 function applyRemoteDropEvents(net) {
   const events = net.takeDropEvents ? net.takeDropEvents() : [];
   for (const ev of events) {
+    if (ev && net.id && ev.from === net.id) continue;
     if (!ev || !Array.isArray(ev.drops)) continue;
     for (const d of ev.drops.slice(0, 4)) {
       const x = Number.isFinite(Number(d.x)) ? Number(d.x) : Number(ev.x) || G.p.x;
@@ -1680,16 +1681,19 @@ function damagePlayer(dmg) {
 function killPlayer() {
   dropPlayerDeathLoot();
   sendRealtimeState(0);
+  G.p.hp = 0;
   G.state = 'dead'; G.deadT = 10;
   G.deathFee = 0;
   G.driving = false;
   SFX.explode();
+  saveGame();
 }
 
 function respawn() {
   const p = G.p;
   p.hp = p.maxhp; p.iframes = 2;
-  p.x = WORLD.spawn.x; p.y = WORLD.spawn.y;
+  const spot = respawnSpot();
+  p.x = spot.x; p.y = spot.y;
   snapCam();
   G.state = 'play';
   G.enemies = G.enemies.filter(e => e.bounty || e.psycho);
@@ -1698,27 +1702,40 @@ function respawn() {
   saveGame();
 }
 
+function respawnSpot() {
+  const cx = WORLD.spawn.x, cy = WORLD.spawn.y;
+  for (let i = 0; i < 60; i++) {
+    const s = findSpot(cx, cy, i < 12 ? 10 : 24, i < 12 ? 72 : 150);
+    if (s && !WORLD.blockedPx(s.x, s.y)) return s;
+  }
+  return { x: cx, y: cy };
+}
+
 function dropPlayerDeathLoot() {
   const p = G.p;
   const drops = [];
   const amt = Math.max(0, Math.round(G.eddies || 0));
   if (amt > 0) {
     const x = p.x + rnd(-8, 8), y = p.y + rnd(-8, 8);
-    G.pickups.push({ kind: 'ed', deathDrop: true, amt, x, y, vx: rnd(-28, 28), vy: rnd(-28, 28), t: 10 });
+    G.pickups.push({ kind: 'ed', deathDrop: true, ownerId: 'self', noSelfPickup: true, amt, x, y, vx: rnd(-28, 28), vy: rnd(-28, 28), t: 18 });
     drops.push({ kind: 'ed', amt, x, y });
     addTxt(p.x, p.y - 24, '-$' + fmt(amt), '#f9f002');
     G.eddies = 0;
   }
-  const wid = G.loadout[G.slot];
-  if (wid && G.weapons[wid] && !WPN[wid].granted) {
+  const lost = [];
+  for (const wid of G.loadout) {
+    if (wid && G.weapons[wid] && !WPN[wid].granted && !lost.includes(wid)) lost.push(wid);
+  }
+  for (let i = 0; i < lost.length; i++) {
+    const wid = lost[i];
     delete G.weapons[wid];
-    for (let i = 0; i < G.loadout.length; i++) if (G.loadout[i] === wid) G.loadout[i] = null;
-    const x = p.x, y = p.y - 8;
-    G.pickups.push({ kind: 'wpn', deathDrop: true, id: wid, x, y, vx: 0, vy: 0, t: 10 });
+    for (let k = 0; k < G.loadout.length; k++) if (G.loadout[k] === wid) G.loadout[k] = null;
+    const x = p.x + (i - (lost.length - 1) / 2) * 12, y = p.y - 8;
+    G.pickups.push({ kind: 'wpn', deathDrop: true, ownerId: 'self', noSelfPickup: true, id: wid, x, y, vx: 0, vy: 0, t: 18 });
     drops.push({ kind: 'wpn', id: wid, x, y });
     addTxt(p.x, p.y - 36, 'DROP ' + WPN[wid].name, RAR_COL[WPN[wid].rar]);
-    cycleSlot(0);
   }
+  cycleSlot(0);
   if (drops.length && typeof window !== 'undefined' && window.NCPX_NET && window.NCPX_NET.playerDrop) {
     window.NCPX_NET.playerDrop({ x: p.x, y: p.y, drops });
   }
@@ -2486,6 +2503,7 @@ function updatePickups(dt) {
   const p = G.p;
   for (const pk of G.pickups) {
     pk.t -= dt;
+    if (pk.noSelfPickup || pk.ownerId === 'self') continue;
     const dx = p.x - pk.x, dy = p.y - pk.y, d2 = dx * dx + dy * dy;
     if (d2 > 90 * 90 && !pk.vx && !pk.vy) continue;
     const d = Math.sqrt(d2);
