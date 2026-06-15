@@ -553,7 +553,7 @@ function drawTouchControls(c) {
     drawTextC(c, '×', cx, cy - 5, '#ff5a5a', 3);
     c.globalAlpha = 1;
   }
-  if (window.innerHeight > window.innerWidth && G.state === 'play' && !G.ui) {
+  if (window.innerHeight > window.innerWidth && G.state === 'play' && !G.ui && G.rotateHintT > 0) {
     drawRotateHint(c);
   }
 }
@@ -561,7 +561,8 @@ function drawTouchControls(c) {
 function drawRotateHint(c) {
   const w = Math.min(252, VIEW_W - 32), h = 54, x = (VIEW_W - w) / 2, y = VIEW_H - 145;
   c.save();
-  c.globalAlpha = 0.94;
+  const alpha = clamp(G.rotateHintT !== undefined ? G.rotateHintT : 1.0, 0, 1.0);
+  c.globalAlpha = 0.94 * alpha;
   c.fillStyle = 'rgba(6,8,14,0.92)'; c.fillRect(x, y, w, h);
   c.strokeStyle = '#05d9e8'; c.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
   c.fillStyle = '#ff2a6d'; c.fillRect(x, y, 18, 2); c.fillRect(x, y, 2, 18);
@@ -579,13 +580,13 @@ function drawRotateHint(c) {
 function drawDead(c) {
   // 1. Dark vignette background overlay using radial gradient
   const grad = c.createRadialGradient(VIEW_W / 2, VIEW_H / 2, 50, VIEW_W / 2, VIEW_H / 2, VIEW_W / 1.2);
-  grad.addColorStop(0, 'rgba(26, 0, 5, 0.75)');
-  grad.addColorStop(1, 'rgba(6, 2, 3, 0.95)');
+  grad.addColorStop(0, 'rgba(26, 0, 5, 0.65)');
+  grad.addColorStop(1, 'rgba(6, 2, 3, 0.92)');
   c.fillStyle = grad;
   c.fillRect(0, 0, VIEW_W, VIEW_H);
 
   // 2. Subtle horizontal scanlines
-  c.strokeStyle = 'rgba(255, 42, 60, 0.04)';
+  c.strokeStyle = 'rgba(255, 42, 60, 0.03)';
   c.lineWidth = 1;
   for (let y = 0; y < VIEW_H; y += 4) {
     c.beginPath();
@@ -593,103 +594,6 @@ function drawDead(c) {
     c.lineTo(VIEW_W, y);
     c.stroke();
   }
-
-  // 3. Central HUD warning panel dimensions
-  const w = 360;
-  const h = 180;
-  const x = (VIEW_W - w) / 2;
-  const y = (VIEW_H - h) / 2;
-
-  // Box backing
-  c.fillStyle = '#0a0203';
-  c.fillRect(x, y, w, h);
-
-  // Neon main border
-  c.strokeStyle = '#ff2a3c';
-  c.lineWidth = 2;
-  c.strokeRect(x - 0.5, y - 0.5, w + 1, h + 1);
-
-  // Inner border
-  c.strokeStyle = '#5c060e';
-  c.lineWidth = 1;
-  c.strokeRect(x + 4.5, y + 4.5, w - 9, h - 9);
-
-  // Corner brackets / visual tech accents
-  c.fillStyle = '#ff2a3c';
-  // Top-left
-  c.fillRect(x - 2, y - 2, 8, 4);
-  c.fillRect(x - 2, y - 2, 4, 8);
-  // Top-right
-  c.fillRect(x + w - 6, y - 2, 8, 4);
-  c.fillRect(x + w - 2, y - 2, 4, 8);
-  // Bottom-left
-  c.fillRect(x - 2, y + h - 2, 8, 4);
-  c.fillRect(x - 2, y + h - 6, 4, 8);
-  // Bottom-right
-  c.fillRect(x + w - 6, y + h - 2, 8, 4);
-  c.fillRect(x + w - 2, y + h - 6, 4, 8);
-
-  // Flashing indicator (approx 4Hz)
-  const flash = Math.floor(G.deadT * 4) % 2 === 0;
-
-  // Header warning banner
-  c.fillStyle = flash ? '#ff2a3c' : '#bd0a1a';
-  c.fillRect(x + 5, y + 5, w - 10, 20);
-
-  // Header text depending on current UI language (with accents!)
-  const isVi = (window.NCPX_I18N && window.NCPX_I18N.lang()) === 'vi';
-  const headerTxt = isVi ? '⚠ CẢNH BÁO: HỆ THỐNG NGƯNG HOẠT ĐỘNG' : '⚠ WARNING: BIOMETRIC LINK SEVERED';
-  drawTextC(c, headerTxt, VIEW_W / 2, y + 18, '#0a0203', 1);
-
-  // Central decorative brackets for a more pixel-game style
-  drawText(c, '[', x + 35, y + 56, 'rgba(255, 42, 60, 0.4)', 2);
-  drawTextR(c, ']', x + w - 35, y + 56, 'rgba(255, 42, 60, 0.4)', 2);
-
-  // Large flatlined title (will auto translate to MẤT SINH HIỆU / FLATLINED)
-  drawTextC(c, 'FLATLINED', VIEW_W / 2 + 1, y + 56 + 1, 'rgba(255, 42, 60, 0.3)', 3);
-  drawTextC(c, 'FLATLINED', VIEW_W / 2, y + 56, '#ff2a3c', 3);
-
-  // Status breakdown rows (with accents!)
-  const rowY1 = y + 86;
-  const rowY2 = y + 104;
-
-  const feeLabel = isVi ? 'PHÍ TRUY THU TRAUMA TEAM:' : 'TRAUMA TEAM FEE:';
-  const feeVal = '$' + fmt(G.deathFee || 0);
-  drawText(c, feeLabel, x + 20, rowY1, '#8a93a6', 1);
-  drawTextR(c, feeVal, x + w - 20, rowY1, '#cfd6e4', 1);
-
-  const statusLabel = isVi ? 'TRẠNG THÁI:' : 'STATUS:';
-  const statusVal = isVi ? 'NGOẠI TUYẾN (PHỤC HỒI HỆ THỐNG)' : 'OFFLINE (COOLDOWN)';
-  drawText(c, statusLabel, x + 20, rowY2, '#8a93a6', 1);
-  drawTextR(c, statusVal, x + w - 20, rowY2, '#ff5a60', 1);
-
-  // Segmented progress bar with retro HSL yellow-to-red gradient color scheme
-  const pct = Math.max(0, Math.min(1, (10 - G.deadT) / 10));
-  const barY = y + 124;
-  const barW = w - 40;
-  const barH = 10;
-
-  c.strokeStyle = '#5c060e';
-  c.lineWidth = 1;
-  c.strokeRect(x + 20 - 0.5, barY - 0.5, barW + 1, barH + 1);
-
-  c.fillStyle = '#1f0408';
-  c.fillRect(x + 20, barY, barW, barH);
-
-  const segments = 20;
-  const fillSegs = Math.floor(pct * segments);
-  const segW = (barW - (segments - 1)) / segments;
-  for (let i = 0; i < fillSegs; i++) {
-    // transition from yellow HSL(60) on right to red HSL(0) on left
-    const hue = 60 - (i / segments) * 60;
-    c.fillStyle = 'hsl(' + hue + ', 100%, 50%)';
-    c.fillRect(x + 20 + i * (segW + 1), barY + 1, segW, barH - 2);
-  }
-
-  // Seconds count message (with accents!)
-  const secText = Math.ceil(G.deadT);
-  const rebootsLabel = isVi ? 'KHỞI ĐỘNG LẠI HỆ THỐNG SAU ' + secText + ' GIÂY...' : 'REBOOTING SYSTEM IN ' + secText + 'S...';
-  drawTextC(c, rebootsLabel, VIEW_W / 2, y + 152, '#8a93a6', 1);
 }
 
 // =================== PAUSE ===================
@@ -1221,17 +1125,17 @@ function invStats(c) {
   const mins = (st.playT / 60) | 0;
   const lines = [
     ['STREET CRED', 'LV ' + G.lvl + '  (' + G.xp + '/' + xpFor(G.lvl) + ' XP)'],
-    ['NET WORTH', '$' + fmt(worth)],
-    ['ENEMIES FLATLINED', st.kills],
-    ['CYBERPSYCHOS DOWNED', st.psychos + '/' + ICONICS.length],
-    ['BOUNTIES CLEARED', st.bounties],
-    ['AIRDROPS SECURED', st.airdrops || 0],
-    ['CRATES CRACKED', st.crates],
-    ['DISTANCE ROAMED', (st.dist / 1000).toFixed(1) + ' KM'],
-    ['TIME IN NIGHT CITY', mins + ' MIN'],
-    ['PLAYER GANG', G.gang ? gangLabel(G.gang) : 'CHƯA CÓ'],
-    ['ONLINE CREW', (G.onlineCount || ((G.remotePlayers || []).length + (window.NCPX_NET && window.NCPX_NET.connected ? 1 : 0))) + ' ONLINE'],
-    ['SKIPPY', G.skippyFound ? 'FOUND (HE TALKS)' : 'STILL OUT THERE...'],
+    ['TÀI SẢN', '$' + fmt(worth)],
+    ['KẺ THÙ ĐÃ HẠ', st.kills],
+    ['CYBERPSYCHO ĐÃ TRUY ĐUỔI', st.psychos + '/' + ICONICS.length],
+    ['TIỀN THƯỞNG', st.bounties],
+    ['AIRDROP ĐÃ LẤY', st.airdrops || 0],
+    ['THÙNG ĐÃ MỞ', st.crates],
+    ['QUÃNG ĐƯỜNG', (st.dist / 1000).toFixed(1) + ' KM'],
+    ['THỜI GIAN CHƠI', mins + ' PHÚT'],
+    ['BĂNG ĐẢNG', G.gang ? gangLabel(G.gang) : 'CHƯA CÓ'],
+    ['CREW ONLINE', (G.onlineCount || ((G.remotePlayers || []).length + (window.NCPX_NET && window.NCPX_NET.connected ? 1 : 0))) + ' ONLINE'],
+    ['SKIPPY', G.skippyFound ? 'TÌM THẤY (NÓ BIẾT NÓI)' : 'VẪN ĐANG ẨN NÁU...'],
   ];
   let y = 52;
   for (const [k, v] of lines) {
@@ -1239,7 +1143,7 @@ function invStats(c) {
     drawText(c, String(v), 260, y, '#e8f6ff', 1);
     y += 16;
   }
-  drawTextC(c, '"WRONG CITY, WRONG PEOPLE."', VIEW_W / 2, y + 18, '#3a414e', 1);
+  drawTextC(c, '"SAI THÀNH PHỐ, SAI KẺ."', VIEW_W / 2, y + 18, '#3a414e', 1);
 }
 
 function invMap(c) {

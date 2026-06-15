@@ -4,7 +4,7 @@ const TILE = 16;
 let VIEW_W = 640, VIEW_H = 360;
 
 const NEON = ['#ff2a6d', '#05d9e8', '#f9f002', '#bd00ff', '#00ff9f', '#ff9f1c'];
-const RAR_NAME = ['COMMON', 'UNCOMMON', 'RARE', 'EPIC', 'LEGENDARY', 'ICONIC'];
+const RAR_NAME = ['THƯỜNG', 'KHÁ', 'HIẾM', 'SỬ THI', 'HUYỀN THOẠI', 'BIỂU TƯỢNG'];
 const RAR_COL  = ['#9aa0a6', '#2ecc71', '#3da9fc', '#bd00ff', '#ff9f1c', '#f9f002'];
 const KIND_COL = { power: '#ff9f1c', tech: '#05d9e8', smart: '#ff2a6d', melee: '#cfd6e4' };
 const MELEE_CLS = { blade: 1, blunt: 1, mantis: 1, gorilla: 1, wire: 1 };
@@ -13,52 +13,52 @@ const MELEE_CLS = { blade: 1, blunt: 1, mantis: 1, gorilla: 1, wire: 1 };
 // melee: range px, arc degrees. pierce=walls&bodies passed. kb=knockback px/s
 const WEAPONS = [
   // ---- pistols / revolvers ----
-  { id:'liberty',    name:'CT-9M LIBERTY',      cls:'pistol',  kind:'power', rar:0, dmg:9,  rof:4.5, mag:12, rel:0.9, spd:380, spread:5,  price:0,     lvl:1,  desc:'STANDARD ISSUE SIDEARM. EVERY MERC STARTS SOMEWHERE.' },
-  { id:'lexington',  name:'M-10AF LEXINGTON',   cls:'pistol',  kind:'power', rar:0, dmg:7,  rof:7,   mag:18, rel:0.9, spd:380, spread:6,  price:450,   lvl:1,  desc:'CHEAP, FAST, EVERYWHERE. THE STREET SPECIAL.' },
-  { id:'unity',      name:'UNITY',              cls:'pistol',  kind:'power', rar:1, dmg:10, rof:5.5, mag:14, rel:0.9, spd:400, spread:5,  price:900,   lvl:2,  desc:'RELIABLE NOMAD FAVORITE. NEVER JAMS.' },
-  { id:'nue',        name:'HJKE-11 NUE',        cls:'pistol',  kind:'power', rar:2, dmg:17, rof:3.6, mag:10, rel:1.0, spd:440, spread:4,  price:2600,  lvl:5,  desc:'CORPO-GRADE HAND CANNON. CLEAN AND MEAN.' },
-  { id:'omaha',      name:'JKE-X2 OMAHA',       cls:'pistol',  kind:'tech',  rar:2, dmg:14, rof:4,   mag:12, rel:1.0, spd:520, spread:3,  pierce:1, price:3400, lvl:7, desc:'TECH ROUNDS PUNCH STRAIGHT THROUGH BODY ARMOR.' },
-  { id:'overture',   name:'DR5 NOVA OVERTURE',  cls:'revolver',kind:'power', rar:1, dmg:30, rof:1.6, mag:6,  rel:1.6, spd:460, spread:3,  kb:120, price:1900, lvl:4, desc:'SIX CHAMBERS OF PURE ARGUMENT.' },
-  { id:'burya',      name:'RT-46 BURYA',        cls:'revolver',kind:'tech',  rar:3, dmg:44, rof:1.2, mag:5,  rel:1.8, spd:560, spread:2,  pierce:1, kb:160, price:7800, lvl:11, desc:'RAILGUN IN A REVOLVER FRAME. SOVOIL ENGINEERING.' },
+  { id:'liberty',    name:'CT-9M LIBERTY',      cls:'pistol',  kind:'power', rar:0, dmg:9,  rof:4.5, mag:12, rel:0.9, spd:380, spread:5,  price:0,     lvl:1,  desc:'SÚNG LỤC TIÊU CHUẨN. LÍNH ĐÁNH THUÊ NÀO CŨNG PHẢI BẮT ĐẦU TỪ ĐÂU ĐÓ.' },
+  { id:'lexington',  name:'M-10AF LEXINGTON',   cls:'pistol',  kind:'power', rar:0, dmg:7,  rof:7,   mag:18, rel:0.9, spd:380, spread:6,  price:450,   lvl:1,  desc:'RẺ, NHANH, DỄ KIẾM. MÓN ĐỒ ĐẶC SẢN ĐƯỜNG PHỐ.' },
+  { id:'unity',      name:'UNITY',              cls:'pistol',  kind:'power', rar:1, dmg:10, rof:5.5, mag:14, rel:0.9, spd:400, spread:5,  price:900,   lvl:2,  desc:'MÓN TỦ CỦA DÂN DU MỤC. BỀN VÀ ÍT KẸT ĐẠN.' },
+  { id:'nue',        name:'HJKE-11 NUE',        cls:'pistol',  kind:'power', rar:2, dmg:17, rof:3.6, mag:10, rel:1.0, spd:440, spread:4,  price:2600,  lvl:5,  desc:'SÚNG NGẮN KIỂU CORPO. GỌN GÀNG VÀ RẤT ĐAU.' },
+  { id:'omaha',      name:'JKE-X2 OMAHA',       cls:'pistol',  kind:'tech',  rar:2, dmg:14, rof:4,   mag:12, rel:1.0, spd:520, spread:3,  pierce:1, price:3400, lvl:7, desc:'ĐẠN CÔNG NGHỆ XUYÊN THẲNG QUA GIÁP.' },
+  { id:'overture',   name:'DR5 NOVA OVERTURE',  cls:'revolver',kind:'power', rar:1, dmg:30, rof:1.6, mag:6,  rel:1.6, spd:460, spread:3,  kb:120, price:1900, lvl:4, desc:'SÁU VIÊN ĐẠN, SÁU LÝ DO ĐỂ IM LẶNG.' },
+  { id:'burya',      name:'RT-46 BURYA',        cls:'revolver',kind:'tech',  rar:3, dmg:44, rof:1.2, mag:5,  rel:1.8, spd:560, spread:2,  pierce:1, kb:160, price:7800, lvl:11, desc:'SÚNG RAILGUN TRONG DÁNG REVOLVER. KỸ THUẬT SOVOIL.' },
   // ---- SMG ----
-  { id:'saratoga',   name:'G-58 DIAN SARATOGA', cls:'smg',     kind:'power', rar:1, dmg:6,  rof:11,  mag:28, rel:1.2, spd:360, spread:9,  price:1400,  lvl:3,  desc:'SPRAY AND PRAY, GONK-PROOF DESIGN.' },
-  { id:'pulsar',     name:'M2038 TACTICIAN PULSAR', cls:'smg', kind:'power', rar:2, dmg:7,  rof:14,  mag:36, rel:1.3, spd:380, spread:8,  price:5200,  lvl:9,  desc:'MILITECH BULLET HOSE. KEEP THE TRIGGER WARM.' },
-  { id:'shingen',    name:'TKI-20 SHINGEN',     cls:'smg',     kind:'smart', rar:3, dmg:6,  rof:12,  mag:30, rel:1.3, spd:300, spread:10, homing:5, price:9800, lvl:12, desc:'ARASAKA SMART-SMG. ROUNDS HUNT WARM BODIES. NEEDS SMART LINK.' },
+  { id:'saratoga',   name:'G-58 DIAN SARATOGA', cls:'smg',     kind:'power', rar:1, dmg:6,  rof:11,  mag:28, rel:1.2, spd:360, spread:9,  price:1400,  lvl:3,  desc:'XẢ ĐẠN RỒI CẦU MAY. THIẾT KẾ DỄ DÙNG CHO DÂN ĐƯỜNG PHỐ.' },
+  { id:'pulsar',     name:'M2038 TACTICIAN PULSAR', cls:'smg', kind:'power', rar:2, dmg:7,  rof:14,  mag:36, rel:1.3, spd:380, spread:8,  price:5200,  lvl:9,  desc:'VÒI ĐẠN CỦA MILITECH. CỨ GIỮ CÒ NÓNG.' },
+  { id:'shingen',    name:'TKI-20 SHINGEN',     cls:'smg',     kind:'smart', rar:3, dmg:6,  rof:12,  mag:30, rel:1.3, spd:300, spread:10, homing:5, price:9800, lvl:12, desc:'SMG THÔNG MINH ARASAKA. ĐẠN TỰ SĂN MỤC TIÊU SỐNG. CẦN SMART LINK.' },
   // ---- rifles ----
-  { id:'copperhead', name:'D5 COPPERHEAD',      cls:'rifle',   kind:'power', rar:1, dmg:9,  rof:8,   mag:24, rel:1.4, spd:440, spread:6,  price:2200,  lvl:4,  desc:'NOMAD WORKHORSE. EATS DUST, SPITS LEAD.' },
-  { id:'ajax',       name:'D5 SIDEWINDER AJAX', cls:'rifle',   kind:'power', rar:2, dmg:11, rof:8,   mag:28, rel:1.4, spd:460, spread:5,  price:4400,  lvl:8,  desc:'MILITECH STANDARD ASSAULT PLATFORM.' },
-  { id:'sidewinder', name:'D5 SIDEWINDER SMART',cls:'rifle',   kind:'smart', rar:3, dmg:8,  rof:10,  mag:32, rel:1.4, spd:320, spread:9,  homing:5, price:8400, lvl:11, desc:'FIRE-AND-FORGET. THE GUN DOES THE AIMING. NEEDS SMART LINK.' },
-  { id:'masamune',   name:'HJSH-18 MASAMUNE',   cls:'rifle',   kind:'power', rar:3, dmg:13, rof:10,  mag:30, rel:1.4, spd:480, spread:4,  price:12500, lvl:14, desc:'ARASAKA PRECISION AUTOMATIC. KOROSHI APPROVED.' },
-  { id:'kyubi',      name:'TKI-30 KYUBI',       cls:'rifle',   kind:'power', rar:4, dmg:18, rof:7,   mag:22, rel:1.3, spd:520, spread:3,  price:21000, lvl:17, desc:'NINE-TAILED FOX. EVERY ROUND A STATEMENT.' },
+  { id:'copperhead', name:'D5 COPPERHEAD',      cls:'rifle',   kind:'power', rar:1, dmg:9,  rof:8,   mag:24, rel:1.4, spd:440, spread:6,  price:2200,  lvl:4,  desc:'CON NGỰA THỒ CỦA DÂN DU MỤC. NUỐT BỤI, NHẢ CHÌ.' },
+  { id:'ajax',       name:'D5 SIDEWINDER AJAX', cls:'rifle',   kind:'power', rar:2, dmg:11, rof:8,   mag:28, rel:1.4, spd:460, spread:5,  price:4400,  lvl:8,  desc:'NỀN TẢNG SÚNG TRƯỜNG TIÊU CHUẨN CỦA MILITECH.' },
+  { id:'sidewinder', name:'D5 SIDEWINDER SMART',cls:'rifle',   kind:'smart', rar:3, dmg:8,  rof:10,  mag:32, rel:1.4, spd:320, spread:9,  homing:5, price:8400, lvl:11, desc:'BẮN RỒI QUÊN. SÚNG TỰ NGẮM CHO BẠN. CẦN SMART LINK.' },
+  { id:'masamune',   name:'HJSH-18 MASAMUNE',   cls:'rifle',   kind:'power', rar:3, dmg:13, rof:10,  mag:30, rel:1.4, spd:480, spread:4,  price:12500, lvl:14, desc:'SÚNG TỰ ĐỘNG CHÍNH XÁC CỦA ARASAKA. KIỂU DÁNG SẮC LẠNH.' },
+  { id:'kyubi',      name:'TKI-30 KYUBI',       cls:'rifle',   kind:'power', rar:4, dmg:18, rof:7,   mag:22, rel:1.3, spd:520, spread:3,  price:21000, lvl:17, desc:'CÁO CHÍN ĐUÔI. MỖI VIÊN ĐẠN LÀ MỘT LỜI TUYÊN BỐ.' },
   // ---- shotguns ----
-  { id:'igla',       name:'TESTERA IGLA',       cls:'shotgun', kind:'power', rar:1, dmg:7,  rof:1.8, mag:6,  rel:1.7, spd:320, spread:14, pellets:6,  kb:90,  price:1700,  lvl:3,  desc:'BUDGET BOOMSTICK. CLOSE ENOUGH COUNTS.' },
-  { id:'carnage',    name:'M2038 CARNAGE',      cls:'shotgun', kind:'power', rar:2, dmg:9,  rof:1.3, mag:5,  rel:1.8, spd:340, spread:16, pellets:8,  kb:140, price:6200,  lvl:9,  desc:'CONSTITUTIONAL ARMS\' ANSWER TO EVERY QUESTION.' },
-  { id:'tactician',  name:'M2038 TACTICIAN',    cls:'shotgun', kind:'power', rar:3, dmg:8,  rof:2.4, mag:8,  rel:1.8, spd:360, spread:13, pellets:7,  kb:110, price:11000, lvl:13, desc:'SEMI-AUTO SCATTERGUN FOR THE WORKING MERC.' },
-  { id:'sovereign',  name:'DB-4 SOVEREIGN',     cls:'shotgun', kind:'power', rar:4, dmg:8,  rof:1.0, mag:2,  rel:1.9, spd:360, spread:20, pellets:14, kb:220, price:19500, lvl:16, desc:'DOUBLE-BARREL APOCALYPSE. BOTH BARRELS, NO REGRETS.' },
+  { id:'igla',       name:'TESTERA IGLA',       cls:'shotgun', kind:'power', rar:1, dmg:7,  rof:1.8, mag:6,  rel:1.7, spd:320, spread:14, pellets:6,  kb:90,  price:1700,  lvl:3,  desc:'SHOTGUN GIÁ MỀM. ĐỨNG ĐỦ GẦN LÀ ĐỦ.' },
+  { id:'carnage',    name:'M2038 CARNAGE',      cls:'shotgun', kind:'power', rar:2, dmg:9,  rof:1.3, mag:5,  rel:1.8, spd:340, spread:16, pellets:8,  kb:140, price:6200,  lvl:9,  desc:'CÂU TRẢ LỜI CỦA CONSTITUTIONAL ARMS CHO MỌI CÂU HỎI.' },
+  { id:'tactician',  name:'M2038 TACTICIAN',    cls:'shotgun', kind:'power', rar:3, dmg:8,  rof:2.4, mag:8,  rel:1.8, spd:360, spread:13, pellets:7,  kb:110, price:11000, lvl:13, desc:'SHOTGUN BÁN TỰ ĐỘNG CHO MERC LÀM VIỆC CHUYÊN NGHIỆP.' },
+  { id:'sovereign',  name:'DB-4 SOVEREIGN',     cls:'shotgun', kind:'power', rar:4, dmg:8,  rof:1.0, mag:2,  rel:1.9, spd:360, spread:20, pellets:14, kb:220, price:19500, lvl:16, desc:'TẬN THẾ HAI NÒNG. BẮN CẢ HAI, KHÔNG HỐI HẬN.' },
   // ---- snipers ----
-  { id:'nekomata',   name:'M-179E ACHILLES NEKOMATA', cls:'sniper', kind:'tech', rar:3, dmg:75, rof:0.9, mag:4, rel:2.2, spd:760, spread:0.5, pierce:2, price:14500, lvl:14, desc:'TECH SNIPER. CHARGES RAILS, ERASES PROBLEMS.' },
-  { id:'ashura',     name:'ASHURA',             cls:'sniper',  kind:'smart', rar:4, dmg:85, rof:0.8, mag:5,  rel:2.3, spd:600, spread:1,  homing:3, price:36000, lvl:19, desc:'SMART SNIPER RIFLE. DEATH WITH A LOCK-ON TONE. NEEDS SMART LINK.' },
+  { id:'nekomata',   name:'M-179E ACHILLES NEKOMATA', cls:'sniper', kind:'tech', rar:3, dmg:75, rof:0.9, mag:4, rel:2.2, spd:760, spread:0.5, pierce:2, price:14500, lvl:14, desc:'SÚNG BẮN TỈA CÔNG NGHỆ. NẠP RAIL, XÓA VẤN ĐỀ.' },
+  { id:'ashura',     name:'ASHURA',             cls:'sniper',  kind:'smart', rar:4, dmg:85, rof:0.8, mag:5,  rel:2.3, spd:600, spread:1,  homing:3, price:36000, lvl:19, desc:'SÚNG BẮN TỈA THÔNG MINH. KHÓA MỤC TIÊU RỒI KẾT LIỄU. CẦN SMART LINK.' },
   // ---- LMG ----
-  { id:'defender',   name:'L-69 ZHUO DEFENDER', cls:'lmg',     kind:'power', rar:3, dmg:7,  rof:12,  mag:70, rel:2.8, spd:420, spread:8,  price:16500, lvl:15, desc:'SUPPRESSION AS A LIFESTYLE.' },
+  { id:'defender',   name:'L-69 ZHUO DEFENDER', cls:'lmg',     kind:'power', rar:3, dmg:7,  rof:12,  mag:70, rel:2.8, spd:420, spread:8,  price:16500, lvl:15, desc:'ÁP CHẾ HỎA LỰC NHƯ MỘT PHONG CÁCH SỐNG.' },
   // ---- melee (shop) ----
-  { id:'knife',      name:'STREET KNIFE',       cls:'blade',   kind:'melee', rar:0, dmg:16, rof:3.2, range:20, arc:100, price:350,  lvl:1, desc:'QUIET, QUICK, PERSONAL.' },
-  { id:'bat',        name:'SPIKED BAT',         cls:'blunt',   kind:'melee', rar:0, dmg:26, rof:1.7, range:24, arc:110, kb:200, price:700, lvl:2, desc:'NIGHT CITY DIPLOMACY.' },
-  { id:'katana',     name:'KATANA',             cls:'blade',   kind:'melee', rar:2, dmg:40, rof:2.4, range:26, arc:120, price:5600, lvl:8, desc:'EDGE OF THE STREET SAMURAI.' },
+  { id:'knife',      name:'DAO ĐƯỜNG PHỐ',      cls:'blade',   kind:'melee', rar:0, dmg:16, rof:3.2, range:20, arc:100, price:350,  lvl:1, desc:'YÊN LẶNG, NHANH GỌN, RẤT RIÊNG TƯ.' },
+  { id:'bat',        name:'GẬY GẮN ĐINH',       cls:'blunt',   kind:'melee', rar:0, dmg:26, rof:1.7, range:24, arc:110, kb:200, price:700, lvl:2, desc:'NGOẠI GIAO KIỂU NIGHT CITY.' },
+  { id:'katana',     name:'KATANA',             cls:'blade',   kind:'melee', rar:2, dmg:40, rof:2.4, range:26, arc:120, price:5600, lvl:8, desc:'LƯỠI KIẾM CỦA SAMURAI ĐƯỜNG PHỐ.' },
   // ---- ICONICS: dropped by cyberpsychos, never sold ----
-  { id:'problem_solver', name:'PROBLEM SOLVER', cls:'smg',     kind:'power', rar:5, dmg:7,  rof:16,  mag:60, rel:1.5, spd:380, spread:9, iconic:1, price:24000, lvl:1, desc:'ICONIC. 60 ANSWERS PER MAGAZINE.' },
-  { id:'headsman',   name:'THE HEADSMAN',       cls:'shotgun', kind:'power', rar:5, dmg:9,  rof:1.7, mag:6,  rel:1.6, spd:360, spread:14, pellets:9, kb:170, iconic:1, price:26000, lvl:1, desc:'ICONIC. EXECUTIONER\'S SCATTERGUN.' },
-  { id:'moron_labe', name:'MORON LABE',         cls:'rifle',   kind:'power', rar:5, dmg:12, rof:11,  mag:35, rel:1.3, spd:480, spread:4, iconic:1, price:30000, lvl:1, desc:'ICONIC. COME AND TAKE IT.' },
-  { id:'satori',     name:'SATORI',             cls:'blade',   kind:'melee', rar:5, dmg:48, rof:2.6, range:28, arc:130, crit:0.25, iconic:1, price:32000, lvl:1, desc:'ICONIC KATANA. ENLIGHTENMENT IN ONE CUT.' },
-  { id:'overwatch',  name:'OVERWATCH',          cls:'sniper',  kind:'power', rar:5, dmg:110,rof:0.7, mag:5,  rel:2.0, spd:820, spread:0.5, pierce:2, iconic:1, price:38000, lvl:1, desc:'ICONIC SNIPER. A NOMAD\'S PROMISE KEPT.' },
-  { id:'errata',     name:'ERRATA',             cls:'blade',   kind:'melee', rar:5, dmg:46, rof:2.2, range:28, arc:120, burn:1, iconic:1, price:34000, lvl:1, desc:'ICONIC THERMAL KATANA. CAUTERIZES AS IT CUTS.' },
-  { id:'malorian',   name:'MALORIAN ARMS 3516', cls:'pistol',  kind:'power', rar:5, dmg:60, rof:2.2, mag:6,  rel:1.5, spd:560, spread:1, pierce:1, kb:150, burn:1, iconic:1, price:45000, lvl:1, desc:'ICONIC. A LEGEND\'S HAND CANNON. WAKE UP, SAMURAI.' },
-  { id:'breakthrough', name:'BREAKTHROUGH',     cls:'sniper',  kind:'tech',  rar:5, dmg:85, rof:0.8, mag:4,  rel:2.2, spd:820, spread:0.5, pierce:9, wallPierce:1, iconic:1, price:42000, lvl:1, desc:'ICONIC TECH SNIPER. WALLS ARE A SUGGESTION.' },
-  { id:'skippy',     name:'SKIPPY',             cls:'pistol',  kind:'smart', rar:5, dmg:11, rof:7,   mag:20, rel:1.0, spd:340, spread:6, homing:8, iconic:1, hidden:1, price:21000, lvl:1, desc:'ICONIC TALKING SMART PISTOL. HE AIMS HIMSELF. HE NEVER SHUTS UP.' },
+  { id:'problem_solver', name:'PROBLEM SOLVER', cls:'smg',     kind:'power', rar:5, dmg:7,  rof:16,  mag:60, rel:1.5, spd:380, spread:9, iconic:1, price:24000, lvl:1, desc:'VŨ KHÍ BIỂU TƯỢNG. 60 CÂU TRẢ LỜI TRONG MỘT BĂNG ĐẠN.' },
+  { id:'headsman',   name:'THE HEADSMAN',       cls:'shotgun', kind:'power', rar:5, dmg:9,  rof:1.7, mag:6,  rel:1.6, spd:360, spread:14, pellets:9, kb:170, iconic:1, price:26000, lvl:1, desc:'VŨ KHÍ BIỂU TƯỢNG. SHOTGUN CỦA KẺ HÀNH QUYẾT.' },
+  { id:'moron_labe', name:'MORON LABE',         cls:'rifle',   kind:'power', rar:5, dmg:12, rof:11,  mag:35, rel:1.3, spd:480, spread:4, iconic:1, price:30000, lvl:1, desc:'VŨ KHÍ BIỂU TƯỢNG. MUỐN THÌ TỚI LẤY.' },
+  { id:'satori',     name:'SATORI',             cls:'blade',   kind:'melee', rar:5, dmg:48, rof:2.6, range:28, arc:130, crit:0.25, iconic:1, price:32000, lvl:1, desc:'KATANA BIỂU TƯỢNG. MỘT NHÁT CHO TỈNH NGỘ.' },
+  { id:'overwatch',  name:'OVERWATCH',          cls:'sniper',  kind:'power', rar:5, dmg:110,rof:0.7, mag:5,  rel:2.0, spd:820, spread:0.5, pierce:2, iconic:1, price:38000, lvl:1, desc:'SÚNG BẮN TỈA BIỂU TƯỢNG. LỜI HỨA CỦA DÂN DU MỤC.' },
+  { id:'errata',     name:'ERRATA',             cls:'blade',   kind:'melee', rar:5, dmg:46, rof:2.2, range:28, arc:120, burn:1, iconic:1, price:34000, lvl:1, desc:'KATANA NHIỆT BIỂU TƯỢNG. CẮT TỚI ĐÂU ĐỐT TỚI ĐÓ.' },
+  { id:'malorian',   name:'MALORIAN ARMS 3516', cls:'pistol',  kind:'power', rar:5, dmg:60, rof:2.2, mag:6,  rel:1.5, spd:560, spread:1, pierce:1, kb:150, burn:1, iconic:1, price:45000, lvl:1, desc:'VŨ KHÍ BIỂU TƯỢNG. KHẨU SÚNG CỦA MỘT HUYỀN THOẠI. DẬY ĐI, SAMURAI.' },
+  { id:'breakthrough', name:'BREAKTHROUGH',     cls:'sniper',  kind:'tech',  rar:5, dmg:85, rof:0.8, mag:4,  rel:2.2, spd:820, spread:0.5, pierce:9, wallPierce:1, iconic:1, price:42000, lvl:1, desc:'SÚNG BẮN TỈA CÔNG NGHỆ BIỂU TƯỢNG. TƯỜNG CHỈ LÀ GỢI Ý.' },
+  { id:'skippy',     name:'SKIPPY',             cls:'pistol',  kind:'smart', rar:5, dmg:11, rof:7,   mag:20, rel:1.0, spd:340, spread:6, homing:8, iconic:1, hidden:1, price:21000, lvl:1, desc:'SÚNG THÔNG MINH BIẾT NÓI. NÓ TỰ NGẮM, VÀ NÓ KHÔNG BAO GIỜ IM.' },
   // ---- cyberware arm weapons (granted by ripperdoc) ----
-  { id:'mantis_blades', name:'MANTIS BLADES',   cls:'mantis',  kind:'melee', rar:4, dmg:38, rof:3.4, range:26, arc:140, granted:1, price:15000, lvl:1, desc:'ARM CYBERWARE. FOLD-OUT MURDER.' },
-  { id:'gorilla_arms',  name:'GORILLA ARMS',    cls:'gorilla', kind:'melee', rar:4, dmg:55, rof:1.5, range:22, arc:100, kb:260, granted:1, price:12000, lvl:1, desc:'ARM CYBERWARE. INDUSTRIAL-GRADE HAYMAKERS.' },
-  { id:'monowire',      name:'MONOWIRE',        cls:'wire',    kind:'melee', rar:4, dmg:60, rof:2.0, range:46, arc:80, granted:1, price:18000, lvl:1, desc:'ARM CYBERWARE. MOLECULAR FILAMENT WHIP.' },
-  { id:'proj_launcher', name:'PROJECTILE LAUNCH SYSTEM', cls:'launcher', kind:'power', rar:4, dmg:85, rof:0.8, mag:4, rel:2.5, spd:300, spread:2, aoe:45, granted:1, price:26000, lvl:1, desc:'ARM CYBERWARE. YOUR ARM IS NOW ARTILLERY.' },
+  { id:'mantis_blades', name:'LƯỠI MANTIS',     cls:'mantis',  kind:'melee', rar:4, dmg:38, rof:3.4, range:26, arc:140, granted:1, price:15000, lvl:1, desc:'CYBERWARE Ở TAY. MỞ LƯỠI RA LÀ CÓ CHUYỆN.' },
+  { id:'gorilla_arms',  name:'TAY GORILLA',     cls:'gorilla', kind:'melee', rar:4, dmg:55, rof:1.5, range:22, arc:100, kb:260, granted:1, price:12000, lvl:1, desc:'CYBERWARE Ở TAY. CÚ ĐẤM HẠNG NẶNG KIỂU CÔNG NGHIỆP.' },
+  { id:'monowire',      name:'MONOWIRE',        cls:'wire',    kind:'melee', rar:4, dmg:60, rof:2.0, range:46, arc:80, granted:1, price:18000, lvl:1, desc:'CYBERWARE Ở TAY. ROI SỢI PHÂN TỬ CỰC MẢNH.' },
+  { id:'proj_launcher', name:'HỆ PHÓNG ĐẠN',    cls:'launcher', kind:'power', rar:4, dmg:85, rof:0.8, mag:4, rel:2.5, spd:300, spread:2, aoe:45, granted:1, price:26000, lvl:1, desc:'CYBERWARE Ở TAY. CÁNH TAY CỦA BẠN GIỜ LÀ PHÁO BINH.' },
 ];
 const WPN = {}; WEAPONS.forEach(w => WPN[w.id] = w);
 const ICONICS = ['problem_solver', 'headsman', 'moron_labe', 'satori', 'overwatch', 'errata', 'malorian', 'breakthrough'];
@@ -82,47 +82,47 @@ const CARD = {}; CARS.forEach(c => CARD[c.id] = c);
 
 // ---- cyberware ----  tiers: [{price,lvl,...}]; effects read by recalcStats()
 const CYBER = [
-  { id:'sandevistan', slot:'OPERATING SYSTEM', name:'SANDEVISTAN', os:1, desc:'REFLEX BOOSTER. [Q] SLOWS TIME WHILE YOU MOVE AT SPEED.',
+  { id:'sandevistan', slot:'HỆ ĐIỀU HÀNH', name:'SANDEVISTAN', os:1, desc:'BỘ TĂNG PHẢN XẠ. [Q] LÀM CHẬM THỜI GIAN KHI BẠN DI CHUYỂN CỰC NHANH.',
     tiers:[{price:12000,lvl:6,dur:2.6,cd:28,ts:0.35},{price:26000,lvl:12,dur:3.6,cd:24,ts:0.30},{price:48000,lvl:18,dur:4.6,cd:20,ts:0.25}] },
-  { id:'berserk', slot:'OPERATING SYSTEM', name:'BERSERK', os:1, desc:'COMBAT STIM OS. [Q] BOOSTS DAMAGE AND ARMOR, MELEE HITS HEAL.',
+  { id:'berserk', slot:'HỆ ĐIỀU HÀNH', name:'BERSERK', os:1, desc:'OS KÍCH THÍCH CHIẾN ĐẤU. [Q] TĂNG SÁT THƯƠNG, GIÁP VÀ HỒI MÁU KHI ĐÁNH CẬN CHIẾN.',
     tiers:[{price:9000,lvl:5,dur:6,cd:28,dmg:1.25,armor:20},{price:21000,lvl:11,dur:6,cd:26,dmg:1.4,armor:35},{price:40000,lvl:17,dur:7,cd:24,dmg:1.6,armor:50}] },
-  { id:'memboost', slot:'FRONTAL CORTEX', name:'MEMORY BOOST', desc:'OPTIMIZED RECALL. EARN MORE XP FROM EVERYTHING.',
+  { id:'memboost', slot:'VỎ NÃO TRƯỚC', name:'TĂNG TRÍ NHỚ', desc:'TỐI ƯU GHI NHỚ. NHẬN NHIỀU XP HƠN TỪ MỌI HOẠT ĐỘNG.',
     tiers:[{price:3500,lvl:2,xp:1.12},{price:9000,lvl:8,xp:1.25},{price:20000,lvl:14,xp:1.4}] },
-  { id:'kiroshi', slot:'OCULAR SYSTEM', name:'KIROSHI OPTICS', desc:'SEE ENEMY VITALS. HIGHER CRIT CHANCE. MK.2+ WIDENS MINIMAP SCAN.',
+  { id:'kiroshi', slot:'MẮT', name:'MẮT KIROSHI', desc:'NHÌN CHỈ SỐ KẺ ĐỊCH. TĂNG TỈ LỆ CHÍ MẠNG. MK.2+ MỞ RỘNG QUÉT MINIMAP.',
     tiers:[{price:2500,lvl:1,crit:0.07},{price:8000,lvl:7,crit:0.12},{price:18000,lvl:13,crit:0.18}] },
-  { id:'biomonitor', slot:'CIRCULATORY', name:'BIOMONITOR', desc:'AUTO-INJECTS A MAXDOC WHEN HP DROPS BELOW 30%.',
+  { id:'biomonitor', slot:'TUẦN HOÀN', name:'BIOMONITOR', desc:'TỰ TIÊM MAXDOC KHI MÁU XUỐNG DƯỚI 30%.',
     tiers:[{price:6500,lvl:4}] },
-  { id:'second_heart', slot:'CIRCULATORY', name:'SECOND HEART', desc:'CHEAT DEATH. FULLY REVIVE ON FATAL DAMAGE. 180S COOLDOWN.',
+  { id:'second_heart', slot:'TUẦN HOÀN', name:'TRÁI TIM THỨ HAI', desc:'LÁCH CỬA TỬ. HỒI SINH ĐẦY MÁU KHI NHẬN ĐÒN CHÍ MẠNG. HỒI 180S.',
     tiers:[{price:46000,lvl:20}] },
-  { id:'kerenzikov', slot:'NERVOUS SYSTEM', name:'KERENZIKOV', desc:'TIME DILATES WHILE DASHING. SHOOT MID-DODGE LIKE A LEGEND.',
+  { id:'kerenzikov', slot:'THẦN KINH', name:'KERENZIKOV', desc:'THỜI GIAN CHẬM LẠI KHI LƯỚT. VỪA NÉ VỪA BẮN NHƯ HUYỀN THOẠI.',
     tiers:[{price:7500,lvl:3,ts:0.55,dur:0.5},{price:16000,lvl:9,ts:0.45,dur:0.75},{price:30000,lvl:15,ts:0.35,dur:1.0}] },
-  { id:'subdermal', slot:'INTEGUMENTARY', name:'SUBDERMAL ARMOR', desc:'ARMOR PLATING UNDER THE SKIN. FLAT DAMAGE REDUCTION.',
+  { id:'subdermal', slot:'DA', name:'GIÁP DƯỚI DA', desc:'TẤM GIÁP CẤY DƯỚI DA. GIẢM SÁT THƯƠNG TRỰC TIẾP.',
     tiers:[{price:4000,lvl:2,armor:18},{price:12000,lvl:8,armor:36},{price:26000,lvl:14,armor:60}] },
-  { id:'camo', slot:'INTEGUMENTARY', name:'OPTICAL CAMO', desc:'[F] BEND LIGHT FOR 4S. ENEMIES LOSE YOU COMPLETELY.',
+  { id:'camo', slot:'DA', name:'TÀNG HÌNH QUANG HỌC', desc:'[F] BẺ CONG ÁNH SÁNG TRONG 4S. KẺ ĐỊCH MẤT DẤU BẠN HOÀN TOÀN.',
     tiers:[{price:24000,lvl:13,dur:4,cd:26}] },
-  { id:'titanium', slot:'SKELETON', name:'TITANIUM BONES', desc:'REINFORCED FRAME. MORE MAX HP.',
+  { id:'titanium', slot:'XƯƠNG', name:'XƯƠNG TITANIUM', desc:'KHUNG XƯƠNG GIA CỐ. TĂNG MÁU TỐI ĐA.',
     tiers:[{price:3000,lvl:1,hp:30},{price:10000,lvl:7,hp:60},{price:24000,lvl:13,hp:100}] },
-  { id:'microrotor', slot:'SKELETON', name:'SYNAPTIC MICROROTORS', desc:'FASTER JOINTS, FASTER TRIGGER. INCREASED FIRE RATE.',
+  { id:'microrotor', slot:'XƯƠNG', name:'MICROROTOR THẦN KINH', desc:'KHỚP NHANH HƠN, BÓP CÒ NHANH HƠN. TĂNG TỐC ĐỘ BẮN.',
     tiers:[{price:5000,lvl:5,rof:1.08},{price:14000,lvl:11,rof:1.16},{price:28000,lvl:16,rof:1.25}] },
-  { id:'smartlink', slot:'HANDS', name:'SMART LINK', desc:'TARGETING INTERFACE. REQUIRED FOR SMART WEAPONS, IMPROVES LOCK.',
+  { id:'smartlink', slot:'TAY', name:'SMART LINK', desc:'GIAO DIỆN KHÓA MỤC TIÊU. CẦN CHO VŨ KHÍ THÔNG MINH, GIÚP BÁM MỤC TIÊU TỐT HƠN.',
     tiers:[{price:4500,lvl:3,turn:4},{price:13000,lvl:9,turn:6},{price:26000,lvl:15,turn:9}] },
-  { id:'tendons', slot:'LEGS', name:'REINFORCED TENDONS', desc:'MOVE FASTER. DASH RECOVERS QUICKER.',
+  { id:'tendons', slot:'CHÂN', name:'GÂN GIA CỐ', desc:'DI CHUYỂN NHANH HƠN. LƯỚT HỒI NHANH HƠN.',
     tiers:[{price:4500,lvl:2,spd:1.08,dash:0.85},{price:12500,lvl:8,spd:1.15,dash:0.7},{price:26000,lvl:14,spd:1.22,dash:0.55}] },
-  { id:'arm_mantis', slot:'ARMS', name:'MANTIS BLADES', grants:'mantis_blades', desc:'INSTALL FOLD-OUT BLADES. ADDS MANTIS BLADES TO YOUR ARSENAL.',
+  { id:'arm_mantis', slot:'CÁNH TAY', name:'LƯỠI MANTIS', grants:'mantis_blades', desc:'CÀI LƯỠI DAO BẬT RA TỪ TAY. THÊM LƯỠI MANTIS VÀO KHO VŨ KHÍ.',
     tiers:[{price:15000,lvl:10}] },
-  { id:'arm_gorilla', slot:'ARMS', name:'GORILLA ARMS', grants:'gorilla_arms', desc:'HYDRAULIC FISTS. ADDS GORILLA ARMS TO YOUR ARSENAL.',
+  { id:'arm_gorilla', slot:'CÁNH TAY', name:'TAY GORILLA', grants:'gorilla_arms', desc:'NẮM ĐẤM THỦY LỰC. THÊM TAY GORILLA VÀO KHO VŨ KHÍ.',
     tiers:[{price:12000,lvl:8}] },
-  { id:'arm_wire', slot:'ARMS', name:'MONOWIRE', grants:'monowire', desc:'NANOFILAMENT WHIP. ADDS MONOWIRE TO YOUR ARSENAL.',
+  { id:'arm_wire', slot:'CÁNH TAY', name:'MONOWIRE', grants:'monowire', desc:'ROI SỢI NANO. THÊM MONOWIRE VÀO KHO VŨ KHÍ.',
     tiers:[{price:18000,lvl:12}] },
-  { id:'arm_launcher', slot:'ARMS', name:'PROJECTILE LAUNCH SYSTEM', grants:'proj_launcher', desc:'ARM-MOUNTED ORDNANCE. ADDS LAUNCHER TO YOUR ARSENAL.',
+  { id:'arm_launcher', slot:'CÁNH TAY', name:'HỆ PHÓNG ĐẠN', grants:'proj_launcher', desc:'VŨ KHÍ GẮN TRÊN TAY. THÊM BỆ PHÓNG VÀO KHO VŨ KHÍ.',
     tiers:[{price:26000,lvl:15}] },
 ];
 const CYB = {}; CYBER.forEach(c => CYB[c.id] = c);
-const CYBER_SLOTS = ['OPERATING SYSTEM','FRONTAL CORTEX','OCULAR SYSTEM','CIRCULATORY','NERVOUS SYSTEM','INTEGUMENTARY','SKELETON','HANDS','ARMS','LEGS'];
+const CYBER_SLOTS = ['HỆ ĐIỀU HÀNH','VỎ NÃO TRƯỚC','MẮT','TUẦN HOÀN','THẦN KINH','DA','XƯƠNG','TAY','CÁNH TAY','CHÂN'];
 
 // ---- districts & gangs ----
 const DISTRICTS = {
-  center:    { name:'CITY CENTER',   danger:1, fac:'scavs',     col:'#f9f002' },
+  center:    { name:'TRUNG TÂM',     danger:1, fac:'scavs',     col:'#f9f002' },
   watson:    { name:'WATSON',        danger:2, fac:'maelstrom', col:'#05d9e8' },
   westbrook: { name:'WESTBROOK',     danger:3, fac:'tygers',    col:'#ff2a6d' },
   santo:     { name:'SANTO DOMINGO', danger:3, fac:'sixth',     col:'#ff9f1c' },
@@ -144,16 +144,17 @@ const FACTIONS = {
 };
 const FACTION_LABELS = {
   player: 'BĂNG CỦA BẠN',
-  scavs: 'BĂNG NHẶT XÁC',
-  maelstrom: 'MAELSTROM',
-  tygers: 'MÓNG HỔ',
-  sixth: 'ĐƯỜNG 6',
-  voodoo: 'VOODOO',
-  barghest: 'BARGHEST',
-  valentinos: 'VALENTINOS',
-  mox: 'MOX',
-  wraiths: 'WRAITHS',
-  arasaka: 'ARASAKA',
+
+  scavs: 'KỀN KỀN',
+  maelstrom: 'HẮC THỦY',
+  tygers: 'MÃNH HỔ',
+  sixth: 'ĐƯỜNG SỐ 6',
+  voodoo: 'BÓNG ĐÊM',
+  barghest: 'CHIẾN KHUYỂN',
+  valentinos: 'VALENTINO',
+  mox: 'HỒNG MÔI',
+  wraiths: 'U LINH',
+  arasaka: 'TẬP ĐOÀN ARASAKA',
 };
 const GANG_NPC_NAMES = {
   scavs: ['BONE SAW','RUST JOY','MƯỜI SẸO','BLOOD NICK','CROWBAR','MẮT ĐỎ'],
@@ -170,78 +171,78 @@ const GANG_NPC_NAMES = {
 const SHOP_VENDOR_NAMES = { guns:'VŨ KHÍ', ripper:'CYBER', cars:'XE', bar:'BAR', casino:'CASINO', clothing:'THỜI TRANG' };
 const PLAYER_GANG_NAMES = ['BÓNG ĐÊM', 'RỒNG ĐỎ', 'SÓI PHỐ', 'HẮC LONG', 'SAO NEON', 'BỤI ĐỜI', 'LƯỠI ĐÈN', 'MẠCH ĐEN', 'PHỐ MƯA', 'NOVA CREW'];
 const PLAYER_GANG_ICONS = [
-  { mark:'☠', name:'SKULL', col:'#ff2a6d' },
-  { mark:'✦', name:'STAR', col:'#05d9e8' },
-  { mark:'◇', name:'DIAMOND', col:'#f9f002' },
-  { mark:'⬢', name:'HEX', col:'#bd00ff' },
-  { mark:'⚡', name:'BOLT', col:'#ff9f1c' },
-  { mark:'✚', name:'CROSS', col:'#00ff9f' },
-  { mark:'◆', name:'ONYX', col:'#e8f6ff' },
-  { mark:'▲', name:'SPIRE', col:'#ff2a3c' },
+  { mark:'☠', name:'ĐẦU LÂU', col:'#ff2a6d' },
+  { mark:'✦', name:'NGÔI SAO', col:'#05d9e8' },
+  { mark:'◇', name:'KIM CƯƠNG', col:'#f9f002' },
+  { mark:'⬢', name:'LỤC GIÁC', col:'#bd00ff' },
+  { mark:'⚡', name:'TIA SÉT', col:'#ff9f1c' },
+  { mark:'✚', name:'DẤU THẬP', col:'#00ff9f' },
+  { mark:'◆', name:'ĐÁ ĐEN', col:'#e8f6ff' },
+  { mark:'▲', name:'MŨI NHỌN', col:'#ff2a3c' },
 ];
-const PSYCHO_NAMES = ['BLOODY NOX','SCALPEL','TURBO SAINT','NEON REAPER','DUKE OF NUKES','MISS SHRAPNEL','DR. CHROME','ZERO COUNT'];
+const PSYCHO_NAMES = ['NOX ĐẪM MÁU','DAO MỔ','THÁNH TURBO','TỬ THẦN NEON','CÔNG TƯỚC NỔ','CÔ MẢNH ĐẠN','BÁC SĨ CHROME','ĐẾM VỀ KHÔNG'];
 
 const BRANDS = ['KIROSHI','ARASAKA','MILITECH','NICOLA','CHROMANTICORE','ORBITAL AIR','SAMURAI','BUDGET ARMS','ALL FOODS','TRAUMA TEAM','ZETATECH','BIOTECHNICA','KANG TAO','WEST WIND'];
 
 const TIPS = [
-  'WASD: MOVE · MOUSE: AIM · LMB: FIRE · SPACE: DASH',
-  'HURT? PRESS [C] TO SLAM A MAXDOC. VENDING MACHINES SELL REFILLS',
-  'EARN EDDIES: HUNT BOUNTIES MARKED RED ON THE MINIMAP',
-  'VISIT 2ND AMENDMENT [G ON MAP] TO EXPAND YOUR ARSENAL',
-  'THE RIPPERDOC [R ON MAP] SELLS CHROME. START WITH KIROSHI OPTICS',
-  'THE AUTOFIXER [A ON MAP] SELLS RIDES. [V] SUMMONS YOUR CAR',
-  'CYBERPSYCHOS DROP ICONIC WEAPONS. COLLECT ALL 8',
-  'PRESS [TAB] TO BROWSE YOUR COLLECTION',
-  'YELLOW-TAGGED CRATES BREAK OPEN: EDDIES, DOCS, SOMETIMES IRON',
-  'DOGTOWN [SW] IS BARGHEST TURF: ★★★★ DANGER, AIRDROPS, BIG PAYOUTS',
-  'JIG-JIG STREET [NE] NEVER SLEEPS. CLOUDS CAN FIX YOURS',
-  'ENEMIES HAVE EYES. STAY BEHIND THEM OR BREAK LINE OF SIGHT',
-  'LIT DOORWAYS CAN BE ENTERED. HIDEOUTS HOLD LOOT — AND GONKS',
-  'MELEE AN UNAWARE ENEMY FOR A 2.5X TAKEDOWN',
-  'GREENERY IS COVER: STAND IN BUSHES TO DROP OUT OF ENEMY SIGHT',
-  'WEATHER SHIFTS. FOG AND STORMS SHORTEN ENEMY VISION — USE THEM',
-  'RUMOR: A TALKING PISTOL LIES IN A GUTTER SOMEWHERE...',
+  'WASD: DI CHUYỂN · CHUỘT: NGẮM · LMB: BẮN · SPACE: LƯỚT',
+  'BỊ THƯƠNG? BẤM [C] DÙNG MAXDOC. MÁY BÁN HÀNG CÓ BÁN THÊM',
+  'KIẾM EDDIES: SĂN MỤC TIÊU TRUY NÃ MÀU ĐỎ TRÊN MINIMAP',
+  'ĐẾN 2ND AMENDMENT [G TRÊN BẢN ĐỒ] ĐỂ MUA THÊM VŨ KHÍ',
+  'RIPPERDOC [R TRÊN BẢN ĐỒ] BÁN CHROME. NÊN BẮT ĐẦU VỚI MẮT KIROSHI',
+  'AUTOFIXER [A TRÊN BẢN ĐỒ] BÁN XE. [V] GỌI XE CỦA BẠN',
+  'CYBERPSYCHO RƠI VŨ KHÍ BIỂU TƯỢNG. HÃY SƯU TẦM ĐỦ 8 MÓN',
+  'BẤM [TAB] ĐỂ XEM BỘ SƯU TẬP',
+  'THÙNG CÓ VẠCH VÀNG PHÁ ĐƯỢC: CÓ EDDIES, DOC, ĐÔI KHI CÓ SẮT',
+  'DOGTOWN [TÂY NAM] LÀ ĐẤT BARGHEST: ★★★★ NGUY HIỂM, AIRDROP, THƯỞNG LỚN',
+  'JIG-JIG STREET [ĐÔNG BẮC] KHÔNG BAO GIỜ NGỦ. CLOUDS CÓ THỂ GIÚP BẠN NGHỈ',
+  'KẺ ĐỊCH CÓ TẦM NHÌN. ĐỨNG SAU LƯNG HOẶC CẮT ĐƯỜNG NHÌN CỦA CHÚNG',
+  'CỬA CÓ ĐÈN CÓ THỂ ĐI VÀO. HANG Ổ CÓ ĐỒ, VÀ CŨNG CÓ KẺ ĐỊCH',
+  'ĐÁNH CẬN CHIẾN KHI KẺ ĐỊCH CHƯA BIẾT SẼ GÂY 2.5X SÁT THƯƠNG',
+  'BỤI CÂY LÀ CHỖ NẤP: ĐỨNG TRONG BỤI ĐỂ CẮT TẦM NHÌN KẺ ĐỊCH',
+  'THỜI TIẾT THAY ĐỔI. SƯƠNG VÀ BÃO LÀM GIẢM TẦM NHÌN KẺ ĐỊCH',
+  'TIN ĐỒN: CÓ MỘT KHẨU SÚNG BIẾT NÓI NẰM ĐÂU ĐÓ DƯỚI CỐNG...',
 ];
 const FIXER_LINES = [
-  'REGINA: STAY SHARP OUT THERE, MERC.',
-  'REGINA: HEARD MAELSTROM IS MOVING CHROME THROUGH WATSON.',
-  'REGINA: EDDIES TALK. COLLECT BOUNTIES, BUY BETTER IRON.',
-  'REGINA: TYGER CLAWS RUN WESTBROOK. BRING A BLADE.',
-  'REGINA: PACIFICA IS DANGER ZONE. TRIPLE PAY THOUGH.',
-  'REGINA: VIK GIVES DISCOUNTS TO NOBODY. CHROME UP ANYWAY.',
-  'REGINA: A CALIBURN? IN THIS ECONOMY? DREAM BIG, V.',
-  'REGINA: BARGHEST GUARDS DOGTOWN LIKE A VAULT. BECAUSE IT IS ONE.',
-  'REGINA: AIRDROP CHATTER ON MILITECH FREQUENCIES. KEEP AN EYE SOUTH-WEST.',
+  'REGINA: NGOÀI ĐÓ CẨN THẬN NHÉ, MERC.',
+  'REGINA: NGHE NÓI MAELSTROM ĐANG CHUYỂN CHROME QUA WATSON.',
+  'REGINA: EDDIES MỚI CÓ TIẾNG NÓI. SĂN TRUY NÃ, MUA SÚNG XỊN HƠN.',
+  'REGINA: MÓNG HỔ KIỂM SOÁT WESTBROOK. NHỚ MANG LƯỠI DAO.',
+  'REGINA: PACIFICA LÀ VÙNG NGUY HIỂM. NHƯNG TIỀN THƯỞNG GẤP BA.',
+  'REGINA: VIK KHÔNG GIẢM GIÁ CHO AI. CỨ CẤY CHROME ĐI.',
+  'REGINA: CALIBURN HẢ? THỜI BUỔI NÀY? MƠ LỚN ĐẤY, V.',
+  'REGINA: BARGHEST CANH DOGTOWN NHƯ KHO BẠC. VÌ NÓ ĐÚNG LÀ KHO BẠC.',
+  'REGINA: CÓ TÍN HIỆU AIRDROP TRÊN TẦN SỐ MILITECH. NHÌN VỀ TÂY NAM.',
 ];
 // joytoy / doll dialogue (kept tame — the spice is fade-to-black)
 const JOY_GREET = [
-  'HEY CHOOM. LOOKING FOR COMPANY?',
-  'WELL HELLO, MERC. LONG NIGHT?',
-  'NEW FACE ON JIG-JIG! BUY A GIRL A DRINK? OR SKIP TO THE FUN?',
+  'CHÀO CHOOM. CẦN NGƯỜI NGỒI CÙNG KHÔNG?',
+  'XIN CHÀO, MERC. ĐÊM DÀI QUÁ HẢ?',
+  'GƯƠNG MẶT MỚI Ở JIG-JIG! MỜI MỘT LY CHỨ? HAY VÀO VIỆC LUÔN?',
 ];
 const JOY_LINES = [
-  'CAREFUL — CHROME LIKE YOURS COULD BREAK A HEART.',
-  'YOU TALK CUTE FOR SOMEONE COVERED IN GUN OIL.',
-  'FLATTERY GETS YOU A DISCOUNT. KIDDING. IT DOESN\'T.',
-  'COME BACK ALIVE, OKAY? I MEAN IT.',
+  'CẨN THẬN ĐÓ, CHROME KIỂU BẠN DỄ LÀM NGƯỜI TA RUNG ĐỘNG.',
+  'DÍNH MÙI DẦU SÚNG MÀ NÓI CHUYỆN DỄ THƯƠNG GHÊ.',
+  'NỊNH HAY THÌ ĐƯỢC GIẢM GIÁ. ĐÙA THÔI, KHÔNG CÓ ĐÂU.',
+  'NHỚ SỐNG MÀ QUAY LẠI, ĐƯỢC KHÔNG? TÔI NÓI THẬT.',
 ];
 const DOLL_GREET = [
-  'WELCOME TO CLOUDS. I\'M EVE. I ALREADY KNOW WHAT YOU NEED.',
-  'BREATHE, V. IN HERE, THE CITY CAN\'T REACH YOU.',
+  'CHÀO MỪNG ĐẾN CLOUDS. TÔI LÀ EVE. TÔI BIẾT BẠN CẦN GÌ RỒI.',
+  'THỞ ĐI, V. Ở TRONG NÀY, THÀNH PHỐ KHÔNG CHẠM TỚI BẠN ĐƯỢC.',
 ];
 const DOLL_LINES = [
-  'YOUR PULSE SAYS YOU HAVEN\'T SLEPT IN DAYS. LET IT GO.',
-  'EVERY MERC CARRIES GHOSTS. PUT THEM DOWN FOR AN HOUR.',
-  'THE NET REMEMBERS EVERYTHING. PEOPLE? WE CHOOSE WHAT TO KEEP.',
+  'NHỊP TIM NÓI RẰNG BẠN MẤY NGÀY CHƯA NGỦ. THẢ LỎNG ĐI.',
+  'MERC NÀO CŨNG MANG THEO BÓNG MA. ĐẶT CHÚNG XUỐNG MỘT GIỜ ĐI.',
+  'NET NHỚ MỌI THỨ. CÒN CON NGƯỜI? TA CHỌN ĐIỀU MUỐN GIỮ.',
 ];
 
 const SKIPPY_LINES = [
-  'SKIPPY: WHEEE! THAT WAS AWESOME!',
-  'SKIPPY: YOU CAN\'T SPELL MASSACRE WITHOUT ME!',
-  'SKIPPY: I LOVE YOU, USER!',
-  'SKIPPY: ANOTHER ONE BITES THE DUST! PEW PEW!',
-  'SKIPPY: ETHICS SUBROUTINE? NEVER INSTALLED!',
-  'SKIPPY: YOU ARE MY FAVORITE MEAT-FRIEND!',
+  'SKIPPY: WHEEE! TUYỆT VỜI QUÁ!',
+  'SKIPPY: KHÔNG CÓ TÔI THÌ ĐÂU CÓ MÀN DỌN DẸP NÀY!',
+  'SKIPPY: TÔI YÊU BẠN, NGƯỜI DÙNG!',
+  'SKIPPY: LẠI MỘT TÊN NẰM XUỐNG! PEW PEW!',
+  'SKIPPY: QUY TRÌNH ĐẠO ĐỨC? CHƯA CÀI BAO GIỜ!',
+  'SKIPPY: BẠN LÀ NGƯỜI-BẠN-THỊT TÔI THÍCH NHẤT!',
 ];
 
 // new-game random starter kit pools
@@ -250,12 +251,12 @@ const STARTER_CARS = ['galena', 'supron', 'colby'];
 
 // weather: density = raindrop count, range = enemy view-range multiplier
 const WEATHERS = {
-  clear:   { name: 'CLEAR NIGHT',  density: 0,   thunder: 0,   range: 1 },
-  drizzle: { name: 'DRIZZLE',      density: 55,  thunder: 0.1, range: 1 },
-  storm:   { name: 'STORM',        density: 160, thunder: 1,   range: 0.85, tint: 'rgba(40,60,110,0.07)' },
-  acid:    { name: 'ACID DRIZZLE', density: 90,  thunder: 0.2, range: 1,    tint: 'rgba(120,255,80,0.045)', rainCol: 'rgba(150,230,110,0.22)' },
-  fog:     { name: 'FOG',          density: 0,   thunder: 0,   range: 0.7,  tint: 'rgba(170,180,200,0.05)', fog: 1 },
-  smog:    { name: 'SMOG',         density: 0,   thunder: 0,   range: 0.85, tint: 'rgba(255,140,60,0.05)',  fog: 0.6, fogCol: '#cf8a4a' },
+  clear:   { name: 'ĐÊM QUANG',    density: 0,   thunder: 0,   range: 1 },
+  drizzle: { name: 'MƯA NHẸ',      density: 55,  thunder: 0.1, range: 1 },
+  storm:   { name: 'BÃO',          density: 160, thunder: 1,   range: 0.85, tint: 'rgba(40,60,110,0.07)' },
+  acid:    { name: 'MƯA ACID',     density: 90,  thunder: 0.2, range: 1,    tint: 'rgba(120,255,80,0.045)', rainCol: 'rgba(150,230,110,0.22)' },
+  fog:     { name: 'SƯƠNG MÙ',     density: 0,   thunder: 0,   range: 0.7,  tint: 'rgba(170,180,200,0.05)', fog: 1 },
+  smog:    { name: 'KHÓI MÙ',      density: 0,   thunder: 0,   range: 0.85, tint: 'rgba(255,140,60,0.05)',  fog: 0.6, fogCol: '#cf8a4a' },
 };
 const WEATHER_POOL = ['clear', 'clear', 'drizzle', 'drizzle', 'drizzle', 'storm', 'storm', 'fog', 'fog', 'acid', 'acid', 'smog'];
 

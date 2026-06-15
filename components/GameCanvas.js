@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { useGameStore } from "@/store/useGameStore";
 
 const SAVE_KEY = "ncpx2077_v1";
 const ACCOUNT_KEY = "ncpx_account_v1";
-const SCRIPT_VERSION = "81";
-const PERFORMANCE_MODE = true;
+const SCRIPT_VERSION = "86";
+const PERFORMANCE_MODE = false;
 const GAME_SCRIPTS = [
   "/js/font.js",
   "/js/i18n.js",
@@ -18,6 +18,31 @@ const GAME_SCRIPTS = [
   "/js/game.js",
   "/mods/mods.js",
 ];
+
+const WEAPON_LABELS_VI = {
+  power: "ĐẠN THƯỜNG",
+  tech: "CÔNG NGHỆ",
+  smart: "THÔNG MINH",
+  melee: "CẬN CHIẾN",
+  pistol: "SÚNG LỤC",
+  revolver: "SÚNG Ổ XOAY",
+  smg: "TIỂU LIÊN",
+  rifle: "SÚNG TRƯỜNG",
+  shotgun: "SHOTGUN",
+  sniper: "BẮN TỈA",
+  lmg: "SÚNG MÁY",
+  blade: "DAO/KIẾM",
+  blunt: "VŨ KHÍ NẶNG",
+  mantis: "LƯỠI MANTIS",
+  gorilla: "TAY GORILLA",
+  wire: "DÂY CẮT",
+  launcher: "BỆ PHÓNG",
+};
+
+function weaponLabel(value, language) {
+  const key = String(value || "").toLowerCase();
+  return language === "vi" ? WEAPON_LABELS_VI[key] || String(value || "").toUpperCase() : String(value || "").toUpperCase();
+}
 
 const SCRIPT_NAMES_VI = {
   "font.js": "FONT CHỮ ĐỒ HỌA",
@@ -481,6 +506,86 @@ function PixelUserHud({
         </div>
       )}
     </section>
+  );
+}
+
+function PixelDeadOverlay({ player, language }) {
+  const isVi = language === "vi";
+  const deadT = player.deadT || 0;
+  const countdown = Math.ceil(deadT);
+  const fee = player.deathFee || 0;
+
+  const [flash, setFlash] = useState(false);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setFlash((f) => !f);
+    }, 250);
+    return () => clearInterval(interval);
+  }, []);
+
+  const pct = Math.max(0, Math.min(1, (10 - deadT) / 10));
+  const totalSegments = 20;
+  const filledSegments = Math.floor(pct * totalSegments);
+
+  const headerTxt = isVi
+    ? "⚠ CẢNH BÁO: HỆ THỐNG NGƯNG HOẠT ĐỘNG"
+    : "⚠ WARNING: BIOMETRIC LINK SEVERED";
+  const titleTxt = isVi ? "MẤT SINH HIỆU" : "FLATLINED";
+  const feeLabel = isVi ? "PHÍ TRUY THU TRAUMA TEAM:" : "TRAUMA TEAM FEE:";
+  const statusLabel = isVi ? "TRẠNG THÁI:" : "STATUS:";
+  const statusVal = isVi
+    ? "NGOẠI TUYẾN (PHỤC HỒI HỆ THỐNG)"
+    : "OFFLINE (COOLDOWN)";
+  const rebootLabel = isVi
+    ? `KHỞI ĐỘNG LẠI HỆ THỐNG SAU ${countdown} GIÂY...`
+    : `REBOOTING SYSTEM IN ${countdown}S...`;
+
+  return (
+    <div className="pixel-dead-overlay">
+      <div className="pixel-dead-container">
+        <div className={`pixel-dead-header ${flash ? "flash" : ""}`}>
+          {headerTxt}
+        </div>
+        <div className="pixel-dead-body">
+          <div className="pixel-dead-title-row">
+            <span className="bracket-left">[</span>
+            <h1 className="pixel-dead-title" data-text={titleTxt}>
+              {titleTxt}
+            </h1>
+            <span className="bracket-right">]</span>
+          </div>
+          <div className="pixel-dead-details">
+            <div className="pixel-dead-row">
+              <span className="label">{feeLabel}</span>
+              <span className="value fee">${fee.toLocaleString()}</span>
+            </div>
+            <div className="pixel-dead-row">
+              <span className="label">{statusLabel}</span>
+              <span className="value status">{statusVal}</span>
+            </div>
+          </div>
+          <div className="pixel-dead-progress-container">
+            <div className="pixel-dead-progress-bar">
+              {Array.from({ length: totalSegments }).map((_, idx) => {
+                const filled = idx < filledSegments;
+                const hue = 60 - (idx / totalSegments) * 60;
+                return (
+                  <span
+                    key={idx}
+                    className={`progress-seg ${filled ? "filled" : ""}`}
+                    style={{
+                      backgroundColor: filled ? `hsl(${hue}, 100%, 50%)` : "transparent",
+                      boxShadow: filled ? `0 0 6px hsl(${hue}, 100%, 50%)` : "none",
+                    }}
+                  />
+                );
+              })}
+            </div>
+          </div>
+          <div className="pixel-dead-footer">{rebootLabel}</div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1397,6 +1502,9 @@ export default function GameCanvas() {
             armor: g.p ? g.p.armor || 0 : 0,
             slot: g.slot || 0,
             reloadT: g.p ? Math.ceil((g.p.reloadT || 0) * 10) / 10 : 0,
+            state: g.state || 'play',
+            deadT: g.deadT || 0,
+            deathFee: g.deathFee || 0,
           };
           const nextBanner = g.bannerO && g.bannerO.t > 0
             ? { text: g.bannerO.text, sub: g.bannerO.sub, col: g.bannerO.col, t: Math.ceil(g.bannerO.t * 10) / 10 }
@@ -2610,8 +2718,8 @@ export default function GameCanvas() {
                 {window.RAR_NAME
                   ? window.RAR_NAME[selectedWeapon.rar]
                   : "COMMON"}{" "}
-                · {selectedWeapon.kind.toUpperCase()} ·{" "}
-                {selectedWeapon.cls.toUpperCase()}
+                · {weaponLabel(selectedWeapon.kind, language)} ·{" "}
+                {weaponLabel(selectedWeapon.cls, language)}
               </div>
 
               <div
@@ -3925,7 +4033,7 @@ export default function GameCanvas() {
                               alignSelf: "flex-start",
                             }}
                           >
-                            {w.cls.toUpperCase()}
+                            {weaponLabel(w.cls, language)}
                           </span>
                         </div>
                       );
@@ -3942,7 +4050,7 @@ export default function GameCanvas() {
                           {playerState.weapons[selectedWeapon.id] ? (
                             <WeaponPixelPreview weapon={selectedWeapon} large />
                           ) : (
-                            <span>{selectedWeapon.hidden ? "???" : selectedWeapon.cls.toUpperCase()}</span>
+                            <span>{selectedWeapon.hidden ? "???" : weaponLabel(selectedWeapon.cls, language)}</span>
                           )}
                         </div>
                         <h3 className="cyber-detail-title">
@@ -3956,8 +4064,8 @@ export default function GameCanvas() {
                           {window.RAR_NAME
                             ? window.RAR_NAME[selectedWeapon.rar]
                             : "COMMON"}{" "}
-                          · {selectedWeapon.kind.toUpperCase()} ·{" "}
-                          {selectedWeapon.cls.toUpperCase()}
+                          · {weaponLabel(selectedWeapon.kind, language)} ·{" "}
+                          {weaponLabel(selectedWeapon.cls, language)}
                         </div>
 
                         {playerState.weapons[selectedWeapon.id] ? (
@@ -4544,6 +4652,9 @@ export default function GameCanvas() {
       )}
       {!PERFORMANCE_MODE && isJackedIn && <PixelWeaponHud player={playerState} />}
       {!PERFORMANCE_MODE && isJackedIn && <PixelMiniMapHud />}
+      {!PERFORMANCE_MODE && isJackedIn && playerState.state === 'dead' && (
+        <PixelDeadOverlay player={playerState} language={language} />
+      )}
       {/* Top Center Controls Removed */}
 
       {activeUi && (
@@ -4566,9 +4677,11 @@ export default function GameCanvas() {
       )}
 
       {/* Main Canvas Container with CRT scanning lines filter */}
-      <div className={`canvas-wrapper ${crtActive ? "crt-active" : ""}`}>
-        <canvas id="cv" width="640" height="360" />
-      </div>
+      {useMemo(() => (
+        <div className={`canvas-wrapper ${crtActive ? "crt-active" : ""}`}>
+          <canvas id="cv" width="640" height="360" />
+        </div>
+      ), [crtActive])}
 
       {/* Premium JSX Notification Banner */}
       {!PERFORMANCE_MODE && jsxBanner && (

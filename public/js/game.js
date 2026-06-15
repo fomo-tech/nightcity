@@ -177,9 +177,9 @@ function touchButtons() {
   if (portrait) {
     const B = [
       { k: 'pause', x: 25, y: 76, r: comfy ? 18 : 15, label: 'II' },
-      { k: 'radio', x: 63, y: 76, r: comfy ? 18 : 15, label: 'FM' },
-      { k: 'car', x: 101, y: 76, r: comfy ? 18 : 15, label: 'V' },
-      { k: 'inv', x: 139, y: 76, r: comfy ? 18 : 15, label: 'TAB' },
+      { k: 'radio', x: 70, y: 76, r: comfy ? 18 : 15, label: 'FM' },
+      { k: 'car', x: 115, y: 76, r: comfy ? 18 : 15, label: 'V' },
+      { k: 'inv', x: 160, y: 76, r: comfy ? 18 : 15, label: 'TAB' },
       { k: 'fire', x: VIEW_W - 90, y: VIEW_H - 75, r: comfy ? 26 : 22, label: 'FIRE' },
       { k: 'dash', x: VIEW_W - 35, y: VIEW_H - 75, r: comfy ? 20 : 17, label: 'DASH' },
       { k: 'doc', x: VIEW_W - 90, y: VIEW_H - 130, r: comfy ? 18 : 15, label: 'C' },
@@ -191,11 +191,12 @@ function touchButtons() {
     if (G.cyber.camo) B.push({ k: 'camo', x: VIEW_W - 90, y: VIEW_H - 240, r: comfy ? 18 : 15, label: 'F' });
     return B;
   }
+  const cx = Math.floor(VIEW_W / 2);
   const B = [
-    { k: 'pause', x: 175, y: 26, r: comfy ? 19 : 16, label: 'II' },
-    { k: 'radio', x: 215, y: 26, r: comfy ? 19 : 16, label: 'FM' },
-    { k: 'car', x: 255, y: 26, r: comfy ? 19 : 16, label: 'V' },
-    { k: 'inv', x: 295, y: 26, r: comfy ? 19 : 16, label: 'TAB' },
+    { k: 'pause', x: cx - 75, y: 26, r: comfy ? 19 : 16, label: 'II' },
+    { k: 'radio', x: cx - 25, y: 26, r: comfy ? 19 : 16, label: 'FM' },
+    { k: 'car', x: cx + 25, y: 26, r: comfy ? 19 : 16, label: 'V' },
+    { k: 'inv', x: cx + 75, y: 26, r: comfy ? 19 : 16, label: 'TAB' },
     { k: 'fire', x: VIEW_W - 105, y: VIEW_H - 75, r: comfy ? 26 : 22, label: 'FIRE' },
     { k: 'dash', x: VIEW_W - 45, y: VIEW_H - 75, r: comfy ? 22 : 18, label: 'DASH' },
     { k: 'doc', x: VIEW_W - 105, y: VIEW_H - 135, r: comfy ? 18 : 15, label: 'C' },
@@ -432,6 +433,7 @@ function newGame() {
     msgs: [], bannerO: null, tipsQ: [], fixerT: 75,
     stats: { kills: 0, psychos: 0, bounties: 0, crates: 0, dist: 0, playT: 0, airdrops: 0 },
     saveT: 12, deadT: 0, deathFee: 0, hurtT: 0, flashT: 0, thunderT: rnd(18, 40),
+    rotateHintT: 6.0,
     rain: [], prompt: null, lockTarget: null, lastDistrict: null,
     gang: null, playerGangName: null, playerGangIcon: null, playerGangIconCol: null, gangNameSel: 0, gangIconSel: 0, gangRel: {}, gangInvite: null, playerInvite: null, gangJoinReq: null, gangWarT: 22, gangWar: null, netT: 0,
     weather: { kind: 'drizzle', t: rnd(60, 120) }, wfx: { density: 55, fog: 0 }, fogBlobs: [], pHidden: false,
@@ -553,14 +555,14 @@ function startGame(cont, gender) {
     : { kind: 'ed', amt: s.amt || irnd(20, 95), x: s.x, y: s.y, vx: 0, vy: 0, t: 240 });
   if (cont && applySave()) {
     recalcStats(); G.p.hp = clamp(G.p.hp, 1, G.p.maxhp);
-    banner('WELCOME BACK TO NIGHT CITY', DISTRICTS[WORLD.districtAt(G.p.x, G.p.y)].name, '#05d9e8');
+    banner('CHÀO MỪNG TRỞ LẠI NIGHT CITY', DISTRICTS[WORLD.districtAt(G.p.x, G.p.y)].name, '#05d9e8');
   } else {
     // random starter kit: one weapon, one ride
     const sw = pick(STARTER_WPNS), sc = pick(STARTER_CARS);
     giveWeapon(sw, true); G.loadout[0] = sw; G.slot = 0;
     G.cars[sc] = 1; G.activeCar = sc;
     recalcStats(); G.p.hp = G.p.maxhp;
-    banner('NIGHT CITY', 'WAKE UP, SAMURAI. WE HAVE A CITY TO BURN', '#f9f002');
+    banner('NIGHT CITY', 'THỨC DẬY, SAMURAI. TA CÓ CẢ THÀNH PHỐ ĐỂ ĐỐT CHÁY', '#f9f002');
     msg('STARTER KIT: ' + WPN[sw].name + ' + ' + CARD[sc].name + ' [V]', '#2ecc71');
     TIPS.forEach((tip, i) => G.tipsQ.push({ at: 3 + i * 6, text: tip }));
     NCPX.emit('newgame', { gender: G.gender });
@@ -812,6 +814,10 @@ function step(dt) {
   window.G = G;
   WORLD_ZOOM = TOUCH.on ? 1.35 : 1.0;
   G.rt += dt; G.frame++;
+  if (G.rotateHintT === undefined) G.rotateHintT = 6.0;
+  if (G.rotateHintT > 0 && G.state === 'play' && !G.ui) {
+    G.rotateHintT -= dt;
+  }
   updateRain(dt);
   applyTouch();
   if (!G.ui && G.state === 'play' && G.p) {
@@ -1205,8 +1211,8 @@ function updatePlayer(dt, dtP) {
   if (press('KeyQ') && G.os && p.osCd <= 0 && p.osT <= 0) {
     const t = CYB[G.os].tiers[G.cyber[G.os] - 1];
     p.osT = t.dur; p.osCd = t.cd;
-    if (G.os === 'sandevistan') { SFX.sande(true); banner('SANDEVISTAN', null, '#00ff9f'); }
-    else { SFX.psycho(); banner('BERSERK', null, '#ff2a3c'); }
+    if (G.os === 'sandevistan') { SFX.sande(true); banner('SANDEVISTAN', 'KÍCH HOẠT THẦN KHÍ', '#00ff9f'); }
+    else { SFX.psycho(); banner('BERSERK', 'TRẠNG THÁI ĐIÊN CUỒNG', '#ff2a3c'); }
     recalcStats();
   }
   if (p.osT <= 0 && p.osWasOn) { recalcStats(); }
@@ -1286,7 +1292,7 @@ function updatePlayer(dt, dtP) {
   if (dk !== G.lastDistrict) {
     G.lastDistrict = dk;
     const d = DISTRICTS[dk];
-    banner(d.name, 'DANGER ' + '★'.repeat(d.danger), d.col);
+    banner(d.name, 'NGUY HIỂM ' + '★'.repeat(d.danger), d.col);
   }
   // skippy
   if (!G.skippyFound) {
@@ -1295,7 +1301,7 @@ function updatePlayer(dt, dtP) {
     if (sd < 480 && G.skippyHintT <= 0) { G.skippyHintT = 18; msg('YOU HEAR A MUFFLED, CHEERFUL VOICE NEARBY...', '#f9f002'); }
     if (sd < 22) {
       G.skippyFound = true; giveWeapon('skippy');
-      banner('SKIPPY ACQUIRED!', 'SKIPPY: HI! I\'M SKIPPY! LET\'S BE BEST FRIENDS!', '#f9f002');
+      banner('ĐÃ CÓ SKIPPY!', 'SKIPPY: XIN CHÀO! TÔI LÀ SKIPPY! HÃY LÀM BẠN THÂN NHÉ!', '#f9f002');
       SFX.levelup(); saveGame();
     }
   }
@@ -1618,7 +1624,7 @@ function killEnemy(e) {
     const next = ICONICS.find(id => !G.weapons[id]);
     if (next) G.pickups.push({ kind: 'wpn', id: next, x: e.x, y: e.y, vx: 0, vy: 0, t: 120 });
     else G.pickups.push({ kind: 'ed', amt: 5000, x: e.x, y: e.y, vx: 0, vy: 0, t: 120 });
-    banner('CYBERPSYCHO NEUTRALIZED', e.name + ' — ' + (next ? 'DROPPED: ' + WPN[next].name : '+$5,000'), '#bd00ff');
+    banner('CYBERPSYCHO ĐÃ BỊ HẠ', e.name + ' — ' + (next ? 'THU ĐƯỢC: ' + WPN[next].name : '+$5,000'), '#bd00ff');
     SFX.levelup();
   } else if (Math.random() < 0.09) {
     const pool = WEAPONS.filter(w => !w.iconic && !w.granted && !w.hidden && w.lvl <= G.lvl + 3 && w.price > 0);
@@ -1664,7 +1670,7 @@ function damagePlayer(dmg) {
   if (p.hp <= 0) {
     if (G.cyber.second_heart && p.shCd <= 0) {
       p.hp = p.maxhp; p.shCd = 180; p.iframes = 1.5;
-      banner('SECOND HEART', 'CLINICAL DEATH REVERSED', '#ff2a6d'); SFX.levelup();
+      banner('TIM THỨ HAI', 'CỬA TỬ THOÁT HIỂM', '#ff2a6d'); SFX.levelup();
       return;
     }
     killPlayer();
@@ -1688,7 +1694,7 @@ function respawn() {
   G.state = 'play';
   G.enemies = G.enemies.filter(e => e.bounty || e.psycho);
   for (const e of G.enemies) e.alerted = false;
-  banner('BACK ON YOUR FEET', 'TRAUMA TEAM SENDS THEIR REGARDS', '#05d9e8');
+  banner('ĐÃ HỒI SINH', 'TRAUMA TEAM GỬI LỜI HỎI THĂM', '#05d9e8');
   saveGame();
 }
 
@@ -1727,7 +1733,7 @@ function xpGain(n) {
     G.lvl++;
     recalcStats();
     G.p.hp = Math.min(G.p.maxhp, G.p.hp + G.p.maxhp * 0.4);
-    banner('STREET CRED UP — LV ' + G.lvl, 'NEW GEAR UNLOCKED AT VENDORS', '#f9f002');
+    banner('STREET CRED LÊN — CẤP ' + G.lvl, 'TRANG BỊ MỚI ĐÃ MỞ KHÓA TẠI CỬA HÀNG', '#f9f002');
     SFX.levelup();
     NCPX.emit('levelup', { lvl: G.lvl });
     saveGame();
@@ -1825,9 +1831,10 @@ function updateEnemies(dt) {
       continue;
     }
     const gangTarget = findGangTarget(e);
-    const friendlyPlayer = !gangTarget && G.gang && e.fac === G.gang;
+    const escortPlayer = !gangTarget && e.ally; // ally bots always escort player when no target
+    const friendlyPlayer = !gangTarget && !escortPlayer && G.gang && e.fac === G.gang;
     const tx = gangTarget ? gangTarget.x : px, ty = gangTarget ? gangTarget.y : py;
-    const targetIsPlayer = !gangTarget && !friendlyPlayer;
+    const targetIsPlayer = !gangTarget && !friendlyPlayer && !escortPlayer;
     const d = distPx(e.x, e.y, tx, ty);
 
     // ---- field of view: facing cone + wall occlusion + proximity sense ----
@@ -1836,6 +1843,12 @@ function updateEnemies(dt) {
     let seen = false;
     if (friendlyPlayer) {
       seen = false; e.detect = 0; e.alerted = false; e.alertT = 0;
+    } else if (escortPlayer) {
+      seen = d > 78;
+      e.detect = 1;
+      e.alerted = d > 78;
+      e.alertT = e.alerted ? 0.4 : 0;
+      e.lkx = tx; e.lky = ty;
     } else if (!targetIsPlayer) {
       seen = true;
     } else if (p.camoT <= 0) {
@@ -1864,7 +1877,20 @@ function updateEnemies(dt) {
 
     let mvx = 0, mvy = 0, spd = e.psycho ? 75 : e.kind === 'heavy' ? 42 : 58;
 
-    if (!e.alerted) {
+    if (escortPlayer) {
+      const aTo = Math.atan2(ty - e.y, tx - e.x);
+      e.lookA = turnToward(e.lookA, aTo, 6 * dt);
+      if (d > 82) { mvx = Math.cos(aTo); mvy = Math.sin(aTo); }
+      else if (d < 34) { mvx = -Math.cos(aTo); mvy = -Math.sin(aTo); }
+      else if ((e.wanderT || 0) <= 0) {
+        e.wanderT = rnd(1.2, 2.8);
+        const a = aTo + rnd(-1.8, 1.8);
+        e.wx = Math.cos(a) * 0.25; e.wy = Math.sin(a) * 0.25;
+      } else {
+        e.wanderT -= dt;
+        mvx = e.wx || 0; mvy = e.wy || 0;
+      }
+    } else if (!e.alerted) {
       if (e.detect > 0.12) { /* freeze and stare toward the noise */ }
       else {
         e.wanderT -= dt;
@@ -1989,7 +2015,7 @@ function spawnAirdrop() {
     const x = tx * TILE + 8, y = ty * TILE + 8;
     if (WORLD.districtAt(x, y) !== 'dogtown') continue;
     G.airdrop = { x, y, alt: 360, state: 'falling', t: 0 };
-    banner('AIRDROP INBOUND', 'MILITECH SUPPLY DROP OVER DOGTOWN — RACE THE BARGHEST', '#ff6a00');
+    banner('AIRDROP ĐẾN', 'MILITECH THẢ HÀNG TIẾP TẾ Ở DOGTOWN — ĐỪNG ĐỂ BARGHEST CƯỚP MẤT', '#ff6a00');
     msg('REGINA: AIRDROP ON MILITECH FREQUENCIES. SOUTH-WEST, MOVE', '#ff6a00');
     SFX.msg();
     return;
@@ -2041,7 +2067,7 @@ function openAirdrop() {
   const w = pick(hi.length ? hi : (un.length ? un : pool));
   if (w) G.pickups.push({ kind: 'wpn', id: w.id, x: a.x, y: a.y + 6, vx: 0, vy: 0, t: 90 });
   addP(16, a.x, a.y, { col: '#ff9f1c', sp: 90, life: 0.5 });
-  banner('AIRDROP SECURED', 'MILITECH SUPPLIES: GEAR + EDDIES', '#ff6a00');
+  banner('ĐÃ LẤY ĐƯỢC AIRDROP', 'TIẾP TẾ MILITECH: TRANG BỊ + EDDIES', '#ff6a00');
   SFX.buy(); SFX.levelup();
   xpGain(25 + 8 * G.lvl);
   saveGame();
@@ -2175,7 +2201,7 @@ function spawnMapGangPack(minDanger) {
     const s = findRandomSpot(wantDanger);
     if (!s) continue;
     const danger = s.dist.danger;
-    const n = danger >= 3 ? irnd(3, 5) : irnd(1, 3);
+    const n = minDanger ? irnd(3, 4) : danger >= 3 ? irnd(2, 3) : irnd(1, 2);
     const tier = danger + Math.floor(G.lvl / 4);
     const before = G.enemies.length;
     for (let i = 0, guard = 0; i < n && guard < n * 5; guard++) {
@@ -2206,14 +2232,14 @@ function updateGangWars(dt) {
   }
   G.gangWarT -= dt;
   if (G.gangWarT > 0) return;
-  G.gangWarT = rnd(42, 70);
+  G.gangWarT = rnd(90, 150);
   const s = findSpot(G.p.x, G.p.y, 360, 620);
   if (!s) return;
   const facA = DISTRICTS[WORLD.districtAt(s.x, s.y)].fac;
   const facB = rivalFaction(facA);
   const tier = DISTRICTS[WORLD.districtAt(s.x, s.y)].danger + Math.floor(G.lvl / 4);
-  spawnPack(s.x - 28, s.y, irnd(2, 3), { fac: facA, war: true, alerted: true, alertT: 20, lkx: s.x + 30, lky: s.y }, 6, 60);
-  spawnPack(s.x + 28, s.y, irnd(2, 3), { fac: facB, war: true, alerted: true, alertT: 20, lkx: s.x - 30, lky: s.y }, 6, 60);
+  spawnPack(s.x - 28, s.y, irnd(1, 2), { fac: facA, war: true, alerted: true, alertT: 20, lkx: s.x + 30, lky: s.y }, 6, 60);
+  spawnPack(s.x + 28, s.y, irnd(1, 2), { fac: facB, war: true, alerted: true, alertT: 20, lkx: s.x - 30, lky: s.y }, 6, 60);
   G.gangWar = { x: s.x, y: s.y, a: facA, b: facB, t: 28, tier };
   banner('GIAO TRANH BĂNG ĐẢNG', gangLabel(facA) + ' VS ' + gangLabel(facB), '#f9f002');
 }
@@ -2227,7 +2253,7 @@ function updateGangBots(dt) {
     return;
   }
   const allies = G.enemies.filter(e => !e.dead && e.ally);
-  const want = Math.min(3, Math.max(1, MAX_GANG_MEMBERS - 1));
+  const want = Math.min(2, Math.max(1, MAX_GANG_MEMBERS - 1));
   for (const e of allies) {
     const d = distPx(e.x, e.y, G.p.x, G.p.y);
     if (d > 760) { e.dead = true; e.silent = true; continue; }
@@ -2238,7 +2264,7 @@ function updateGangBots(dt) {
   }
   G.gangBotT = (G.gangBotT || 0) - dt;
   if (G.gangBotT > 0) return;
-  G.gangBotT = 6;
+  G.gangBotT = 10;
   const live = G.enemies.filter(e => !e.dead && e.ally).length;
   for (let i = live; i < want; i++) {
     const s = findSpot(G.p.x, G.p.y, 52, 160);
@@ -2380,20 +2406,20 @@ function updateSpawns(dt) {
   G.ambientT = (G.ambientT || 0) - dt;
   if (G.ambientT <= 0) {
     const localDanger = DISTRICTS[WORLD.districtAt(G.p.x, G.p.y)].danger;
-    G.ambientT = Math.max(2.8, 6 - localDanger * 0.7);
+    G.ambientT = Math.max(5.5, 9 - localDanger * 0.55);
     const ambient = G.enemies.filter(e => !e.bounty && !e.psycho && !e.ally && !e.mapSpawn).length;
-    const cap = localDanger >= 3 ? 12 + localDanger * 2 : 7 + localDanger;
+    const cap = localDanger >= 3 ? 7 + localDanger : 4 + localDanger;
     if (ambient < cap) {
       const s = findSpot(G.p.x, G.p.y, 420, 640);
-      if (s) spawnPack(s.x, s.y, localDanger >= 3 ? irnd(3, 5) : irnd(2, 3));
+      if (s) spawnPack(s.x, s.y, localDanger >= 3 ? irnd(2, 3) : irnd(1, 2));
     }
   }
   // map-wide gang patrols: dangerous districts seed more bodies even before V arrives
   G.mapSpawnT = (G.mapSpawnT || 0) - dt;
   if (G.mapSpawnT <= 0) {
-    G.mapSpawnT = 3.5;
+    G.mapSpawnT = 8.5;
     const mapBots = G.enemies.filter(e => !e.dead && e.mapSpawn).length;
-    const mapCap = 22 + Math.min(10, G.lvl);
+    const mapCap = 10 + Math.min(6, Math.ceil(G.lvl / 2));
     if (mapBots < mapCap) spawnMapGangPack();
   }
   // bounties
@@ -2429,7 +2455,7 @@ function spawnPsycho() {
   const name = PSYCHO_NAMES[G.stats.psychos % PSYCHO_NAMES.length];
   G.enemies.push(makeEnemy(s.x, s.y, tier, 'maelstrom', 'gun', { psycho: true, bounty: true, name, alerted: true }));
   G.bounty = { x: s.x, y: s.y, left: 1, reward: 1200 + 400 * danger, psycho: true };
-  banner('CYBERPSYCHO SIGHTING', name + ' — APPROACH WITH EVERYTHING YOU HAVE', '#bd00ff');
+  banner('PHÁT HIỆN CYBERPSYCHO', name + ' — TIẾP CẬN VỚI TẤT CẢ VŨ KHÍ BẠN CÓ', '#bd00ff');
   SFX.psycho();
 }
 
@@ -2722,7 +2748,7 @@ function giveWeapon(id, silent) {
     msg('ACQUIRED: ' + w.name + ' [' + RAR_NAME[w.rar] + ']', RAR_COL[w.rar]);
     SFX.buy();
     const owned = WEAPONS.filter(x => G.weapons[x.id]).length;
-    if (owned === WEAPONS.length) banner('COLLECTION COMPLETE', 'EVERY WEAPON IN NIGHT CITY IS YOURS', '#f9f002');
+    if (owned === WEAPONS.length) banner('BỘ SƯU TẬP HOÀN CHỈNH', 'MỌI VŨ KHÍ Ở NIGHT CITY ĐỀU LÀ CỦA BẠN', '#f9f002');
   }
 }
 
@@ -2746,7 +2772,7 @@ function buyCar(id) {
   msg('PURCHASED: ' + car.name + ' — [V] TO SUMMON', '#00ff9f');
   SFX.buy();
   const owned = CARS.filter(x => G.cars[x.id]).length;
-  if (owned === CARS.length) banner('GARAGE COMPLETE', 'EVERY RIDE IN NIGHT CITY IS YOURS', '#00ff9f');
+  if (owned === CARS.length) banner('GARAGE HOÀN CHỈNH', 'MỌI XE Ở NIGHT CITY ĐỀU LÀ CỦA BẠN', '#00ff9f');
   saveGame();
 }
 
