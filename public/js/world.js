@@ -48,8 +48,8 @@ function genWorld() {
     const distK = _districtOfTile(bx + 7, by + 7);
     const dCol = DISTRICTS[distK].col;
 
-    const isShop = (bi === 1 && bj === 2) ? 'guns' : (bi === 2 && bj === 1) ? 'ripper' : (bi === 3 && bj === 2) ? 'cars' : (bi === 0 && bj === 3) ? 'casino' : (bi === 3 && bj === 3) ? 'clothing' : null;
-    if (bi === 2 && bj === 2) { // spawn plaza + bar (enterable)
+    const isShop = (bi === 2 && bj === 3) ? 'guns' : (bi === 3 && bj === 2) ? 'ripper' : (bi === 4 && bj === 3) ? 'cars' : (bi === 2 && bj === 4) ? 'casino' : (bi === 4 && bj === 4) ? 'clothing' : null;
+    if (bi === 3 && bj === 3) { // spawn plaza + bar (enterable)
       setRect(ix, iy, 12, 12, WT.PLAZA);
       setRect(ix + 2, iy, 8, 5, WT.BLDG);
       bldgs.push({ x: ix + 2, y: iy, w: 8, h: 5, roof: '#262430', neon: '#ff2a6d', sign: { text: 'AFTERLIFE', col: '#ff2a6d' }, ent: true, theme: 'bar' });
@@ -355,7 +355,7 @@ function _bakeInterior(c, b, r, rng, npcs, obst) {
     c.fillStyle = floorCol; c.fillRect(dx * TILE, py + ph - TILE, TILE, TILE);
     c.fillStyle = '#2a3a44'; c.fillRect(dx * TILE + 3, py + ph - 10, 10, 6);
   }
-  const cx = fx + fw / 2, NAMES = { guns: 'QUÂN', ripper: 'SƠN', cars: 'TÚ', bar: 'LAN', casino: 'TÀI', clothing: 'TRANG' };
+  const cx = fx + fw / 2, NAMES = typeof SHOP_VENDOR_NAMES !== 'undefined' ? SHOP_VENDOR_NAMES : { guns: 'QUÂN', ripper: 'SƠN', cars: 'TÚ', bar: 'LAN', casino: 'TÀI', clothing: 'TRANG' };
   const solid = (x, y, w, h) => obst.push({ x, y, w, h });
   const counter = col => {
     c.fillStyle = col; c.fillRect(fx + 4, fy + 12, fw - 8, 9);

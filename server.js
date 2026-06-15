@@ -83,12 +83,12 @@ async function main() {
 
   function roomPlayers(room) {
     if (!rooms.has(room)) rooms.set(room, new Set());
-    if (!roomMeta.has(room)) roomMeta.set(room, { hostId: null });
+    if (!roomMeta.has(room)) roomMeta.set(room, { hostId: null, npcSnapshot: null });
     return rooms.get(room);
   }
 
   function roomInfo(room) {
-    if (!roomMeta.has(room)) roomMeta.set(room, { hostId: null });
+    if (!roomMeta.has(room)) roomMeta.set(room, { hostId: null, npcSnapshot: null });
     return roomMeta.get(room);
   }
 
@@ -96,7 +96,9 @@ async function main() {
     const ids = rooms.get(roomName) || new Set();
     const meta = roomInfo(roomName);
     if (meta.hostId && ids.has(meta.hostId)) return meta.hostId;
+    const oldHost = meta.hostId;
     meta.hostId = ids.values().next().value || null;
+    if (oldHost && oldHost !== meta.hostId) meta.npcSnapshot = null;
     return meta.hostId;
   }
 
@@ -123,13 +125,24 @@ async function main() {
       room: roomName,
       hostId: electHost(roomName),
       serverT: Date.now(),
-      players: [...ids].map(id => players.get(id)).filter(Boolean).map(p => ({
-        id: p.id, name: p.name, gang: p.gang, gangKey: p.gangKey, gangIcon: p.gangIcon, gangIconCol: p.gangIconCol, x: p.x, y: p.y, face: p.face, flip: p.flip, hp: p.hp, seq: p.seq, t: p.lastSeen, isLeader: p.isLeader,
+      players: [...ids].map(id => players.get(id)).filter(p => p && p.hp > 0).map(p => ({
+        id: p.id, name: p.name, gang: p.gang, gangKey: p.gangKey, gangIcon: p.gangIcon, gangIconCol: p.gangIconCol, x: p.x, y: p.y, vx: p.vx || 0, vy: p.vy || 0, face: p.face, flip: p.flip, hp: p.hp, seq: p.seq, t: p.lastSeen, isLeader: p.isLeader, act: p.act || null,
       })),
     });
     for (const client of wss.clients) {
       if (client.readyState === client.OPEN && client.room === roomName) client.send(payload);
     }
+  }
+
+  function cleanFxShots(value, fallbackCol) {
+    return Array.isArray(value) ? value.slice(0, 12).map(sh => ({
+      x: Number.isFinite(Number(sh && sh.x)) ? Number(sh.x) : 0,
+      y: Number.isFinite(Number(sh && sh.y)) ? Number(sh.y) : 0,
+      vx: Number.isFinite(Number(sh && sh.vx)) ? Math.max(-1200, Math.min(1200, Number(sh.vx))) : 0,
+      vy: Number.isFinite(Number(sh && sh.vy)) ? Math.max(-1200, Math.min(1200, Number(sh.vy))) : 0,
+      life: Math.max(0.2, Math.min(1.5, Number(sh && sh.life) || 0.75)),
+      col: cleanColor(sh && sh.col, fallbackCol),
+    })).filter(sh => sh.vx || sh.vy) : [];
   }
 
   server.on('upgrade', (req, socket, head) => {
@@ -152,7 +165,7 @@ async function main() {
       const url = new URL(req.url, 'http://localhost');
       room = cleanRoom(url.searchParams.get('room'));
     } catch (error) {}
-    players.set(id, { id, room, name: 'MERC', gang: 'SOLO', gangKey: 'solo', gangIcon: '', gangIconCol: '#8a93a6', x: 0, y: 0, face: 'down', flip: false, hp: 100, isLeader: false, seq: 0, lastSeen: Date.now() });
+    players.set(id, { id, room, name: 'MERC', gang: 'SOLO', gangKey: 'solo', gangIcon: '', gangIconCol: '#8a93a6', x: 0, y: 0, vx: 0, vy: 0, face: 'down', flip: false, hp: 100, isLeader: false, seq: 0, lastSeen: Date.now() });
     roomPlayers(room).add(id);
     const hostId = electHost(room);
     ws.playerId = id;
@@ -160,6 +173,8 @@ async function main() {
     ws.isAlive = true;
     ws.on('pong', () => { ws.isAlive = true; });
     ws.send(JSON.stringify({ type: 'hello', id, room, hostId, isHost: hostId === id }));
+    const cachedNpc = roomInfo(room).npcSnapshot;
+    if (cachedNpc && hostId !== id) ws.send(JSON.stringify(cachedNpc));
     broadcast(room);
 
     ws.on('message', raw => {
@@ -205,15 +220,61 @@ async function main() {
         }));
         return;
       }
+      if (msg.type === 'combatFx') {
+        const kind = msg.kind === 'melee' ? 'melee' : msg.kind === 'fire' ? 'fire' : '';
+        if (!kind) return;
+        const payload = JSON.stringify({
+          type: 'combatFx',
+          from: id,
+          kind,
+          x: Number.isFinite(Number(msg.x)) ? Number(msg.x) : p.x,
+          y: Number.isFinite(Number(msg.y)) ? Number(msg.y) : p.y,
+          a: Number.isFinite(Number(msg.a)) ? Number(msg.a) : 0,
+          pellets: Math.max(1, Math.min(12, Math.round(Number(msg.pellets) || 1))),
+          spread: Math.max(0, Math.min(35, Number(msg.spread) || 0)),
+          spd: Math.max(80, Math.min(900, Number(msg.spd) || 360)),
+          range: Math.max(8, Math.min(64, Number(msg.range) || 24)),
+          col: cleanColor(msg.col, kind === 'melee' ? '#dfe6f2' : '#ffe9a0'),
+          shots: cleanFxShots(msg.shots, cleanColor(msg.col, '#ffe9a0')),
+        });
+        for (const client of wss.clients) {
+          if (client.readyState === client.OPEN && client.room === p.room && client.playerId !== id) client.send(payload);
+        }
+        return;
+      }
+      if (msg.type === 'playerDrop') {
+        const drops = Array.isArray(msg.drops) ? msg.drops.slice(0, 4).map(d => ({
+          kind: d && d.kind === 'wpn' ? 'wpn' : 'ed',
+          id: cleanText(d && d.id, '', 32),
+          amt: Math.max(0, Math.min(9999999, Math.round(Number(d && d.amt) || 0))),
+          x: Number.isFinite(Number(d && d.x)) ? Number(d.x) : p.x,
+          y: Number.isFinite(Number(d && d.y)) ? Number(d.y) : p.y,
+        })).filter(d => d.kind === 'wpn' ? d.id : d.amt > 0) : [];
+        if (!drops.length) return;
+        const payload = JSON.stringify({
+          type: 'playerDrop',
+          from: id,
+          fromName: p.name,
+          x: Number.isFinite(Number(msg.x)) ? Number(msg.x) : p.x,
+          y: Number.isFinite(Number(msg.y)) ? Number(msg.y) : p.y,
+          drops,
+        });
+        for (const client of wss.clients) {
+          if (client.readyState === client.OPEN && client.room === p.room) client.send(payload);
+        }
+        return;
+      }
       if (msg.type === 'npcState') {
         if (roomInfo(p.room).hostId !== id) return;
-        const payload = JSON.stringify({
+        const state = {
           type: 'npcState',
           from: id,
           seq: Number(msg.seq) || 0,
           enemies: Array.isArray(msg.enemies) ? msg.enemies.slice(0, 80) : [],
           civs: Array.isArray(msg.civs) ? msg.civs.slice(0, 16) : [],
-        });
+        };
+        roomInfo(p.room).npcSnapshot = state;
+        const payload = JSON.stringify(state);
         for (const client of wss.clients) {
           if (client.readyState === client.OPEN && client.room === p.room && client.playerId !== id) client.send(payload);
         }
@@ -243,12 +304,30 @@ async function main() {
       p.gangIconCol = cleanColor(msg.gangIconCol, '#8a93a6');
       p.x = Number.isFinite(msg.x) ? msg.x : p.x;
       p.y = Number.isFinite(msg.y) ? msg.y : p.y;
+      p.vx = Number.isFinite(Number(msg.vx)) ? Math.max(-800, Math.min(800, Number(msg.vx))) : p.vx;
+      p.vy = Number.isFinite(Number(msg.vy)) ? Math.max(-800, Math.min(800, Number(msg.vy))) : p.vy;
       p.face = ['down', 'up', 'side'].includes(msg.face) ? msg.face : p.face;
       p.flip = !!msg.flip;
       p.hp = Number.isFinite(Number(msg.hp)) ? Math.max(0, Math.min(999, Number(msg.hp))) : p.hp;
+      if (msg.act && (msg.act.kind === 'fire' || msg.act.kind === 'melee')) {
+        p.act = {
+          seq: Math.max(0, Math.min(1000000, Math.round(Number(msg.act.seq) || p.seq))),
+          kind: msg.act.kind,
+          x: Number.isFinite(Number(msg.act.x)) ? Number(msg.act.x) : p.x,
+          y: Number.isFinite(Number(msg.act.y)) ? Number(msg.act.y) : p.y,
+          a: Number.isFinite(Number(msg.act.a)) ? Number(msg.act.a) : 0,
+          pellets: Math.max(1, Math.min(12, Math.round(Number(msg.act.pellets) || 1))),
+          spread: Math.max(0, Math.min(35, Number(msg.act.spread) || 0)),
+          spd: Math.max(80, Math.min(900, Number(msg.act.spd) || 360)),
+          range: Math.max(8, Math.min(64, Number(msg.act.range) || 24)),
+          col: cleanColor(msg.act.col, msg.act.kind === 'melee' ? '#dfe6f2' : '#ffe9a0'),
+          shots: cleanFxShots(msg.act.shots, cleanColor(msg.act.col, '#ffe9a0')),
+        };
+      } else p.act = null;
       p.isLeader = !!msg.isLeader;
       p.seq = (p.seq + 1) % 1000000;
       p.lastSeen = Date.now();
+      broadcast(p.room);
     });
 
     ws.on('close', () => { const p = players.get(id); forgetPlayer(id); if (p) broadcast(p.room); });

@@ -5,7 +5,7 @@ import { useGameStore } from "@/store/useGameStore";
 
 const SAVE_KEY = "ncpx2077_v1";
 const ACCOUNT_KEY = "ncpx_account_v1";
-const SCRIPT_VERSION = "61";
+const SCRIPT_VERSION = "65";
 const GAME_SCRIPTS = [
   "/js/font.js",
   "/js/i18n.js",
@@ -619,10 +619,10 @@ function PixelMiniMapHud() {
           dot(e.x, e.y, e.psycho ? "#bd00ff" : "#ff2a3c", "");
         }
       }
-      for (const rp of G.remotePlayers || []) dot(rp.x, rp.y, "#bd00ff", "");
+      for (const rp of G.remotePlayers || []) if (Number(rp.hp) > 0) dot(rp.x, rp.y, "#bd00ff", "");
       if (G.bounty) dot(G.bounty.x, G.bounty.y, G.bounty.psycho ? "#bd00ff" : "#ff2a3c", "X", true);
       if (G.airdrop) dot(G.airdrop.x, G.airdrop.y, "#ff6a00", "X", true);
-      dot(G.p.x, G.p.y, "#05d9e8", "P");
+      if (G.state !== "dead" && G.p.hp > 0) dot(G.p.x, G.p.y, "#05d9e8", "P");
 
       raf = requestAnimationFrame(draw);
     };
@@ -957,7 +957,14 @@ export default function GameCanvas() {
   const [needsCharacter, setNeedsCharacter] = useState(false);
   const [characterNameDraft, setCharacterNameDraft] = useState(playerName || "V");
   const [characterGender, setCharacterGender] = useState("m");
+  const [characterLifepath, setCharacterLifepath] = useState("streetkid");
+  const [lifepathHovered, setLifepathHovered] = useState("streetkid");
+  const [jsxBanner, setJsxBanner] = useState(null);
+  const [jsxMsgs, setJsxMsgs] = useState([]);
   const installAccount = (payload, persist = true) => {
+    try {
+      localStorage.removeItem("ncpx_logout_pending");
+    } catch (e) {}
     const account = payload?.account;
     const token = payload?.token || "";
     if (!account?.id) return;
@@ -995,15 +1002,25 @@ export default function GameCanvas() {
       try {
         saved = JSON.parse(localStorage.getItem(ACCOUNT_KEY));
       } catch (error) {}
+      let logoutPending = "false";
+      try {
+        logoutPending = localStorage.getItem("ncpx_logout_pending") || "false";
+      } catch (e) {}
       if (!saved?.account?.id || !saved?.token) {
-        if (!cancelled) {
-          setAuthReady(true);
-          setAuthMessage(
-            language === "vi" ? "CHƯA CÓ TÀI KHOẢN" : "NO ACCOUNT",
-          );
-          setBootStage("slot");
+        if (logoutPending === "true") {
+          if (!cancelled) {
+            setAuthReady(true);
+            setAuthMessage(
+              language === "vi" ? "ĐÃ ĐĂNG XUẤT" : "SIGNED OUT",
+            );
+            setBootStage("slot");
+          }
+          return;
+        } else {
+          const fallback = localQuickAccount("V");
+          installAccount(fallback, true);
+          saved = fallback;
         }
-        return;
       }
       try {
         const res = await fetch("/api/account/quick", {
@@ -1325,6 +1342,9 @@ export default function GameCanvas() {
 
   // Sync state loop from window.G
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.__NCPX_JSX_BANNERS = true;
+    }
     let animFrame;
     const poll = () => {
       try {
@@ -1357,6 +1377,31 @@ export default function GameCanvas() {
             slot: window.G.slot || 0,
             reloadT: window.G.p ? window.G.p.reloadT || 0 : 0,
           });
+
+          // Sync JSX Banner state
+          if (window.G.bannerO && window.G.bannerO.t > 0) {
+            setJsxBanner({
+              text: window.G.bannerO.text,
+              sub: window.G.bannerO.sub,
+              col: window.G.bannerO.col,
+              t: window.G.bannerO.t,
+            });
+          } else {
+            setJsxBanner(null);
+          }
+
+          // Sync JSX Messages state
+          if (window.G.msgs) {
+            setJsxMsgs(
+              window.G.msgs.map((m) => ({
+                text: m.text,
+                col: m.col,
+                t: m.t,
+              })),
+            );
+          } else {
+            setJsxMsgs([]);
+          }
         }
       } catch (err) {
         // Safe check: do not halt the animation loop if some objects are not initialized yet
@@ -1599,6 +1644,12 @@ export default function GameCanvas() {
           "ready",
           language === "vi" ? "THIẾT BỊ ĐÃ SẴN SÀNG" : "DECK LOADED",
         );
+
+        // Auto Jack-in straight to game, bypassing title and menus
+        setIsJackedIn(true);
+        if (window.__boot && !window.__NCPX_GAME_RUNNING) {
+          window.__boot();
+        }
       } catch (error) {
         setStatus(
           "error",
@@ -1628,6 +1679,7 @@ export default function GameCanvas() {
 
   // Terminal scroll animation
   useEffect(() => {
+    if (isJackedIn) return;
     if (status === "ready" || window.__NCPX_GAME_SCRIPTS_LOADED) {
       let currentIdx = 0;
       const stepsList = language === "vi" ? BOOT_STEPS_VI : BOOT_STEPS_EN;
@@ -1656,7 +1708,7 @@ export default function GameCanvas() {
       }, 160);
       return () => clearInterval(interval);
     }
-  }, [status, language]);
+  }, [status, language, isJackedIn]);
 
   useEffect(() => {
     window.NCPX_LANG = language;
@@ -1729,6 +1781,7 @@ export default function GameCanvas() {
       name,
       gang: "SOLO",
       gender: characterGender,
+      lifepath: characterLifepath,
     };
     window.__NCPX_CHARACTER_READY = true;
     setNeedsCharacter(false);
@@ -2030,6 +2083,58 @@ export default function GameCanvas() {
                 {language === "vi" ? "DÒ SÓNG" : "TUNE"}
               </button>
             </div>
+          </div>
+
+          {/* Option 5: Game Settings Pause Menu */}
+          <div className="retro-system-row">
+            <div className="retro-system-label-group">
+              <span className="retro-system-icon">⚙️</span>
+              <span className="retro-system-label">
+                {language === "vi" ? "THIẾT LẬP TRÒ CHƠI" : "GAME SETTINGS"}
+              </span>
+            </div>
+            <button
+              className="retro-arcade-btn primary"
+              onClick={() => {
+                playSynthSfx("click");
+                if (window.G) window.G.ui = "pause";
+              }}
+              style={{ width: "auto", padding: "8px 16px" }}
+            >
+              {language === "vi" ? "MỞ THIẾT LẬP" : "OPEN SETTINGS"}
+            </button>
+          </div>
+
+          {/* Option 6: Account Sign Out / Logout */}
+          <div className="retro-system-row logout-row" style={{ marginTop: "16px", borderTop: "1px dashed rgba(255, 42, 109, 0.3)", paddingTop: "16px" }}>
+            <div className="retro-system-label-group">
+              <span className="retro-system-icon">🚪</span>
+              <span className="retro-system-label">
+                {language === "vi" ? "ĐĂNG XUẤT TÀI KHOẢN" : "ACCOUNT SIGN OUT"}
+              </span>
+            </div>
+            <button
+              className="retro-arcade-btn cancel-btn"
+              onClick={() => {
+                playSynthSfx("click");
+                try {
+                  localStorage.removeItem(ACCOUNT_KEY);
+                  localStorage.setItem("ncpx_logout_pending", "true");
+                } catch (e) {}
+                setActiveAccount(null);
+                setAccountToken("");
+                setAccount(null);
+                setIsJackedIn(false);
+                setBootStage("slot");
+                if (typeof window !== "undefined") {
+                  window.__NCPX_GAME_RUNNING = false;
+                  window.location.reload();
+                }
+              }}
+              style={{ width: "auto", padding: "8px 16px" }}
+            >
+              {language === "vi" ? "ĐĂNG XUẤT" : "SIGN OUT"}
+            </button>
           </div>
         </div>
       </div>
@@ -4316,28 +4421,7 @@ export default function GameCanvas() {
       )}
       {isJackedIn && <PixelWeaponHud player={playerState} />}
       {isJackedIn && <PixelMiniMapHud />}
-      {/* Top Center Controls (Settings + Language) */}
-      <div className="top-center-controls">
-        {/* Settings Panel Toggle */}
-        {(status === "ready" ||
-          status === "synced" ||
-          (typeof window !== "undefined" &&
-            window.__NCPX_GAME_SCRIPTS_LOADED)) && (
-          <div className="settings-btn-panel">
-            <button
-              type="button"
-              className="settings-btn"
-              onClick={() => {
-                playSynthSfx("click");
-                if (window.G) window.G.ui = "pause";
-              }}
-              onMouseEnter={() => playSynthSfx("hover")}
-            >
-              ⚙️ {language === "vi" ? "THIẾT LẬP" : "SETTINGS"}
-            </button>
-          </div>
-        )}
-      </div>
+      {/* Top Center Controls Removed */}
 
       {activeUi && (
         <div className="cyber-modal-overlay" onClick={closeModal}>
@@ -4361,6 +4445,33 @@ export default function GameCanvas() {
       {/* Main Canvas Container with CRT scanning lines filter */}
       <div className={`canvas-wrapper ${crtActive ? "crt-active" : ""}`}>
         <canvas id="cv" width="640" height="360" />
+        
+        {/* Premium JSX Notification Banner */}
+        {jsxBanner && (
+          <div className="jsx-banner-alert" style={{ "--banner-col": jsxBanner.col }}>
+            <div className="banner-alert-hazard-line"></div>
+            <div className="banner-alert-content">
+              <span className="banner-alert-warning-icon">⚠</span>
+              <div className="banner-alert-text-block">
+                <h2 className="banner-alert-title">{jsxBanner.text}</h2>
+                {jsxBanner.sub && <p className="banner-alert-subtitle">{jsxBanner.sub}</p>}
+              </div>
+            </div>
+            <div className="banner-alert-hazard-line"></div>
+          </div>
+        )}
+
+        {/* Premium JSX Messages Logs Overlay */}
+        {jsxMsgs && jsxMsgs.length > 0 && (
+          <div className="jsx-msgs-container">
+            {jsxMsgs.slice(-5).map((m, idx) => (
+              <div key={idx} className="jsx-msg-item" style={{ "--msg-col": m.col, opacity: Math.min(1, m.t) }}>
+                <span className="msg-bullet"></span>
+                <span className="msg-text">{m.text}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Netrunner Sidebar Database Panel */}
@@ -4437,7 +4548,10 @@ export default function GameCanvas() {
       {/* Premium Cyber Loading Splashscreen Overlay */}
       {!isJackedIn && (
         <div className={`boot-overlay ${isGlitching ? "glitch-out" : ""}`}>
-          <div className="cyber-splash-container">
+          <div className={`cyber-splash-container ${
+            bootStage === "char-create" || needsCharacter ? "wide-char" : 
+            bootStage === "slot" ? "wide-login" : ""
+          }`}>
             {/* Hologram/Branding Header */}
             <div className="cyber-splash-header">
               <div className="cyber-logo-glitch" data-text="NIGHT CITY">
@@ -4552,6 +4666,11 @@ export default function GameCanvas() {
                   setBootStage("menu");
                 }}
               >
+                <div className="cabinet-marquee">
+                  <span className="marquee-star">★</span>
+                  <span className="marquee-text">{language === "vi" ? "NHẤN ĐỂ CHƠI" : "INSERT COIN"}</span>
+                  <span className="marquee-star">★</span>
+                </div>
                 <div className="retro-press-start blinking">
                   {language === "vi" ? "NHẤN ENTER ĐỂ BẮT ĐẦU" : "PRESS ENTER TO START"}
                 </div>
@@ -4622,166 +4741,275 @@ export default function GameCanvas() {
 
             {/* Stage: Character Creation */}
             {(bootStage === "char-create" || needsCharacter) && (
-              <div className="retro-slot-panel character-create-panel">
+              <div className="retro-slot-panel character-create-panel wide">
                 <div className="retro-panel-title">
-                  {language === "vi" ? "TẠO NHÂN VẬT" : "CREATE CHARACTER"}
+                  {language === "vi" ? "THIẾT LẬP THẦN KINH V2077" : "NEURAL CONFIGURATION V2077"}
                 </div>
 
-                <div className="retro-avatar-selection">
-                  <div
-                    className={`retro-avatar-card ${characterGender === "m" ? "active" : ""}`}
-                    onClick={() => {
-                      setCharacterGender("m");
-                      playSynthSfx("hover");
-                    }}
-                  >
-                    <BootCharacterPreview gender="m" active={characterGender === "m"} />
-                    <div className="retro-avatar-label">
-                      {language === "vi" ? "NAM V" : "MALE V"}
+                <div className="character-create-columns">
+                  {/* Left Column: Holographic Bios Pod */}
+                  <div className="char-bios-pod">
+                    <div className="pod-header">
+                      <span className="pod-pulse-dot"></span>
+                      <span>{language === "vi" ? "THIẾT BỊ CẤY GHÉP HOẠT ĐỘNG" : "BIOPOD ACTIVATED"}</span>
+                    </div>
+
+                    <div className="pod-preview-wrapper">
+                      <div className="pod-grid-bg"></div>
+                      <div className="pod-scanline"></div>
+                      <BootCharacterPreview gender={characterGender} active={true} />
+                    </div>
+
+                    <div className="pod-stats-panel">
+                      <div className="pod-stat-title">{language === "vi" ? "CHỈ SỐ TIỀM NĂNG" : "COGNITIVE ATTRIBUTES"}</div>
+                      {(() => {
+                        const lpStats = {
+                          nomad: { ref: 8, bdy: 7, int: 5, tec: 8, col: 6 },
+                          streetkid: { ref: 7, bdy: 6, int: 7, tec: 5, col: 9 },
+                          corpo: { ref: 6, bdy: 5, int: 9, tec: 7, col: 7 }
+                        }[characterLifepath] || { ref: 7, bdy: 6, int: 7, tec: 5, col: 9 };
+                        
+                        const statsLabels = [
+                          { key: "ref", label: language === "vi" ? "PHẢN XẠ / REF" : "REFLEXES" },
+                          { key: "bdy", label: language === "vi" ? "THỂ CHẤT / BDY" : "BODY" },
+                          { key: "int", label: language === "vi" ? "TRÍ TUỆ / INT" : "INTELLIGENCE" },
+                          { key: "tec", label: language === "vi" ? "KỸ THUẬT / TEC" : "TECHNICAL" },
+                          { key: "col", label: language === "vi" ? "BẢN LĨNH / COL" : "COOL" }
+                        ];
+                        
+                        return statsLabels.map(s => (
+                          <div key={s.key} className="pod-stat-row">
+                            <span className="stat-label">{s.label}</span>
+                            <div className="stat-bar-track">
+                              <div className="stat-bar-fill" style={{ width: `${lpStats[s.key] * 10}%` }}></div>
+                            </div>
+                            <span className="stat-val">{lpStats[s.key]}/10</span>
+                          </div>
+                        ));
+                      })()}
                     </div>
                   </div>
-                  <div
-                    className={`retro-avatar-card ${characterGender === "f" ? "active" : ""}`}
-                    onClick={() => {
-                      setCharacterGender("f");
-                      playSynthSfx("hover");
-                    }}
-                  >
-                    <BootCharacterPreview gender="f" active={characterGender === "f"} />
-                    <div className="retro-avatar-label">
-                      {language === "vi" ? "NỮ V" : "FEMALE V"}
+
+                  {/* Right Column: Configuration Details */}
+                  <div className="char-config-details">
+                    <div className="config-section">
+                      <label className="config-section-label">
+                        {language === "vi" ? "1. GIỚI TÍNH SINH HỌC:" : "1. BIOLOGICAL GENDER:"}
+                      </label>
+                      <div className="character-gender-row">
+                        <div
+                          className={`character-gender-btn ${characterGender === "m" ? "active" : ""}`}
+                          onClick={() => {
+                            setCharacterGender("m");
+                            playSynthSfx("hover");
+                          }}
+                        >
+                          {language === "vi" ? "MALE V / NAM V" : "MALE V"}
+                        </div>
+                        <div
+                          className={`character-gender-btn ${characterGender === "f" ? "active" : ""}`}
+                          onClick={() => {
+                            setCharacterGender("f");
+                            playSynthSfx("hover");
+                          }}
+                        >
+                          {language === "vi" ? "FEMALE V / NỮ V" : "FEMALE V"}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="config-section">
+                      <label className="config-section-label">
+                        {language === "vi" ? "2. LỰA CHỌN XUẤT THÂN:" : "2. SELECT LIFEPATH:"}
+                      </label>
+                      <div className="lifepath-selector-row">
+                        {["nomad", "streetkid", "corpo"].map(lp => (
+                          <div
+                            key={lp}
+                            className={`lifepath-card ${characterLifepath === lp ? "active" : ""}`}
+                            onClick={() => {
+                              setCharacterLifepath(lp);
+                              playSynthSfx("hover");
+                            }}
+                            onMouseEnter={() => setLifepathHovered(lp)}
+                          >
+                            <span className="lp-dot"></span>
+                            <span className="lp-name">{lp.toUpperCase()}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="lifepath-desc-box">
+                        <div className="lp-desc-title">{lifepathHovered.toUpperCase()}</div>
+                        <div className="lp-desc-text">
+                          {lifepathHovered === "nomad" ? 
+                            (language === "vi" ? "Lớn lên ở Badlands, lục lọi bãi phế thải và cướp kho xăng. Tự do và tự lập là tất cả trong vùng hoang dã." : "Grew up in the Badlands, scavenging dumps and raiding fuel depots. Freedom and self-reliance are everything in the wastes.") :
+                           lifepathHovered === "streetkid" ?
+                            (language === "vi" ? "Muốn hiểu đường phố thì phải sống ở đó. Băng đảng và fixers là gia đình của bạn. Bạn thuộc lòng mọi ngóc ngách Night City." : "They say if you want to understand the streets, you gotta live 'em. Gangs and fixers are your family. You know every dark corner of Night City.") :
+                            (language === "vi" ? "Ít ai rời khỏi giới tập đoàn với linh hồn nguyên vẹn. Bạn đã bước qua các sảnh Arasaka, dùng bí mật bẩn thỉu để thăng tiến." : "Few leave the corporate world with their souls intact. You've walked the high-stress halls of Arasaka, using dirty secrets to climb the corporate ladder.")
+                          }
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="config-section">
+                      <div className="retro-codename-container">
+                        <label className="retro-codename-label">
+                          {language === "vi" ? "3. MẬT DANH NEURAL:" : "3. NEURAL CODENAME:"}
+                        </label>
+                        <input
+                          className="retro-codename-input"
+                          value={characterNameDraft}
+                          maxLength={18}
+                          onChange={(e) => setCharacterNameDraft(e.target.value)}
+                          placeholder="V"
+                          autoFocus
+                        />
+                      </div>
+                    </div>
+
+                    <div className="retro-char-actions">
+                      <button
+                        className="retro-arcade-btn primary"
+                        onClick={handleCreateCharacter}
+                      >
+                        {language === "vi" ? "BẮT ĐẦU NHIỆM VỤ" : "START MISSION"}
+                      </button>
+                      <button
+                        className="retro-arcade-btn secondary"
+                        onClick={() => {
+                          playSynthSfx("click");
+                          setNeedsCharacter(false);
+                          setBootStage("menu");
+                        }}
+                      >
+                        {language === "vi" ? "QUAY LẠI" : "BACK"}
+                      </button>
+                    </div>
+
+                    <div className="retro-status-msg">
+                      {language === "vi"
+                        ? "CHỈ KHỞI TẠO MỘT LẦN CHO SLOT NÀY"
+                        : "CREATED ONCE FOR THIS SLOT"}
                     </div>
                   </div>
-                </div>
-
-                <div className="retro-codename-container">
-                  <label className="retro-codename-label">
-                    {language === "vi" ? "MẬT DANH / CODENAME:" : "CODENAME:"}
-                  </label>
-                  <input
-                    className="retro-codename-input"
-                    value={characterNameDraft}
-                    maxLength={18}
-                    onChange={(e) => setCharacterNameDraft(e.target.value)}
-                    placeholder="V"
-                    autoFocus
-                  />
-                </div>
-
-                <div className="retro-char-actions">
-                  <button
-                    className="retro-arcade-btn primary"
-                    onClick={handleCreateCharacter}
-                  >
-                    {language === "vi" ? "BẮT ĐẦU NHIỆM VỤ" : "START MISSION"}
-                  </button>
-                  <button
-                    className="retro-arcade-btn secondary"
-                    onClick={() => {
-                      playSynthSfx("click");
-                      setNeedsCharacter(false);
-                      setBootStage("menu");
-                    }}
-                  >
-                    {language === "vi" ? "QUAY LẠI" : "BACK"}
-                  </button>
-                </div>
-
-                <div className="retro-status-msg">
-                  {language === "vi"
-                    ? "CHỈ TẠO MỘT LẦN CHO SLOT NÀY"
-                    : "CREATED ONCE FOR THIS SLOT"}
                 </div>
               </div>
             )}
 
             {/* Stage: Choose Slot (Accounts) */}
             {bootStage === "slot" && (
-              <div className="retro-slot-panel">
+              <div className="retro-slot-panel login-portal-panel">
                 <div className="retro-panel-title">
-                  {language === "vi" ? "CHỌN SLOT TÀI KHOẢN" : "CHOOSE SLOT"}
+                  {language === "vi" ? "CỔNG XÁC THỰC THẦN KINH" : "NEURAL SECURITY GATEWAY"}
                 </div>
 
-                <div className="retro-form-section">
-                  <div className="retro-input-group">
-                    <label>{language === "vi" ? "TÊN TÀI KHOẢN:" : "ACCOUNT NAME:"}</label>
-                    <input
-                      className="retro-codename-input"
-                      value={accountNameDraft}
-                      maxLength={18}
-                      onChange={(e) => setAccountNameDraft(e.target.value)}
-                      placeholder={language === "vi" ? "NHẬP TÊN" : "ENTER NAME"}
-                    />
+                <div className="login-portal-columns">
+                  {/* Left Column: Register */}
+                  <div className="login-column">
+                    <div className="login-column-header">
+                      <span className="column-icon">⚡</span>
+                      <span>{language === "vi" ? "ĐĂNG KÝ TÂN MERCS" : "NEW REGISTRATION"}</span>
+                    </div>
+
+                    <div className="retro-input-group">
+                      <label>{language === "vi" ? "TÊN TÀI KHOẢN:" : "ACCOUNT NAME:"}</label>
+                      <input
+                        className="retro-codename-input"
+                        value={accountNameDraft}
+                        maxLength={18}
+                        onChange={(e) => setAccountNameDraft(e.target.value)}
+                        placeholder={language === "vi" ? "NHẬP TÊN" : "ENTER NAME"}
+                      />
+                    </div>
+
+                    <div className="retro-button-group">
+                      <button
+                        className="retro-arcade-btn primary"
+                        disabled={authBusy}
+                        onClick={handleQuickAccount}
+                      >
+                        {authBusy
+                          ? language === "vi"
+                            ? "ĐANG TẠO..."
+                            : "CREATING..."
+                          : language === "vi"
+                            ? "ĐĂNG NHẬP NHANH"
+                            : "QUICK SIGN IN"}
+                      </button>
+
+                      <button
+                        className="retro-arcade-btn google"
+                        disabled={authBusy}
+                        onClick={handleGoogleAccount}
+                      >
+                        {authBusy
+                          ? language === "vi"
+                            ? "ĐANG KẾT NỐI..."
+                            : "CONNECTING..."
+                          : language === "vi"
+                            ? "ĐĂNG NHẬP GOOGLE"
+                            : "SIGN IN WITH GOOGLE"}
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="retro-button-group">
+                  {/* Right Column: Code Recovery */}
+                  <div className="login-column">
+                    <div className="login-column-header">
+                      <span className="column-icon">🔑</span>
+                      <span>{language === "vi" ? "MÃ TRUY CẬP PHỤC HỒI" : "RECOVERY CODE ACCESS"}</span>
+                    </div>
+
+                    <div className="retro-input-group">
+                      <label>{language === "vi" ? "MÃ TOKEN (ACCOUNT:TOKEN):" : "TOKEN CODE (ACCOUNT:TOKEN):"}</label>
+                      <input
+                        className="retro-codename-input token-input"
+                        value={loginCodeDraft}
+                        onChange={(e) => setLoginCodeDraft(e.target.value)}
+                        placeholder="acct_xxx:ncp_xxx"
+                      />
+                    </div>
+
                     <button
-                      className="retro-arcade-btn primary"
+                      className="retro-arcade-btn secondary"
                       disabled={authBusy}
-                      onClick={handleQuickAccount}
+                      onClick={handleLoginCode}
                     >
-                      {authBusy
-                        ? language === "vi"
-                          ? "ĐANG TẠO..."
-                          : "CREATING..."
-                        : language === "vi"
-                          ? "ĐĂNG NHẬP NHANH"
-                          : "QUICK SIGN IN"}
-                    </button>
-
-                    <button
-                      className="retro-arcade-btn google"
-                      disabled={authBusy}
-                      onClick={handleGoogleAccount}
-                    >
-                      {authBusy
-                        ? language === "vi"
-                          ? "ĐANG KẾT NỐI..."
-                          : "CONNECTING..."
-                        : language === "vi"
-                          ? "ĐĂNG NHẬP GOOGLE"
-                          : "SIGN IN WITH GOOGLE"}
+                      {language === "vi" ? "XÁC THỰC MÃ CODE" : "SIGN IN WITH CODE"}
                     </button>
                   </div>
                 </div>
 
-                <div className="quick-divider">
-                  <span>{language === "vi" ? "HOẶC DÙNG MÃ KHỞI PHỤC" : "OR USE RECOVERY CODE"}</span>
-                </div>
-
-                <div className="retro-form-section">
-                  <div className="retro-input-group">
-                    <label>{language === "vi" ? "MÃ TOKEN (ACCOUNT:TOKEN):" : "TOKEN CODE (ACCOUNT:TOKEN):"}</label>
-                    <input
-                      className="retro-codename-input token-input"
-                      value={loginCodeDraft}
-                      onChange={(e) => setLoginCodeDraft(e.target.value)}
-                      placeholder="acct_xxx:ncp_xxx"
-                    />
+                <div className="login-status-footer">
+                  <div className="terminal-status-logs">
+                    <div className="log-line">
+                      <span className="log-cyan">[SYS]</span> {language === "vi" ? "KHỞI ĐỘNG LIÊN KẾT... OK" : "LINK STARTING... OK"}
+                    </div>
+                    <div className="log-line">
+                      <span className="log-magenta">[SEC]</span> {language === "vi" ? "BẢO MẬT MATRIX: CHÂN THỰC 100%" : "MATRIX AUTH: 100% SECURE"}
+                    </div>
+                    {authMessage && (
+                      <div className="log-line log-yellow">
+                        <span className="log-yellow">[FDB]</span> {authMessage}
+                      </div>
+                    )}
                   </div>
 
-                  <button
-                    className="retro-arcade-btn secondary"
-                    disabled={authBusy}
-                    onClick={handleLoginCode}
-                  >
-                    {language === "vi" ? "ĐĂNG NHẬP BẰNG MÃ" : "SIGN IN WITH CODE"}
-                  </button>
+                  <div className="login-actions-row">
+                    {activeAccount && (
+                      <button
+                        className="retro-arcade-btn cancel-btn"
+                        onClick={() => {
+                          playSynthSfx("click");
+                          setBootStage("menu");
+                        }}
+                      >
+                        {language === "vi" ? "QUAY LẠI MENU" : "BACK TO MENU"}
+                      </button>
+                    )}
+                  </div>
                 </div>
-
-                {activeAccount && (
-                  <button
-                    className="retro-arcade-btn cancel-btn"
-                    onClick={() => {
-                      playSynthSfx("click");
-                      setBootStage("menu");
-                    }}
-                  >
-                    {language === "vi" ? "QUAY LẠI MENU" : "BACK TO MENU"}
-                  </button>
-                )}
-
-                <div className="retro-status-msg">{authMessage}</div>
               </div>
             )}
           </div>
@@ -4844,6 +5072,7 @@ function setupRealtimeBridge(getStore) {
     invites: [],
     requests: [],
     events: [],
+    dropEvents: [],
     npcState: null,
     npcEvents: [],
     connected: false,
@@ -4866,6 +5095,16 @@ function setupRealtimeBridge(getStore) {
       net.ws.send(
         JSON.stringify({ type: "hit", to: playerId, ...(payload || {}) }),
       );
+    },
+    combatFx(payload) {
+      if (!net.ws || net.ws.readyState !== WebSocket.OPEN || !payload?.kind)
+        return;
+      net.ws.send(JSON.stringify({ type: "combatFx", ...(payload || {}) }));
+    },
+    playerDrop(payload) {
+      if (!net.ws || net.ws.readyState !== WebSocket.OPEN || !payload?.drops?.length)
+        return;
+      net.ws.send(JSON.stringify({ type: "playerDrop", ...(payload || {}) }));
     },
     sendNpcState(snapshot) {
       if (
@@ -4901,6 +5140,11 @@ function setupRealtimeBridge(getStore) {
     takeEvents() {
       const out = net.events;
       net.events = [];
+      return out;
+    },
+    takeDropEvents() {
+      const out = net.dropEvents;
+      net.dropEvents = [];
       return out;
     },
     takeNpcEvents() {
@@ -4961,9 +5205,14 @@ function setupRealtimeBridge(getStore) {
           typeof performance !== "undefined" ? performance.now() : Date.now();
         net.hostId = msg.hostId || net.hostId;
         net.isHost = !!net.hostId && net.hostId === net.id;
+        const liveIds = new Set();
         for (const p of msg.players || []) {
           if (!p || p.id === net.id) continue;
+          liveIds.add(p.id);
           net.playerCache.set(p.id, { ...p, _seenAt: seenAt });
+        }
+        for (const id of net.playerCache.keys()) {
+          if (!liveIds.has(id)) net.playerCache.delete(id);
         }
         const keepMs = net.connected ? 20000 : 45000;
         net.players = [...net.playerCache.values()].filter((p) => {
@@ -4982,7 +5231,10 @@ function setupRealtimeBridge(getStore) {
           msg,
           ...net.requests.filter((req) => req.from !== msg.from),
         ].slice(0, 4);
-      if (msg.type === "damage") net.events = [msg, ...net.events].slice(0, 12);
+      if (msg.type === "damage" || msg.type === "combatFx")
+        net.events = [msg, ...net.events].slice(0, 24);
+      if (msg.type === "playerDrop")
+        net.dropEvents = [msg, ...net.dropEvents].slice(0, 12);
       if (msg.type === "npcState") net.npcState = msg;
       if (msg.type === "npcHit")
         net.npcEvents = [msg, ...net.npcEvents].slice(0, 24);

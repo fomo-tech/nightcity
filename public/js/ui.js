@@ -369,8 +369,10 @@ function drawHUD(c) {
     const objW = portrait ? 128 : 158;
     drawObjectivePanel(c, VIEW_W - objW - 8, mmMy + mmS + 9, objW);
   }
-  drawMsgs(c);
-  drawBanner(c);
+  if (!(typeof window !== 'undefined' && window.__NCPX_JSX_BANNERS)) {
+    drawMsgs(c);
+    drawBanner(c);
+  }
   // edge markers
   if (G.bounty) edgeArrow(c, G.bounty.x, G.bounty.y, G.bounty.psycho ? '#bd00ff' : '#ff2a3c');
   if (G.airdrop) edgeArrow(c, G.airdrop.x, G.airdrop.y, '#ff6a00');
@@ -423,12 +425,12 @@ function drawMinimap(c) {
     else if (n.kind === 'joy' || n.kind === 'doll') dot(n.x, n.y, '#ff2a6d', 'J');
   }
   for (const e of G.enemies) if (!e.dead && (e.bounty || e.psycho || e.war || G.cyber.kiroshi)) dot(e.x, e.y, e.psycho ? '#bd00ff' : factionColor(e.fac));
-  for (const rp of G.remotePlayers || []) dot(rp.x, rp.y, String(rp.gang || '').toUpperCase() === ((window.NCPX_PLAYER && window.NCPX_PLAYER.gang) || '').toUpperCase() ? '#00ff9f' : '#bd00ff');
+  for (const rp of G.remotePlayers || []) if (Number(rp.hp) > 0) dot(rp.x, rp.y, String(rp.gang || '').toUpperCase() === ((window.NCPX_PLAYER && window.NCPX_PLAYER.gang) || '').toUpperCase() ? '#00ff9f' : '#bd00ff');
   if (G.bounty && (G.frame / 20 | 0) % 2) dot(G.bounty.x, G.bounty.y, G.bounty.psycho ? '#bd00ff' : '#ff2a3c', '×');
   if (G.airdrop && (G.frame / 14 | 0) % 2) dot(G.airdrop.x, G.airdrop.y, '#ff6a00', '×');
   if (!G.skippyFound && distPx(p.x, p.y, WORLD.skippySpot.x, WORLD.skippySpot.y) < 500) dot(WORLD.skippySpot.x, WORLD.skippySpot.y, '#f9f002', '?');
   // player
-  dot(p.x, p.y, '#e8f6ff');
+  if (G.state !== 'dead' && p.hp > 0) dot(p.x, p.y, '#e8f6ff');
 }
 
 function edgeArrow(c, wx, wy, col) {

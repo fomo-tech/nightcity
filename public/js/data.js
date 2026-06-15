@@ -136,6 +136,10 @@ const FACTIONS = {
   sixth:     { name:'6TH STREET',  gun:0.65, pal:{ H:'#4a3826', S:'#d8a87c', E:'#f5b83d', J:'#1d2a4a', T:'#f5b83d', P:'#26262e', B:'#14141a' } },
   voodoo:    { name:'VOODOO BOY',  gun:0.6,  pal:{ H:'#0c0c10', S:'#7a5642', E:'#00ff9f', J:'#11281e', T:'#00ff9f', P:'#161e1a', B:'#0c0c10' } },
   barghest:  { name:'BARGHEST',    gun:0.8,  pal:{ H:'#1a1a14', S:'#c8a078', E:'#ff6a00', J:'#262a1c', T:'#ff6a00', P:'#1e2018', B:'#101008' } },
+  valentinos:{ name:'VALENTINOS',  gun:0.55, pal:{ H:'#171010', S:'#d8a87c', E:'#f9f002', J:'#2c1418', T:'#ff2a6d', P:'#1a1014', B:'#090608' } },
+  mox:       { name:'MOX',         gun:0.5,  pal:{ H:'#ff2a6d', S:'#e8b88a', E:'#05d9e8', J:'#24122a', T:'#bd00ff', P:'#17101d', B:'#0a0610' } },
+  wraiths:   { name:'WRAITHS',     gun:0.62, pal:{ H:'#24180c', S:'#c89564', E:'#ff9f1c', J:'#2c2018', T:'#ff6a00', P:'#18120e', B:'#0a0704' } },
+  arasaka:   { name:'ARASAKA',     gun:0.82, pal:{ H:'#08080a', S:'#d8a87c', E:'#ff2a3c', J:'#151518', T:'#e8f6ff', P:'#101014', B:'#050506' } },
 };
 const FACTION_LABELS = {
   scavs: 'BĂNG NHẶT XÁC',
@@ -144,8 +148,25 @@ const FACTION_LABELS = {
   sixth: 'ĐƯỜNG 6',
   voodoo: 'VOODOO',
   barghest: 'BARGHEST',
+  valentinos: 'VALENTINOS',
+  mox: 'MOX',
+  wraiths: 'WRAITHS',
+  arasaka: 'ARASAKA',
 };
-const PLAYER_GANG_NAMES = ['BÓNG ĐÊM', 'RỒNG ĐỎ', 'SÓI PHỐ', 'HẮC LONG', 'SAO NEON', 'BỤI ĐỜI'];
+const GANG_NPC_NAMES = {
+  scavs: ['BONE SAW','RUST JOY','MƯỜI SẸO','BLOOD NICK','CROWBAR','MẮT ĐỎ'],
+  maelstrom: ['HEX WIRE','REDLINE','CHROME LEE','VEX','SPARK','MÁY XÉ'],
+  tygers: ['AKI','KAZ','NEON HAN','YORI','KIRA','MÓNG ĐEN'],
+  sixth: ['BRAVO','MAVERICK','DUSTY','OLD GLORY','COBRA','HARDCASE'],
+  voodoo: ['MAMAN RUE','ZERO DAY','GHOST I/O','PATCH','LWA','NET RAIN'],
+  barghest: ['KURT JR','DOGTOWN VIC','ORANGE','BUNKER','HOUND','IRON GATE'],
+  valentinos: ['PADRE ROJO','SANTO','LUPE','DIEGO','MIRA','CRUZ'],
+  mox: ['RITA','JUDY X','GLITTER','DOLLIE','VIV','PINKWIRE'],
+  wraiths: ['DUST KING','RIPPER JACK','NASH II','SALT','RAZOR','DRYLAND'],
+  arasaka: ['KENSEN','BLACK SUIT','HANA','TAK','ZERO FOX','KAGE'],
+};
+const SHOP_VENDOR_NAMES = { guns:'QUÂN', ripper:'SƠN', cars:'TÚ', bar:'LAN', casino:'TÀI', clothing:'TRANG' };
+const PLAYER_GANG_NAMES = ['BÓNG ĐÊM', 'RỒNG ĐỎ', 'SÓI PHỐ', 'HẮC LONG', 'SAO NEON', 'BỤI ĐỜI', 'LƯỠI ĐÈN', 'MẠCH ĐEN', 'PHỐ MƯA', 'NOVA CREW'];
 const PLAYER_GANG_ICONS = [
   { mark:'SK', name:'ĐẦU LÂU', col:'#ff2a6d' },
   { mark:'NX', name:'NEON X', col:'#05d9e8' },

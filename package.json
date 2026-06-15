@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "NODE_ENV=production node server.js",
     "smoke": "node test/smoke.js",
-    "check:js": "node --check js/*.js"
+    "check:js": "node --check public/js/*.js"
   },
   "dependencies": {
     "mongodb": "^6.20.0",

@@ -44,7 +44,7 @@ global.document = {
 };
 
 // ---- load game scripts in one shared scope (same order as index.html) ----
-const files = ['js/font.js', 'js/i18n.js', 'js/data.js', 'js/sfx.js', 'js/sprites.js', 'js/world.js', 'js/ui.js', 'js/game.js', 'mods/mods.js'];
+const files = ['public/js/font.js', 'public/js/i18n.js', 'public/js/data.js', 'public/js/sfx.js', 'public/js/sprites.js', 'public/js/world.js', 'public/js/ui.js', 'public/js/game.js', 'public/mods/mods.js'];
 const src = files.map(f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8')).join('\n');
 vm.runInThisContext(src, { filename: 'bundle.js' });
 
@@ -192,11 +192,28 @@ G.maxdocs = 0; vendBuy(); assert(G.maxdocs === 1, 'vending works');
 barSelect(0); assert(G.p.hp === G.p.maxhp && G.p.buffT > 0, 'bar drink works');
 
 // death + respawn
+giveWeapon('lexington', true);
+assignSlot('lexington', 1);
+G.slot = 1;
+G.eddies = 1234;
+const deathStates = [];
+window.NCPX_NET = { send: s => deathStates.push(s) };
 G.p.iframes = 0; G.p.hp = 5; G.cyber.second_heart = 0;
 damagePlayer(1e9);
 assert(G.state === 'dead', 'player flatlined');
-steps(260);
+assert(deathStates.some(s => s.hp === 0), 'death sends hp 0 to realtime room immediately');
+assert(G.deadT > 9.9, 'death respawn timer is 10 seconds');
+assert(G.eddies === 0, 'death drops all eddies');
+assert(!G.weapons.lexington && G.pickups.some(pk => pk.kind === 'wpn' && pk.id === 'lexington'), 'death drops equipped weapon');
+assert(G.pickups.some(pk => pk.kind === 'ed' && pk.amt === 1234), 'death leaves eddies pickup');
+steps(590);
+assert(G.state === 'dead' && G.pickups.some(pk => pk.deathDrop), 'death drops stay visible while player is gone');
+steps(20);
 assert(G.state === 'play' && G.p.hp === G.p.maxhp, 'respawned');
+delete window.NCPX_NET;
+G.p.iframes = 99999;
+steps(620);
+assert(!G.pickups.some(pk => pk.deathDrop && (pk.id === 'lexington' || pk.amt === 1234)), 'death drops expire after respawn grace');
 
 // save / load roundtrip
 const eddiesBefore = G.eddies, weaponsBefore = Object.keys(G.weapons).length;
@@ -287,6 +304,8 @@ G.pressed.add('KeyE'); steps(2);
 assert(G.ui === 'guns', 'walk-in shop counter opens shop');
 assert(G.prompt && G.prompt.includes('QUÂN'), 'counter prompt names the vendor');
 G.ui = null;
+assert(WORLD.npcs.filter(n => ['QUÂN','SƠN','TÚ','LAN','TÀI','TRANG'].includes(n.name)).length >= 6, 'central shop vendors named');
+assert(distPx(WORLD.shops.casino.x, WORLD.shops.casino.y, WORLD.spawn.x, WORLD.spawn.y) < 520, 'casino moved into city center cluster');
 
 // ---- shop marquees stay visible from outside ----
 const barSign = WORLD.signs.find(s => s.text === 'AFTERLIFE');
@@ -301,6 +320,51 @@ assert(!indoorAt(G.p.x, G.p.y), 'doorstep itself is outdoors (drawn in front of 
 G.p.x = WORLD.spawn.x; G.p.y = WORLD.spawn.y;
 steps(60);
 assert(barRoof.a > 0.85, 'roof restores after stepping away');
+
+// ---- realtime PvP damage text mirrors bot hit numbers ----
+G.remotePlayers = [{ id: 'rp_smoke', name: 'REMOTE', gang: 'SOLO', gangKey: 'solo', x: G.p.x + 14, y: G.p.y, face: 'down', flip: false }];
+G.loadout[0] = 'knife'; G.weapons.knife = { mag: 0 }; G.slot = 0; G.p.aim = 0;
+const textBefore = G.texts.length;
+swingMelee(WPN.knife);
+assert(G.texts.slice(textBefore).some(tx => /^-|\bCRIT -/.test(tx.text)), 'realtime player hit shows damage number');
+assert(G.remotePlayers[0].hp < 100, 'realtime player hp predicts damage locally');
+const slashBefore = G.slashes.length;
+window.NCPX_NET = { connected: true, events: [{ type: 'combatFx', from: 'rp_smoke', kind: 'melee', x: G.p.x + 28, y: G.p.y, a: Math.PI, range: 26, col: '#dfe6f2' }], takeEvents() { const out = this.events; this.events = []; return out; } };
+applyRealtimeEvents(window.NCPX_NET);
+assert(G.slashes.length === slashBefore + 1, 'realtime melee slash fx renders from remote player');
+const bulletBefore = G.bullets.length;
+window.NCPX_NET.events = [{ type: 'combatFx', from: 'rp_smoke', kind: 'fire', x: G.p.x + 44, y: G.p.y, a: Math.PI, pellets: 2, spread: 0, spd: 320, col: '#ffe9a0' }];
+applyRealtimeEvents(window.NCPX_NET);
+assert(G.bullets.length >= bulletBefore + 2 && G.bullets.slice(bulletBefore).some(b => b.fx && b.from === 'fx'), 'realtime gun tracer fx renders from remote player');
+const exactBefore = G.bullets.length;
+window.NCPX_NET.events = [{ type: 'combatFx', from: 'rp_smoke', kind: 'fire', x: G.p.x + 44, y: G.p.y, a: 0, shots: [{ x: 123, y: 234, vx: 456, vy: 78, life: 0.75, col: '#7af2ff' }] }];
+applyRealtimeEvents(window.NCPX_NET);
+const exactBullet = G.bullets[exactBefore];
+assert(exactBullet && exactBullet.x === 123 && exactBullet.y === 234 && exactBullet.vx === 456 && exactBullet.vy === 78 && exactBullet.col === '#7af2ff', 'realtime gun tracer uses exact projectile path');
+const snapBulletBefore = G.bullets.length;
+updateRemotePlayers([{ id: 'rp_smoke', name: 'REMOTE', gang: 'SOLO', gangKey: 'solo', x: G.p.x + 52, y: G.p.y, hp: 100, act: { seq: 7, kind: 'fire', a: Math.PI, pellets: 1, spd: 320, col: '#ffe9a0' } }], 1 / 60);
+assert(G.bullets.length > snapBulletBefore && G.remotePlayers[0].lastActSeq === 7, 'realtime gun tracer fx also renders from player snapshot act');
+updateRemotePlayers([{ id: 'rp_smoke', name: 'REMOTE', gang: 'SOLO', gangKey: 'solo', x: G.p.x + 52, y: G.p.y, hp: 0 }], 1 / 60);
+assert(G.remotePlayers.length === 0 && !G.remoteLerp.rp_smoke, 'dead realtime player disappears immediately');
+window.NCPX_NET = { connected: true };
+updateRemotePlayers([], 1 / 60);
+assert(G.remotePlayers.length === 0, 'missing realtime player is removed immediately while connected');
+delete window.NCPX_NET; G.remotePlayers = [];
+
+// ---- realtime NPC authority: non-host mirrors host snapshot only ----
+G.enemies = [makeEnemy(G.p.x + 70, G.p.y, 1, 'scavs', 'melee', {})];
+window.NCPX_NET = { connected: true, isHost: false, room: 'smoke', players: [], npcState: null, takeEvents: () => [], takeNpcEvents: () => [], send: () => {} };
+steps(2);
+assert(G.enemies.length === 0, 'non-host clears unsynced local gang bots');
+window.NCPX_NET.npcState = { enemies: [{ id: 'host_bot', x: G.p.x + 80, y: G.p.y, hp: 30, maxhp: 30, tier: 1, fac: 'mox', kind: 'melee', state: 'idle', name: 'RITA' }], civs: [] };
+steps(2);
+assert(G.enemies.length === 1 && G.enemies[0].id === 'host_bot' && G.enemies[0].fac === 'mox', 'non-host applies host gang bot snapshot');
+let remoteDrops = [{ fromName: 'REMOTE', drops: [{ kind: 'ed', amt: 77, x: G.p.x + 20, y: G.p.y }, { kind: 'wpn', id: 'knife', x: G.p.x + 24, y: G.p.y }] }];
+window.NCPX_NET.takeDropEvents = () => remoteDrops.splice(0);
+steps(2);
+assert(G.pickups.some(pk => pk.remoteDrop && pk.kind === 'ed' && pk.amt === 77), 'remote player death eddies drop syncs');
+assert(G.pickups.some(pk => pk.remoteDrop && pk.kind === 'wpn' && pk.id === 'knife'), 'remote player death weapon drop syncs');
+delete window.NCPX_NET;
 
 // ---- furniture & NPC collision: the bar counter blocks V ----
 assert(WORLD.obst.length > 20, 'interior obstacles registered');
