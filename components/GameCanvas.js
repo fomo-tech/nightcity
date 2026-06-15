@@ -5,7 +5,7 @@ import { useGameStore } from "@/store/useGameStore";
 
 const SAVE_KEY = "ncpx2077_v1";
 const ACCOUNT_KEY = "ncpx_account_v1";
-const SCRIPT_VERSION = "102";
+const SCRIPT_VERSION = "104";
 const PERFORMANCE_MODE = false;
 const GAME_SCRIPTS = [
   "/js/font.js",
@@ -631,7 +631,19 @@ function PixelWeaponHud({ player }) {
               <span
                 key={i}
                 className={i === (player.slot || 0) ? "active" : ""}
-                style={{ "--slot-col": slotColor }}
+                style={{ "--slot-col": slotColor, cursor: id ? "pointer" : "default" }}
+                onClick={() => {
+                  if (id && win?.G) {
+                    win.G.slot = i;
+                    if (typeof win.cycleSlot === "function") {
+                      win.cycleSlot(0);
+                    } else if (win.G.p) {
+                      win.G.p.reloadT = 0;
+                      win.G.p.fireCd = Math.max(win.G.p.fireCd, 0.12);
+                    }
+                    playSynthSfx("click");
+                  }
+                }}
               >
                 {i + 1}
               </span>
@@ -652,7 +664,7 @@ function PixelWeaponHud({ player }) {
   );
 }
 
-function PixelMiniMapHud() {
+function PixelMiniMapHud({ onOpenMap }) {
   const canvasRef = useRef(null);
   const [pulse, setPulse] = useState(0);
 
@@ -781,7 +793,12 @@ function PixelMiniMapHud() {
   }
 
   return (
-    <section className="pixel-minimap-hud" data-pulse={pulse % 2}>
+    <section
+      className="pixel-minimap-hud"
+      data-pulse={pulse % 2}
+      onClick={onOpenMap}
+      style={{ cursor: "pointer" }}
+    >
       <div className="pixel-minimap-frame">
         <canvas ref={canvasRef} width="92" height="92" />
         <span className="pixel-minimap-corner tl" />
@@ -1024,6 +1041,639 @@ function MapTab({ language }) {
   );
 }
 
+function LargeMapModalContent({ language, onClose }) {
+  const canvasRef = useRef(null);
+  const [hoveredLocation, setHoveredLocation] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    let raf = 0;
+    let lastDraw = 0;
+
+    const draw = (time = 0) => {
+      if (!active) return;
+      if (time - lastDraw < 100) {
+        raf = requestAnimationFrame(draw);
+        return;
+      }
+      lastDraw = time;
+
+      const canvas = canvasRef.current;
+      const win = typeof window !== "undefined" ? window : null;
+      if (!canvas || !win?.WORLD || !win?.G) {
+        raf = requestAnimationFrame(draw);
+        return;
+      }
+
+      const { WORLD, G } = win;
+      const ctx = canvas.getContext("2d");
+      const mapSize = 240;
+
+      ctx.clearRect(0, 0, mapSize, mapSize);
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(WORLD.mini, 0, 0, mapSize, mapSize);
+
+      const project = (wx, wy) => {
+        const TILE = win.TILE || 16;
+        const tx = wx / TILE;
+        const ty = wy / TILE;
+        return {
+          x: (tx / WORLD.W) * mapSize,
+          y: (ty / WORLD.H) * mapSize,
+        };
+      };
+
+      const drawDot = (wx, wy, col, txt, size = 8, blink = false) => {
+        if (blink && ((G.frame || 0) >> 4) % 2) return;
+        const pt = project(wx, wy);
+        ctx.fillStyle = "rgba(6, 8, 14, 0.85)";
+        ctx.fillRect(Math.round(pt.x - size / 2 - 1), Math.round(pt.y - size / 2 - 1), size + 2, size + 2);
+
+        ctx.fillStyle = col;
+        if (txt) {
+          ctx.font = "bold 9px Orbitron, monospace";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(txt, pt.x, pt.y + 0.5);
+        } else {
+          ctx.fillRect(Math.round(pt.x - 1.5), Math.round(pt.y - 1.5), 3, 3);
+        }
+      };
+
+      drawDot(WORLD.shops.guns.x, WORLD.shops.guns.y, "#f9f002", "G");
+      drawDot(WORLD.shops.ripper.x, WORLD.shops.ripper.y, "#05d9e8", "R");
+      drawDot(WORLD.shops.cars.x, WORLD.shops.cars.y, "#00ff9f", "A");
+      drawDot(WORLD.shops.bar.x, WORLD.shops.bar.y, "#ff2a6d", "B");
+      if (WORLD.shops.casino) drawDot(WORLD.shops.casino.x, WORLD.shops.casino.y, "#bd00ff", "C");
+      if (WORLD.shops.clothing) drawDot(WORLD.shops.clothing.x, WORLD.shops.clothing.y, "#ff69b4", "T");
+
+      for (const m of WORLD.markets || []) {
+        drawDot(m.tx * win.TILE, m.ty * win.TILE, "#f9f002", m.code);
+      }
+
+      for (const n of WORLD.npcs || []) {
+        if (n.kind === "joy") {
+          drawDot(n.x, n.y, "#ff2a6d", "J", 7);
+        } else if (n.kind === "doll") {
+          drawDot(n.x, n.y, "#ff2a6d", "D", 7);
+        }
+      }
+
+      for (const e of G.enemies || []) {
+        if (!e.dead && (e.bounty || e.psycho || e.war || G.cyber?.kiroshi)) {
+          drawDot(e.x, e.y, e.psycho ? "#bd00ff" : "#ff2a3c", "");
+        }
+      }
+
+      for (const rp of G.remotePlayers || []) {
+        if (Number(rp.hp) > 0) {
+          drawDot(rp.x, rp.y, "#bd00ff", "");
+        }
+      }
+
+      if (G.bounty) drawDot(G.bounty.x, G.bounty.y, G.bounty.psycho ? "#bd00ff" : "#ff2a3c", "X", 8, true);
+      if (G.airdrop) drawDot(G.airdrop.x, G.airdrop.y, "#ff6a00", "X", 8, true);
+
+      if (G.state !== "dead" && G.p.hp > 0) {
+        drawDot(G.p.x, G.p.y, "#05d9e8", "P", 9, false);
+      }
+
+      raf = requestAnimationFrame(draw);
+    };
+
+    draw();
+    return () => {
+      active = false;
+      cancelAnimationFrame(raf);
+    };
+  }, []);
+
+  const handleMapClick = (e) => {
+    const canvas = canvasRef.current;
+    if (!canvas || typeof window === "undefined" || !window.WORLD || !window.G) return;
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.clientX || (e.touches && e.touches[0]?.clientX);
+    const clientY = e.clientY || (e.touches && e.touches[0]?.clientY);
+    if (clientX === undefined || clientY === undefined) return;
+
+    const mouseX = clientX - rect.left;
+    const mouseY = clientY - rect.top;
+
+    const mapSize = 240;
+    const scaleX = mapSize / rect.width;
+    const scaleY = mapSize / rect.height;
+    const sx = mouseX * scaleX;
+    const sy = mouseY * scaleY;
+
+    const project = (wx, wy) => {
+      const TILE = window.TILE || 16;
+      const tx = wx / TILE;
+      const ty = wy / TILE;
+      return {
+        x: (tx / window.WORLD.W) * mapSize,
+        y: (ty / window.WORLD.H) * mapSize,
+      };
+    };
+
+    let hovered = null;
+    const checkHover = (wx, wy, label, desc) => {
+      const pt = project(wx, wy);
+      if (Math.hypot(sx - pt.x, sy - pt.y) < 12) {
+        hovered = { label, desc, wx, wy };
+      }
+    };
+
+    const WORLD = window.WORLD;
+    const G = window.G;
+
+    checkHover(
+      G.p.x,
+      G.p.y,
+      "PLAYER: " + G.playerName,
+      language === "vi" ? "VỊ TRÍ HIỆN TẠI CỦA BẠN" : "YOUR CURRENT POSITION",
+    );
+    checkHover(
+      WORLD.shops.guns.x,
+      WORLD.shops.guns.y,
+      "GUN SHOP",
+      language === "vi" ? "TIỆM SÚNG - QUÂN" : "GUN SHOP - WEAPONS & AMMO",
+    );
+    checkHover(
+      WORLD.shops.ripper.x,
+      WORLD.shops.ripper.y,
+      "RIPPERDOC",
+      language === "vi" ? "TIỆM SƠN - CẤY GHÉP CƠ THỂ" : "RIPPERDOC CLINIC - CYBERWARE",
+    );
+    checkHover(
+      WORLD.shops.cars.x,
+      WORLD.shops.cars.y,
+      "AUTOFIXER",
+      language === "vi" ? "TIỆM TÚ - MUA BÁN XE" : "VEHICLES AND GARAGE",
+    );
+    checkHover(
+      WORLD.shops.bar.x,
+      WORLD.shops.bar.y,
+      "AFTERLIFE BAR",
+      language === "vi" ? "AFTERLIFE BAR - MUA ĐỒ UỐNG" : "ORDER A DRINK",
+    );
+    if (WORLD.shops.casino) {
+      checkHover(
+        WORLD.shops.casino.x,
+        WORLD.shops.casino.y,
+        "CASINO DEALER",
+        language === "vi" ? "CHƠI TÀI XỈU" : "PLAY DICE MINI-GAME",
+      );
+    }
+    if (WORLD.shops.clothing) {
+      checkHover(
+        WORLD.shops.clothing.x,
+        WORLD.shops.clothing.y,
+        "WARDROBE ROOM",
+        language === "vi" ? "THAY ĐỔI DIỆN MẠO" : "SWITCH GENDER / SKIN",
+      );
+    }
+
+    for (const n of WORLD.npcs || []) {
+      if (n.kind === "joy") {
+        checkHover(n.x, n.y, n.name + " - JOY", "CLOUDS LOUNGE");
+      } else if (n.kind === "doll") {
+        checkHover(n.x, n.y, n.name + " - DOLL", "CLOUDS VIP ROOM");
+      }
+    }
+
+    setHoveredLocation(hovered);
+  };
+
+  return (
+    <div className="large-map-modal-content">
+      <div className="large-map-canvas-container">
+        <canvas
+          ref={canvasRef}
+          width="240"
+          height="240"
+          onClick={handleMapClick}
+          onTouchStart={handleMapClick}
+          className="large-map-canvas"
+        />
+      </div>
+      <div className="large-map-legend-panel">
+        <div className="large-map-detail-card">
+          {hoveredLocation ? (
+            <>
+              <div className="detail-title">{hoveredLocation.label}</div>
+              <div className="detail-desc">{hoveredLocation.desc}</div>
+              <div className="detail-coord">
+                COORD: {Math.floor(hoveredLocation.wx / 16)}, {Math.floor(hoveredLocation.wy / 16)}
+              </div>
+            </>
+          ) : (
+            <div className="detail-placeholder">
+              {language === "vi" ? "CHẠM ĐIỂM CHỈ DẪN ĐỂ XEM THÀNH PHỐ" : "TAP ANY MARKER FOR LOCATION INFO"}
+            </div>
+          )}
+        </div>
+        <div className="large-map-legend-list">
+          <div className="legend-grid-item" style={{ color: "#05d9e8" }}>
+            <span className="legend-badge">P</span> <span>{language === "vi" ? "BẠN" : "YOU"}</span>
+          </div>
+          <div className="legend-grid-item" style={{ color: "#f9f002" }}>
+            <span className="legend-badge">G</span> <span>{language === "vi" ? "TIỆM SÚNG" : "GUNS"}</span>
+          </div>
+          <div className="legend-grid-item" style={{ color: "#05d9e8" }}>
+            <span className="legend-badge">R</span> <span>{language === "vi" ? "RIPPER" : "RIPPER"}</span>
+          </div>
+          <div className="legend-grid-item" style={{ color: "#00ff9f" }}>
+            <span className="legend-badge">A</span> <span>{language === "vi" ? "MUA XE" : "CARS"}</span>
+          </div>
+          <div className="legend-grid-item" style={{ color: "#ff2a6d" }}>
+            <span className="legend-badge">B</span> <span>AFTERLIFE</span>
+          </div>
+          {window.WORLD?.shops.casino && (
+            <div className="legend-grid-item" style={{ color: "#bd00ff" }}>
+              <span className="legend-badge">C</span> <span>{language === "vi" ? "SÒNG BẠC" : "CASINO"}</span>
+            </div>
+          )}
+          {window.WORLD?.shops.clothing && (
+            <div className="legend-grid-item" style={{ color: "#ff69b4" }}>
+              <span className="legend-badge">T</span> <span>{language === "vi" ? "TỦ ĐỒ" : "CLOTHES"}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MobileTouchControls({ player, playSynthSfx }) {
+  const win = typeof window !== "undefined" ? window : null;
+  const hasOs = !!player.os;
+  const hasCamo = !!player.cyber?.camo;
+  const [promptActive, setPromptActive] = useState(false);
+  const [menuActive, setMenuActive] = useState(false);
+
+  const mvBaseRef = useRef(null);
+  const mvKnobRef = useRef(null);
+  const aimBaseRef = useRef(null);
+  const aimKnobRef = useRef(null);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (win?.G) {
+        setPromptActive(!!win.G.prompt);
+        setMenuActive(!!win.G.ui);
+      }
+    }, 150);
+    return () => clearInterval(timer);
+  }, [win]);
+
+  useEffect(() => {
+    let animId;
+    const updateJoysticks = () => {
+      if (typeof window !== "undefined" && window.TOUCH) {
+        const { TOUCH, VIEW_W, VIEW_H, G } = window;
+        const w = VIEW_W || 640;
+        const h = VIEW_H || 360;
+        const portrait = h > w;
+
+        // 1. Move Joystick
+        if (mvBaseRef.current && mvKnobRef.current) {
+          const mv = TOUCH.mv;
+          mvBaseRef.current.style.display = "block";
+          if (mv && mv.act) {
+            const bxPct = (mv.bx / w) * 100;
+            const byPct = (mv.by / h) * 100;
+            const offsetX = mv.kx - mv.bx;
+            const offsetY = mv.ky - mv.by;
+
+            mvBaseRef.current.style.left = `${bxPct}%`;
+            mvBaseRef.current.style.top = `${byPct}%`;
+            mvBaseRef.current.style.transform = "translate(-50%, -50%)";
+            mvBaseRef.current.style.opacity = "0.85";
+            mvBaseRef.current.classList.add("active");
+
+            mvKnobRef.current.style.left = "50%";
+            mvKnobRef.current.style.top = "50%";
+            mvKnobRef.current.style.transform = `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px))`;
+          } else {
+            // Resting position: bx = 75, by = h - 75
+            const bxPct = (75 / w) * 100;
+            const byPct = ((h - 75) / h) * 100;
+
+            mvBaseRef.current.style.left = `${bxPct}%`;
+            mvBaseRef.current.style.top = `${byPct}%`;
+            mvBaseRef.current.style.transform = "translate(-50%, -50%)";
+            mvBaseRef.current.style.opacity = "0.3";
+            mvBaseRef.current.classList.remove("active");
+
+            mvKnobRef.current.style.left = "50%";
+            mvKnobRef.current.style.top = "50%";
+            mvKnobRef.current.style.transform = "translate(-50%, -50%)";
+          }
+        }
+
+        // 2. Aim Joystick
+        if (aimBaseRef.current && aimKnobRef.current) {
+          const aim = TOUCH.aim;
+          const isDriving = G?.driving;
+          if (!isDriving) {
+            aimBaseRef.current.style.display = "block";
+            if (aim && aim.act) {
+              const bxPct = (aim.bx / w) * 100;
+              const byPct = (aim.by / h) * 100;
+              const offsetX = aim.kx - aim.bx;
+              const offsetY = aim.ky - aim.by;
+
+              aimBaseRef.current.style.left = `${bxPct}%`;
+              aimBaseRef.current.style.top = `${byPct}%`;
+              aimBaseRef.current.style.transform = "translate(-50%, -50%)";
+              aimBaseRef.current.style.opacity = "0.85";
+              aimBaseRef.current.classList.add("active");
+
+              aimKnobRef.current.style.left = "50%";
+              aimKnobRef.current.style.top = "50%";
+              aimKnobRef.current.style.transform = `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px))`;
+            } else {
+              // Resting position: bx = w - (portrait ? 135 : 155), by = h - 75
+              const restingBx = w - (portrait ? 135 : 155);
+              const restingBy = h - 75;
+              const bxPct = (restingBx / w) * 100;
+              const byPct = (restingBy / h) * 100;
+
+              aimBaseRef.current.style.left = `${bxPct}%`;
+              aimBaseRef.current.style.top = `${byPct}%`;
+              aimBaseRef.current.style.transform = "translate(-50%, -50%)";
+              aimBaseRef.current.style.opacity = "0.3";
+              aimBaseRef.current.classList.remove("active");
+
+              aimKnobRef.current.style.left = "50%";
+              aimKnobRef.current.style.top = "50%";
+              aimKnobRef.current.style.transform = "translate(-50%, -50%)";
+            }
+          } else {
+            aimBaseRef.current.style.display = "none";
+          }
+        }
+      }
+      animId = requestAnimationFrame(updateJoysticks);
+    };
+    animId = requestAnimationFrame(updateJoysticks);
+    return () => cancelAnimationFrame(animId);
+  }, []);
+
+  const handlePress = (k, e) => {
+    if (e) e.preventDefault();
+    if (k === "inv") {
+      if (win?.toggleInv) {
+        win.toggleInv();
+      } else if (win?.G) {
+        if (win.G.ui === "inv") win.G.ui = null;
+        else if (!win.G.ui) {
+          win.G.ui = "inv";
+          win.G.uiS = { sel: 0, scroll: 0, tab: 0, confirm: false };
+        }
+        if (win.SFX?.ui) win.SFX.ui();
+      }
+      if (typeof playSynthSfx === "function") {
+        playSynthSfx("click");
+      }
+      return;
+    }
+    if (k === "gang") {
+      if (win?.G) {
+        if (win.G.ui === "gang") win.G.ui = null;
+        else if (!win.G.ui) {
+          win.G.ui = "gang";
+          win.G.uiS = { sel: 0, scroll: 0, tab: 0, confirm: false };
+        }
+        if (win.SFX?.ui) win.SFX.ui();
+      }
+      if (typeof playSynthSfx === "function") {
+        playSynthSfx("click");
+      }
+      return;
+    }
+    if (win?.touchBtnDown) {
+      win.touchBtnDown(k);
+      if (typeof playSynthSfx === "function") {
+        playSynthSfx("click");
+      }
+    }
+  };
+
+  const handleRelease = (k, e) => {
+    if (e) e.preventDefault();
+    if (win?.touchBtnUp) {
+      win.touchBtnUp(k);
+    }
+  };
+
+  return (
+    <div className="mobile-react-controls">
+      {/* HTML Move Joystick */}
+      {!menuActive && (
+        <div className="joystick-container mv-joystick" ref={mvBaseRef}>
+          <div className="joystick-ring">
+            <div className="joystick-crosshair center-x" />
+            <div className="joystick-crosshair center-y" />
+          </div>
+          <div className="joystick-knob" ref={mvKnobRef} />
+          <span className="joystick-label">MOVE</span>
+        </div>
+      )}
+
+      {/* HTML Aim/Fire Joystick */}
+      {!menuActive && (
+        <div className="joystick-container aim-joystick" ref={aimBaseRef}>
+          <div className="joystick-ring">
+            <div className="joystick-crosshair center-x" />
+            <div className="joystick-crosshair center-y" />
+          </div>
+          <div className="joystick-knob" ref={aimKnobRef} />
+          <span className="joystick-label">AIM/FIRE</span>
+        </div>
+      )}
+
+      {/* Top Center Controls Panel */}
+      <div className="mobile-top-bar">
+        <button
+          onTouchStart={(e) => handlePress("pause", e)}
+          onMouseDown={(e) => handlePress("pause", e)}
+          className="top-bar-btn"
+          title="Settings"
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+          </svg>
+        </button>
+        <button
+          onTouchStart={(e) => handlePress("radio", e)}
+          onMouseDown={(e) => handlePress("radio", e)}
+          className="top-bar-btn"
+          title="Radio"
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="2" />
+            <path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14" />
+          </svg>
+        </button>
+        <button
+          onTouchStart={(e) => handlePress("car", e)}
+          onMouseDown={(e) => handlePress("car", e)}
+          className="top-bar-btn"
+          title="Call Vehicle"
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3M15.5 7.5L14 9M18.5 4.5L22 8" />
+          </svg>
+        </button>
+        <button
+          onTouchStart={(e) => handlePress("gang", e)}
+          onMouseDown={(e) => handlePress("gang", e)}
+          className="top-bar-btn"
+          title="Faction / Gang"
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
+        </button>
+        <button
+          onTouchStart={(e) => handlePress("inv", e)}
+          onMouseDown={(e) => handlePress("inv", e)}
+          className="top-bar-btn"
+          title="Inventory"
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 20V10a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" />
+            <path d="M9 6V4a3 3 0 0 1 6 0v2" />
+            <path d="M4 12h16" />
+            <path d="M12 12v10" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Bottom Right Action Cluster */}
+      {!menuActive && (
+        <div className="mobile-action-cluster">
+          {/* FIRE */}
+          <button
+            onTouchStart={(e) => handlePress("fire", e)}
+            onTouchEnd={(e) => handleRelease("fire", e)}
+            onTouchCancel={(e) => handleRelease("fire", e)}
+            onMouseDown={(e) => handlePress("fire", e)}
+            onMouseUp={(e) => handleRelease("fire", e)}
+            className="action-btn btn-fire"
+          >
+            <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" strokeDasharray="3 3" />
+              <circle cx="12" cy="12" r="3" fill="currentColor" />
+              <line x1="12" y1="1" x2="12" y2="6" />
+              <line x1="12" y1="18" x2="12" y2="23" />
+              <line x1="1" y1="12" x2="6" y2="12" />
+              <line x1="18" y1="12" x2="23" y2="12" />
+            </svg>
+            <span className="btn-sub-label">ATK</span>
+          </button>
+
+          {/* DASH */}
+          <button
+            onTouchStart={(e) => handlePress("dash", e)}
+            onTouchEnd={(e) => handleRelease("dash", e)}
+            onTouchCancel={(e) => handleRelease("dash", e)}
+            onMouseDown={(e) => handlePress("dash", e)}
+            onMouseUp={(e) => handleRelease("dash", e)}
+            className="action-btn btn-dash"
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="13 17 18 12 13 7" />
+              <polyline points="6 17 11 12 6 7" />
+            </svg>
+            <span className="btn-sub-label">DASH</span>
+          </button>
+
+          {/* RELOAD */}
+          <button
+            onTouchStart={(e) => handlePress("reload", e)}
+            onMouseDown={(e) => handlePress("reload", e)}
+            className="action-btn btn-reload"
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+            </svg>
+            <span className="btn-sub-label">RELOAD</span>
+          </button>
+
+          {/* HEAL (C) */}
+          <button
+            onTouchStart={(e) => handlePress("doc", e)}
+            onMouseDown={(e) => handlePress("doc", e)}
+            className="action-btn btn-doc"
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            <span className="btn-sub-label">HEAL</span>
+          </button>
+
+          {/* USE (E) */}
+          <button
+            onTouchStart={(e) => handlePress("use", e)}
+            onMouseDown={(e) => handlePress("use", e)}
+            className={`action-btn btn-use ${promptActive ? "active-prompt" : ""}`}
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+              <circle cx="12" cy="12" r="2" fill="currentColor" />
+            </svg>
+            <span className="btn-sub-label">USE</span>
+          </button>
+
+          {/* OS (Q) */}
+          {hasOs && (
+            <button
+              onTouchStart={(e) => handlePress("os", e)}
+              onMouseDown={(e) => handlePress("os", e)}
+              className="action-btn btn-os"
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="4" y="4" width="16" height="16" rx="2" ry="2" />
+                <rect x="9" y="9" width="6" height="6" />
+                <line x1="9" y1="1" x2="9" y2="4" />
+                <line x1="15" y1="1" x2="15" y2="4" />
+                <line x1="9" y1="20" x2="9" y2="23" />
+                <line x1="15" y1="20" x2="15" y2="23" />
+                <line x1="20" y1="9" x2="23" y2="9" />
+                <line x1="20" y1="15" x2="23" y2="15" />
+              </svg>
+              <span className="btn-sub-label">HACK</span>
+            </button>
+          )}
+
+          {/* CAMO (F) */}
+          {hasCamo && (
+            <button
+              onTouchStart={(e) => handlePress("camo", e)}
+              onMouseDown={(e) => handlePress("camo", e)}
+              className="action-btn btn-camo"
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                <circle cx="12" cy="12" r="3" strokeDasharray="3 2" />
+                <line x1="1" y1="1" x2="23" y2="23" opacity="0.75" />
+              </svg>
+              <span className="btn-sub-label">STEALTH</span>
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function GameCanvas() {
   const booted = useRef(false);
   const {
@@ -1054,6 +1704,27 @@ export default function GameCanvas() {
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [activeLog, setActiveLog] = useState("");
   const [forcedLandscape, setForcedLandscape] = useState(false);
+
+  // Override touchButtons and drawTouchControls when game is booted
+  useEffect(() => {
+    let timer = setInterval(() => {
+      if (typeof window !== "undefined") {
+        let overridden = 0;
+        if (window.touchButtons) {
+          window.touchButtons = () => [];
+          overridden++;
+        }
+        if (window.drawTouchControls) {
+          window.drawTouchControls = () => {};
+          overridden++;
+        }
+        if (overridden === 2) {
+          clearInterval(timer);
+        }
+      }
+    }, 200);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const handleResize = () => {
@@ -1513,6 +2184,7 @@ export default function GameCanvas() {
             state: g.state || 'play',
             deadT: g.deadT || 0,
             deathFee: g.deathFee || 0,
+            invTheme: g.invTheme || 'grey',
           };
           const nextBanner = g.bannerO && g.bannerO.t > 0
             ? { text: g.bannerO.text, sub: g.bannerO.sub, col: g.bannerO.col, t: Math.ceil(g.bannerO.t * 10) / 10 }
@@ -2335,6 +3007,8 @@ export default function GameCanvas() {
           : "NEURAL INVENTORY / COGNITIVE DECK";
       case "gang":
         return lang === "vi" ? "QUẢN LÝ BĂNG ĐẢNG" : "CYBER CREW & GANG PANEL";
+      case "map":
+        return lang === "vi" ? "BẢN ĐỒ THÀNH PHỐ" : "CITY SECTOR MAP";
       default:
         return "SYSTEM DIALOG";
     }
@@ -2401,6 +3075,8 @@ export default function GameCanvas() {
         return renderInventory();
       case "gang":
         return renderGangMenu();
+      case "map":
+        return <LargeMapModalContent language={language} onClose={closeModal} />;
       default:
         return null;
     }
@@ -3995,6 +4671,54 @@ export default function GameCanvas() {
           </div>
         </div>
 
+        {/* Inventory Color Theme Selector */}
+        <div className="cyber-modal-option">
+          <label style={{ fontFamily: "var(--font-pixel)", fontSize: "8.5px", color: "var(--cyber-cyan)" }}>
+            {language === "vi" ? "MÀU SẮC GIAO DIỆN TÚI ĐỒ" : "INVENTORY INTERFACE THEME"}
+          </label>
+          <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginTop: "4px" }}>
+            {(() => {
+              const themesMap = (typeof window !== "undefined" && window.INV_THEMES) || {
+                grey: { color: '#8a93a6', nameVi: 'XÁM CHIẾN THUẬT', nameEn: 'TACTICAL GREY' },
+                pink: { color: '#ff2a6d', nameVi: 'HỒNG NEON', nameEn: 'NEON PINK' },
+                yellow: { color: '#f9f002', nameVi: 'VÀNG CYBER', nameEn: 'CYBER YELLOW' },
+                cyan: { color: '#05d9e8', nameVi: 'XANH ĐIỆN', nameEn: 'CYBER CYAN' },
+                green: { color: '#39ff14', nameVi: 'XANH TOXIC', nameEn: 'TOXIC GREEN' },
+                purple: { color: '#bd00ff', nameVi: 'TÍM ACID', nameEn: 'ACID PURPLE' },
+                orange: { color: '#ff8c00', nameVi: 'CAM AMBER', nameEn: 'AMBER ORANGE' }
+              };
+              return Object.keys(themesMap).map((themeKey) => {
+                const th = themesMap[themeKey];
+                const active = (playerState.invTheme || "grey") === themeKey;
+                return (
+                  <button
+                    key={themeKey}
+                    className={`cyber-modal-btn ${active ? "active" : ""}`}
+                    style={{
+                      flex: "1 1 calc(33.3% - 6px)",
+                      padding: "6px 4px",
+                      fontSize: "8px",
+                      borderColor: th.color,
+                      color: active ? "#000" : th.color,
+                      background: active ? th.color : "rgba(0,0,0,0.3)",
+                      boxShadow: active ? `0 0 8px ${th.color}` : "none",
+                    }}
+                    onClick={() => {
+                      playSynthSfx("click");
+                      if (typeof window !== "undefined" && window.G) {
+                        window.G.invTheme = themeKey;
+                        if (window.saveGame) window.saveGame();
+                      }
+                    }}
+                  >
+                    {language === "vi" ? th.nameVi : th.nameEn}
+                  </button>
+                );
+              });
+            })()}
+          </div>
+        </div>
+
         {/* Controls Guide */}
         <div className="cyber-modal-option">
           <label style={{ fontFamily: "var(--font-pixel)", fontSize: "8.5px", color: "var(--cyber-cyan)" }}>{language === "vi" ? "HƯỚNG DẪN ĐIỀU KHIỂN" : "CONTROLS GUIDE"}</label>
@@ -4264,7 +4988,7 @@ export default function GameCanvas() {
                 };
 
                 return (
-                  <div className="cyber-grid-layout" style={{ height: "340px" }}>
+                  <div className="cyber-grid-layout inv-tab-scroll-container">
                     <div
                       className="cyber-list"
                       style={{
@@ -4474,8 +5198,8 @@ export default function GameCanvas() {
                 const slots = window.CYBER_SLOTS;
                 return (
                   <div
-                    className="cyber-list"
-                    style={{ height: "340px", padding: "12px", display: "flex", flexDirection: "column" }}
+                    className="cyber-list inv-tab-scroll-container"
+                    style={{ padding: "12px", display: "flex", flexDirection: "column" }}
                   >
                     <div className="inv-cyber-header">
                       {language === "vi"
@@ -4525,7 +5249,7 @@ export default function GameCanvas() {
                   cars.find((c) => c.id === selectedInvCarId) || cars[0];
 
                 return (
-                  <div className="cyber-grid-layout" style={{ height: "340px" }}>
+                  <div className="cyber-grid-layout inv-tab-scroll-container">
                     <div
                       className="cyber-list"
                       style={{
@@ -4755,9 +5479,8 @@ export default function GameCanvas() {
 
                 return (
                   <div
-                    className="cyber-list"
+                    className="cyber-list inv-tab-scroll-container"
                     style={{
-                      height: "340px",
                       padding: "10px 12px",
                       display: "flex",
                       flexDirection: "column",
@@ -4793,9 +5516,8 @@ export default function GameCanvas() {
                 const ranking = getRepRanking();
                 return (
                   <div
-                    className="rep-ranking-container"
+                    className="rep-ranking-container inv-tab-scroll-container"
                     style={{
-                      height: "340px",
                       padding: "8px",
                       overflowY: "auto",
                       display: "flex",
@@ -4877,13 +5599,13 @@ export default function GameCanvas() {
               })()}
 
             {selectedInvTab === 6 && (
-              <div style={{ height: "340px", overflowY: "auto" }}>
+              <div className="inv-tab-scroll-container" style={{ overflowY: "auto" }}>
                 {renderGangMenu()}
               </div>
             )}
 
             {selectedInvTab === 7 && (
-              <div style={{ height: "340px", overflowY: "auto", padding: "4px" }}>
+              <div className="inv-tab-scroll-container" style={{ overflowY: "auto", padding: "4px" }}>
                 {renderSettingsTab()}
               </div>
             )}
@@ -4919,7 +5641,21 @@ export default function GameCanvas() {
         />
       )}
       {!PERFORMANCE_MODE && isJackedIn && playerState.state !== 'title' && <PixelWeaponHud player={playerState} />}
-      {!PERFORMANCE_MODE && isJackedIn && playerState.state !== 'title' && <PixelMiniMapHud />}
+      {!PERFORMANCE_MODE && isJackedIn && playerState.state !== 'title' && (
+        <PixelMiniMapHud
+          onOpenMap={() => {
+            playSynthSfx("click");
+            if (typeof window !== "undefined" && window.G) {
+              window.G.ui = "map";
+              if (window.SFX && window.SFX.ui) window.SFX.ui();
+            }
+            setActiveUi("map");
+          }}
+        />
+      )}
+      {!PERFORMANCE_MODE && isJackedIn && playerState.state === 'play' && (
+        <MobileTouchControls player={playerState} playSynthSfx={playSynthSfx} />
+      )}
       {!PERFORMANCE_MODE && isJackedIn && playerState.state === 'dead' && (
         <PixelDeadOverlay player={playerState} language={language} />
       )}
@@ -4928,7 +5664,7 @@ export default function GameCanvas() {
       {activeUi && (
         <div className="cyber-modal-overlay" onClick={closeModal}>
           <div
-            className={`cyber-modal-container ${activeUi === "inv" ? "inv-modal" : ""} ${isWideUi(activeUi) ? "wide" : ""}`}
+            className={`cyber-modal-container ${activeUi === "inv" ? "inv-modal theme-" + (playerState.invTheme || "grey") : ""} ${activeUi === "map" ? "large-map-modal" : ""} ${isWideUi(activeUi) ? "wide" : ""}`}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="cyber-modal-header">

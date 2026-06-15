@@ -89,7 +89,7 @@ function pixelTextOnly(s) {
 }
 
 function textW(s, sc) {
-  s = localText(s);
+  s = localText(s).toUpperCase();
   sc = sc || 1;
   if (typeof document !== 'undefined') {
     try {
@@ -106,7 +106,7 @@ function textW(s, sc) {
 }
 
 const _txtCache = new Map();
-const GAME_FONT_FAMILY = '"Orbitron", "Share Tech Mono", "Segoe UI", Arial, sans-serif';
+const GAME_FONT_FAMILY = '"Chakra Petch", "Orbitron", "Share Tech Mono", "Segoe UI", Arial, sans-serif';
 const GAME_FONT_BASE = 12;
 const gameFont = sc => '900 ' + Math.max(GAME_FONT_BASE, GAME_FONT_BASE * sc) + 'px ' + GAME_FONT_FAMILY;
 
@@ -199,8 +199,8 @@ function _renderText(s, col, sc) {
   const cv = document.createElement('canvas');
   cv.width = w + Math.ceil(6 * sc);
   
-  const paddingY = Math.ceil(3 * sc);
-  cv.height = Math.ceil(21 * sc);
+  const paddingY = Math.ceil(6 * sc);
+  cv.height = Math.ceil(25 * sc);
   
   const c = cv.getContext('2d');
   c.font = gameFont(sc);
@@ -226,7 +226,7 @@ function drawText(c, s, x, y, col, sc) {
     cv = _renderText(s, col, sc);
     _txtCache.set(key, cv);
   }
-  const dy = y - Math.ceil(3 * sc);
+  const dy = y - Math.ceil(6 * sc);
   c.drawImage(cv, Math.round(x), Math.round(dy));
 }
 

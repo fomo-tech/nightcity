@@ -1,6 +1,52 @@
 'use strict';
 // ============ HUD + menus (immediate mode, canvas-drawn) ============
 
+const INV_THEMES = {
+  grey: {
+    color: '#8a93a6',
+    rgb: '138, 147, 166',
+    nameVi: 'XÁM CHIẾN THUẬT',
+    nameEn: 'TACTICAL GREY'
+  },
+  pink: {
+    color: '#ff2a6d',
+    rgb: '255, 42, 109',
+    nameVi: 'HỒNG NEON',
+    nameEn: 'NEON PINK'
+  },
+  yellow: {
+    color: '#f9f002',
+    rgb: '249, 240, 2',
+    nameVi: 'VÀNG CYBER',
+    nameEn: 'CYBER YELLOW'
+  },
+  cyan: {
+    color: '#05d9e8',
+    rgb: '5, 217, 232',
+    nameVi: 'XANH ĐIỆN',
+    nameEn: 'CYBER CYAN'
+  },
+  green: {
+    color: '#39ff14',
+    rgb: '57, 255, 20',
+    nameVi: 'XANH TOXIC',
+    nameEn: 'TOXIC GREEN'
+  },
+  purple: {
+    color: '#bd00ff',
+    rgb: '189, 0, 255',
+    nameVi: 'TÍM ACID',
+    nameEn: 'ACID PURPLE'
+  },
+  orange: {
+    color: '#ff8c00',
+    rgb: '255, 140, 0',
+    nameVi: 'CAM AMBER',
+    nameEn: 'AMBER ORANGE'
+  }
+};
+if (typeof window !== 'undefined') window.INV_THEMES = INV_THEMES;
+
 function press(code) { if (G.pressed.has(code)) { G.pressed.delete(code); return true; } return false; }
 function navUp()   { return press('KeyW') || press('ArrowUp'); }
 function navDown() { return press('KeyS') || press('ArrowDown'); }
@@ -985,34 +1031,41 @@ function drawCasino(c) {
 const INV_TABS = ['WEAPONS', 'CYBERWARE', 'GARAGE', 'MAP', 'STATS'];
 function drawInv(c) {
   c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillRect(0, 0, VIEW_W, VIEW_H);
-  uiPanel(c, 56, 22, 528, 316, null, '#bd00ff');
-  drawTextR(c, '$' + fmt(G.eddies), 576, 28, '#f9f002', 1);
+  const r = uiPanelRect() || [56, 22, 528, 316];
+  const px = r[0], py = r[1], pw = r[2], ph = r[3];
+  uiPanel(c, px, py, pw, ph, null, INV_THEMES[G.invTheme || 'grey'].color);
+  drawTextR(c, '$' + fmt(G.eddies), px + pw - 8, py + 6, '#f9f002', 1);
   const s = G.uiS;
   if (press('ArrowLeft')) { s.tab = (s.tab + 4) % 5; s.sel = 0; SFX.ui(); }
   if (press('ArrowRight')) { s.tab = (s.tab + 1) % 5; s.sel = 0; SFX.ui(); }
-  let tx = 66;
+  let tx = px + 10;
   for (let i = 0; i < 5; i++) {
-    const w = textW(INV_TABS[i]) + 12, hot = uiHot(tx, 26, w, 12);
+    const w = textW(INV_TABS[i]) + 12, hot = uiHot(tx, py + 4, w, 12);
     if (hot && G.mouse.click) { G.mouse.click = false; s.tab = i; s.sel = 0; }
-    if (s.tab === i) { c.fillStyle = 'rgba(189,0,255,0.18)'; c.fillRect(tx, 26, w, 11); }
-    drawText(c, INV_TABS[i], tx + 6, 28, s.tab === i ? '#bd00ff' : '#5a6372', 1);
+    if (s.tab === i) { c.fillStyle = 'rgba(' + INV_THEMES[G.invTheme || 'grey'].rgb + ',0.18)'; c.fillRect(tx, py + 4, w, 11); }
+    drawText(c, INV_TABS[i], tx + 6, py + 6, s.tab === i ? INV_THEMES[G.invTheme || 'grey'].color : '#5a6372', 1);
     tx += w + 6;
   }
-  if (s.tab === 0) invWeapons(c);
-  else if (s.tab === 1) invCyber(c);
-  else if (s.tab === 2) invGarage(c);
-  else if (s.tab === 3) invMap(c);
-  else invStats(c);
-  drawTextC(c, 'ARROW KEYS SWITCH TAB · WASD NAVIGATE · TAB/ESC CLOSE', VIEW_W / 2, 324, '#5a6372', 1);
+  if (s.tab === 0) invWeapons(c, px, py, pw, ph);
+  else if (s.tab === 1) invCyber(c, px, py, pw, ph);
+  else if (s.tab === 2) invGarage(c, px, py, pw, ph);
+  else if (s.tab === 3) invMap(c, px, py, pw, ph);
+  else invStats(c, px, py, pw, ph);
+  drawTextC(c, 'ARROW KEYS SWITCH TAB · WASD NAVIGATE · TAB/ESC CLOSE', VIEW_W / 2, py + ph - 14, '#5a6372', 1);
   drawCursorSpr(c);
 }
 
-function invWeapons(c) {
+function invWeapons(c, px, py, pw, ph) {
   const all = WEAPONS, s = G.uiS;
   const owned = all.filter(w => G.weapons[w.id]).length;
-  drawText(c, 'WEAPON DATABASE: ' + owned + '/' + all.length, 66, 46, '#f9f002', 1);
-  uiBar(c, 240, 47, 120, 4, owned / all.length, '#f9f002');
-  const cols = 8, cw = 63, ch = 24, gx = 66, gy = 58;
+  drawText(c, 'WEAPON DATABASE: ' + owned + '/' + all.length, px + 10, py + 24, '#f9f002', 1);
+  uiBar(c, px + 184, py + 25, 120, 4, owned / all.length, '#f9f002');
+  const isMobile = TOUCH.on;
+  const cols = 8;
+  const cw = isMobile ? 50 : 63;
+  const ch = isMobile ? 17 : 24;
+  const gx = px + 10;
+  const gy = py + 36;
   if (navUp()) { s.sel = Math.max(0, s.sel - cols); SFX.ui(); }
   if (navDown()) { s.sel = Math.min(all.length - 1, s.sel + cols); SFX.ui(); }
   if (press('KeyA')) s.sel = Math.max(0, s.sel - 1);
@@ -1025,23 +1078,33 @@ function invWeapons(c) {
     c.fillStyle = s.sel === i ? 'rgba(249,240,2,0.12)' : 'rgba(255,255,255,0.04)';
     c.fillRect(x, y, cw - 3, ch - 3);
     c.fillStyle = have ? RAR_COL[w.rar] : 'rgba(255,255,255,0.1)'; c.fillRect(x, y, cw - 3, 1);
-    if (have) c.drawImage(SPR.wicon(w.cls, KIND_COL[w.kind]), x + 18, y + 6);
-    else drawTextC(c, w.hidden ? '???' : trunc(w.name.split(' ')[0], 8), x + 30, y + 8, 'rgba(120,130,150,0.5)', 1);
+    if (have) {
+      if (isMobile) {
+        c.save();
+        c.translate(x + (cw - 3) / 2, y + (ch - 3) / 2);
+        c.scale(0.8, 0.8);
+        c.drawImage(SPR.wicon(w.cls, KIND_COL[w.kind]), -10, -6);
+        c.restore();
+      } else {
+        c.drawImage(SPR.wicon(w.cls, KIND_COL[w.kind]), x + 18, y + 6);
+      }
+    } else drawTextC(c, w.hidden ? '???' : trunc(w.name.split(' ')[0], isMobile ? 6 : 8), x + (cw - 3) / 2, y + (isMobile ? 5 : 8), 'rgba(120,130,150,0.5)', 1);
     const li = G.loadout.indexOf(w.id);
     if (li >= 0) drawText(c, String(li + 1), x + 2, y + 2, '#f9f002', 1);
   }
-  const w = all[s.sel], have = !!G.weapons[w.id], dy = 196;
-  c.fillStyle = 'rgba(255,255,255,0.06)'; c.fillRect(66, dy - 4, 508, 1);
+  const w = all[s.sel], have = !!G.weapons[w.id], dy = py + (isMobile ? 142 : 174);
+  c.fillStyle = 'rgba(255,255,255,0.06)'; c.fillRect(px + 10, dy - 4, pw - 20, 1);
   if (have || !w.hidden) {
-    drawText(c, have ? w.name : w.hidden ? '???' : w.name, 66, dy, have ? RAR_COL[w.rar] : '#5a6372', 1);
-    drawText(c, RAR_NAME[w.rar] + ' · ' + w.kind.toUpperCase() + ' · ' + w.cls.toUpperCase(), 66, dy + 12, KIND_COL[w.kind], 1);
-    drawText(c, 'DMG ' + w.dmg * (w.pellets || 1) + ' · RPS ' + w.rof + ' · DPS ' + dpsOf(w) + (w.mag ? ' · MAG ' + w.mag : ''), 66, dy + 24, '#cfd6e4', 1);
-    wrapText(w.desc, 80).forEach((ln, i) => drawText(c, ln, 66, dy + 38 + i * 9, '#8a93a6', 1));
+    drawText(c, have ? w.name : w.hidden ? '???' : w.name, px + 10, dy, have ? RAR_COL[w.rar] : '#5a6372', 1);
+    drawText(c, RAR_NAME[w.rar] + ' · ' + w.kind.toUpperCase() + ' · ' + w.cls.toUpperCase(), px + 10, dy + (isMobile ? 10 : 12), KIND_COL[w.kind], 1);
+    drawText(c, 'DMG ' + w.dmg * (w.pellets || 1) + ' · ROF ' + w.rof + ' · DPS ' + dpsOf(w) + (w.mag ? ' · MAG ' + w.mag : ''), px + 10, dy + (isMobile ? 20 : 24), '#cfd6e4', 1);
+    const maxDescLines = isMobile ? 2 : 4;
+    wrapText(w.desc, isMobile ? 66 : 80).slice(0, maxDescLines).forEach((ln, i) => drawText(c, ln, px + 10, dy + (isMobile ? 31 : 38) + i * (isMobile ? 8 : 9), '#8a93a6', 1));
     if (have) {
-      if (TOUCH.on) {
-        drawText(c, localText('EQUIP TO SLOT:'), 66, dy + 64, '#f9f002', 1);
+      if (isMobile) {
+        drawText(c, localText('EQUIP TO SLOT:'), px + 10, dy + 52, '#f9f002', 1);
         for (let slotIdx = 0; slotIdx < 3; slotIdx++) {
-          const bx = 160 + slotIdx * 32, by = dy + 59, bw = 24, bh = 13;
+          const bx = px + 110 + slotIdx * 28, by = dy + 48, bw = 22, bh = 11;
           const hotB = uiHot(bx, by, bw, bh);
           if (hotB && G.mouse.click) {
             G.mouse.click = false;
@@ -1052,13 +1115,13 @@ function invWeapons(c) {
           c.fillRect(bx, by, bw, bh);
           c.strokeStyle = '#f9f002';
           c.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1);
-          drawTextC(c, String(slotIdx + 1), bx + bw / 2, by + 3.5, '#f9f002', 1);
+          drawTextC(c, String(slotIdx + 1), bx + bw / 2, by + 2.5, '#f9f002', 1);
         }
       } else {
-        drawText(c, localText('PRESS [1] [2] [3] TO ASSIGN LOADOUT SLOT'), 66, dy + 64, '#f9f002', 1);
+        drawText(c, localText('PRESS [1] [2] [3] TO ASSIGN LOADOUT SLOT'), px + 10, dy + 64, '#f9f002', 1);
       }
-    } else drawText(c, w.iconic ? 'DROPS FROM CYBERPSYCHOS' : w.granted ? 'INSTALLED BY RIPPERDOC' : 'SOLD AT 2ND AMENDMENT', 66, dy + 64, '#5a6372', 1);
-  } else drawText(c, 'UNKNOWN. RUMORS SPEAK OF A VOICE IN A GUTTER...', 66, dy, '#5a6372', 1);
+    } else drawText(c, w.iconic ? 'DROPS FROM CYBERPSYCHOS' : w.granted ? 'INSTALLED BY RIPPERDOC' : 'SOLD AT 2ND AMENDMENT', px + 10, dy + (isMobile ? 52 : 64), '#5a6372', 1);
+  } else drawText(c, 'UNKNOWN. RUMORS SPEAK OF A VOICE IN A GUTTER...', px + 10, dy, '#5a6372', 1);
   if (have) {
     if (press('Digit1')) assignSlot(w.id, 0);
     if (press('Digit2')) assignSlot(w.id, 1);
@@ -1066,27 +1129,34 @@ function invWeapons(c) {
   }
 }
 
-function invCyber(c) {
-  let y = 50;
+function invCyber(c, px, py, pw, ph) {
+  let y = py + 24;
   const ownedN = CYBER.filter(cy => G.cyber[cy.id]).length;
-  drawText(c, 'CHROME: ' + ownedN + '/' + CYBER.length, 66, 46, '#05d9e8', 1);
-  uiBar(c, 240, 47, 120, 4, ownedN / CYBER.length, '#05d9e8');
-  y = 62;
+  drawText(c, 'CHROME: ' + ownedN + '/' + CYBER.length, px + 10, y, '#05d9e8', 1);
+  uiBar(c, px + 184, y + 1, 120, 4, ownedN / CYBER.length, '#05d9e8');
+  const isMobile = TOUCH.on;
+  y = py + 40;
+  const spacing = isMobile ? 10.5 : 13;
   for (const slot of CYBER_SLOTS) {
     const items = CYBER.filter(x => x.slot === slot && G.cyber[x.id]);
-    drawText(c, slot, 66, y, '#3a5a66', 1);
-    if (!items.length) drawText(c, '— EMPTY —', 200, y, '#3a414e', 1);
-    else drawText(c, items.map(x => x.name + ' MK.' + G.cyber[x.id] + (x.os ? (G.os === x.id ? ' [ACTIVE]' : ' [OFF]') : '')).join(' · '), 200, y, '#cfd6e4', 1);
-    y += 13;
+    drawText(c, slot, px + 10, y, '#3a5a66', 1);
+    if (!items.length) drawText(c, '— EMPTY —', px + 130, y, '#3a414e', 1);
+    else drawText(c, items.map(x => x.name + ' MK.' + G.cyber[x.id] + (x.os ? (G.os === x.id ? ' [ACTIVE]' : ' [OFF]') : '')).join(' · '), px + 130, y, '#cfd6e4', 1);
+    y += spacing;
   }
-  drawText(c, 'VISIT VIK [R ON MAP] TO INSTALL AND UPGRADE', 66, y + 12, '#5a6372', 1);
+  drawText(c, 'VISIT VIK [R ON MAP] TO INSTALL AND UPGRADE', px + 10, y + (isMobile ? 6 : 12), '#5a6372', 1);
 }
 
-function invGarage(c) {
+function invGarage(c, px, py, pw, ph) {
   const s = G.uiS, ownedN = CARS.filter(car => G.cars[car.id]).length;
-  drawText(c, 'GARAGE: ' + ownedN + '/' + CARS.length, 66, 46, '#00ff9f', 1);
-  uiBar(c, 240, 47, 120, 4, ownedN / CARS.length, '#00ff9f');
-  const cols = 4, cw = 126, ch = 54, gx = 66, gy = 60;
+  drawText(c, 'GARAGE: ' + ownedN + '/' + CARS.length, px + 10, py + 24, '#00ff9f', 1);
+  uiBar(c, px + 184, py + 25, 120, 4, ownedN / CARS.length, '#00ff9f');
+  const isMobile = TOUCH.on;
+  const cols = 4;
+  const cw = isMobile ? 110 : 126;
+  const ch = isMobile ? 44 : 54;
+  const gx = px + 10;
+  const gy = py + 38;
   if (navUp()) s.sel = Math.max(0, s.sel - cols);
   if (navDown()) s.sel = Math.min(CARS.length - 1, s.sel + cols);
   if (press('KeyA')) s.sel = Math.max(0, s.sel - 1);
@@ -1098,23 +1168,31 @@ function invGarage(c) {
     c.fillStyle = s.sel === i ? 'rgba(0,255,159,0.1)' : 'rgba(255,255,255,0.04)';
     c.fillRect(x, y, cw - 6, ch - 6);
     if (have) {
-      c.save(); c.translate(x + 30, y + 22); c.rotate(Math.PI / 2); c.drawImage(SPR.car(car.id), -10, -19, 21, 39); c.restore();
-      drawText(c, trunc(car.name.split(' ').slice(-1)[0], 11), x + 58, y + 8, '#cfd6e4', 1);
-      if (G.activeCar === car.id) drawText(c, 'ACTIVE', x + 58, y + 20, '#00ff9f', 1);
+      c.save();
+      c.translate(x + (isMobile ? 24 : 30), y + (isMobile ? 18 : 22));
+      c.rotate(Math.PI / 2);
+      if (isMobile) {
+        c.scale(0.85, 0.85);
+      }
+      c.drawImage(SPR.car(car.id), -10, -19, 21, 39);
+      c.restore();
+      drawText(c, trunc(car.name.split(' ').slice(-1)[0], isMobile ? 9 : 11), x + (isMobile ? 48 : 58), y + (isMobile ? 6 : 8), '#cfd6e4', 1);
+      if (G.activeCar === car.id) drawText(c, 'ACTIVE', x + (isMobile ? 48 : 58), y + (isMobile ? 16 : 20), '#00ff9f', 1);
       if (hot && G.mouse.click) { G.mouse.click = false; setActiveCar(car.id); }
     } else {
-      drawTextC(c, '???', x + (cw - 6) / 2, y + 12, 'rgba(120,130,150,0.4)', 1);
-      drawTextC(c, '$' + fmt(car.price), x + (cw - 6) / 2, y + 26, 'rgba(120,130,150,0.4)', 1);
+      drawTextC(c, '???', x + (cw - 6) / 2, y + (isMobile ? 8 : 12), 'rgba(120,130,150,0.4)', 1);
+      drawTextC(c, '$' + fmt(car.price), x + (cw - 6) / 2, y + (isMobile ? 20 : 26), 'rgba(120,130,150,0.4)', 1);
     }
   }
   const car = CARS[s.sel];
+  const activeY = py + (isMobile ? 182 : 246);
   if (car && G.cars[car.id]) {
-    drawText(c, car.name + (G.activeCar === car.id ? ' — ACTIVE' : ' — [ENTER] SET ACTIVE'), 66, 246, '#00ff9f', 1);
+    drawText(c, car.name + (G.activeCar === car.id ? ' — ACTIVE' : ' — [ENTER] SET ACTIVE'), px + 10, activeY, '#00ff9f', 1);
     if (press('Enter') || press('KeyE')) setActiveCar(car.id);
-  } else if (car) drawText(c, car.name + ' — AVAILABLE AT NC AUTOFIXER', 66, 246, '#5a6372', 1);
+  } else if (car) drawText(c, car.name + ' — AVAILABLE AT NC AUTOFIXER', px + 10, activeY, '#5a6372', 1);
 }
 
-function invStats(c) {
+function invStats(c, px, py, pw, ph) {
   const st = G.stats;
   let worth = G.eddies;
   for (const id in G.weapons) worth += WPN[id].price;
@@ -1135,26 +1213,27 @@ function invStats(c) {
     ['CREW ONLINE', (G.onlineCount || ((G.remotePlayers || []).length + (window.NCPX_NET && window.NCPX_NET.connected ? 1 : 0))) + ' ONLINE'],
     ['SKIPPY', G.skippyFound ? 'TÌM THẤY (NÓ BIẾT NÓI)' : 'VẪN ĐANG ẨN NÁU...'],
   ];
-  let y = 52;
+  const isMobile = TOUCH.on;
+  let y = py + (isMobile ? 26 : 30);
+  const spacing = isMobile ? 12 : 16;
   for (const [k, v] of lines) {
-    drawText(c, k, 80, y, '#5a6372', 1);
-    drawText(c, String(v), 260, y, '#e8f6ff', 1);
-    y += 16;
+    drawText(c, k, px + 24, y, '#5a6372', 1);
+    drawText(c, String(v), px + 204, y, '#e8f6ff', 1);
+    y += spacing;
   }
-  drawTextC(c, '"SAI THÀNH PHỐ, SAI KẺ."', VIEW_W / 2, y + 18, '#3a414e', 1);
+  drawTextC(c, '"SAI THÀNH PHỐ, SAI KẺ."', VIEW_W / 2, y + (isMobile ? 6 : 18), '#3a414e', 1);
 }
 
-function invMap(c) {
-  const mapSize = 220;
-  const mx = 70, my = 52;
+function invMap(c, px, py, pw, ph) {
+  const isMobile = TOUCH.on;
+  const mapSize = isMobile ? 180 : 220;
+  const mx = px + (isMobile ? 15 : 14), my = py + (isMobile ? 28 : 30);
   c.fillStyle = '#06080e'; c.fillRect(mx - 2, my - 2, mapSize + 4, mapSize + 4);
-  c.strokeStyle = '#bd00ff'; c.strokeRect(mx - 1.5, my - 1.5, mapSize + 3, mapSize + 3);
-
+  c.strokeStyle = INV_THEMES[G.invTheme || 'grey'].color; c.strokeRect(mx - 1.5, my - 1.5, mapSize + 3, mapSize + 3);
   const smoothing = c.imageSmoothingEnabled;
   c.imageSmoothingEnabled = false;
   c.drawImage(WORLD.mini, mx, my, mapSize, mapSize);
   c.imageSmoothingEnabled = smoothing;
-
   const project = (wx, wy) => {
     const tx = wx / TILE, ty = wy / TILE;
     return {
@@ -1162,35 +1241,27 @@ function invMap(c) {
       y: my + (ty / WORLD.H) * mapSize
     };
   };
-
   const dot = (wx, wy, col, txt, label, desc) => {
     const pt = project(wx, wy);
     c.fillStyle = '#06080e'; c.fillRect(pt.x - 3, pt.y - 3, 7, 7);
     drawTextC(c, txt, pt.x, pt.y - 2.5, col, 1);
-
     const m = G.mouse;
     if (m && Math.hypot(m.sx - pt.x, m.sy - pt.y) < 6) {
-      const tx = 310, ty = 200;
-      c.fillStyle = 'rgba(6,8,14,0.95)'; c.fillRect(tx, ty, 250, 60);
-      c.strokeStyle = col; c.strokeRect(tx + 0.5, ty + 0.5, 249, 59);
+      const tx = px + (isMobile ? 210 : 254), ty = py + (isMobile ? 166 : 178);
+      c.fillStyle = 'rgba(6,8,14,0.95)'; c.fillRect(tx, ty, isMobile ? 230 : 250, 60);
+      c.strokeStyle = col; c.strokeRect(tx + 0.5, ty + 0.5, (isMobile ? 230 : 250) - 1, 59);
       drawText(c, label, tx + 8, ty + 8, col, 1);
       drawText(c, desc, tx + 8, ty + 20, '#cfd6e4', 1);
       drawText(c, 'COORD: ' + Math.floor(wx/TILE) + ', ' + Math.floor(wy/TILE), tx + 8, ty + 38, '#8a93a6', 1);
     }
   };
-
-  // 1. Player
   dot(G.p.x, G.p.y, '#05d9e8', 'P', 'PLAYER: ' + cleanPlayerName(G.playerName), localText('YOUR CURRENT POSITION'));
-
-  // 2. Shops
   dot(WORLD.shops.guns.x, WORLD.shops.guns.y, '#f9f002', 'G', localText('GUN SHOP'), localText('WEAPONS & AMMO'));
   dot(WORLD.shops.ripper.x, WORLD.shops.ripper.y, '#05d9e8', 'R', localText('RIPPERDOC'), localText('CYBERWARE CLINIC'));
   dot(WORLD.shops.cars.x, WORLD.shops.cars.y, '#00ff9f', 'A', 'AUTOFIXER', localText('VEHICLES AND GARAGE'));
   dot(WORLD.shops.bar.x, WORLD.shops.bar.y, '#ff2a6d', 'B', 'AFTERLIFE BAR', localText('ORDER A DRINK'));
   if (WORLD.shops.casino) dot(WORLD.shops.casino.x, WORLD.shops.casino.y, '#bd00ff', 'C', localText('CASINO DEALER'), localText('PLAY DICE MINI-GAME'));
   if (WORLD.shops.clothing) dot(WORLD.shops.clothing.x, WORLD.shops.clothing.y, '#ff69b4', 'T', localText('MIRROR ROOM'), localText('SWITCH GENDER / SKIN'));
-
-  // 3. NPCs (joy/doll only — casino+stylist now have dedicated buildings)
   for (const n of WORLD.npcs) {
     if (n.kind === 'joy') {
       dot(n.x, n.y, '#ff2a6d', 'J', n.name + ' - JOY', localText('CLOUDS LOUNGE'));
@@ -1198,12 +1269,9 @@ function invMap(c) {
       dot(n.x, n.y, '#ff2a6d', 'D', n.name + ' - DOLL', localText('CLOUDS VIP ROOM'));
     }
   }
-
-  // 4. Legend
-  const lx = 308, ly = 52;
-  drawText(c, localText('NIGHT CITY MAP'), lx, ly, '#bd00ff', 2);
+  const lx = px + (isMobile ? 210 : 252), ly = py + (isMobile ? 28 : 30);
+  drawText(c, localText('NIGHT CITY MAP'), lx, ly, INV_THEMES[G.invTheme || 'grey'].color, 2);
   drawText(c, localText('LEGEND:'), lx, ly + 18, '#5a6372', 1);
-
   const legendItems = [
     { key: 'P', name: 'PLAYER V', col: '#05d9e8' },
     { key: 'G', name: 'GUN SHOP', col: '#f9f002' },
@@ -1214,14 +1282,11 @@ function invMap(c) {
     { key: 'T', name: 'TRANG PHUC', col: '#ff69b4' },
     { key: 'J', name: 'JOY / DOLL', col: '#ff2a6d' },
   ];
-
   legendItems.forEach((item, index) => {
-    const rx = lx + (index % 2) * 130;
-    const ry = ly + 32 + Math.floor(index / 2) * 14;
+    const rx = lx + (index % 2) * (isMobile ? 115 : 130);
+    const ry = ly + 32 + Math.floor(index / 2) * (isMobile ? 11 : 14);
     drawText(c, '[' + item.key + '] ' + localText(item.name), rx, ry, item.col, 1);
   });
-
-  drawText(c, localText('HOVER ON DOTS TO IDENTIFY LOCATIONS'), lx, ly + 104, '#8a93a6', 1);
 }
 
 

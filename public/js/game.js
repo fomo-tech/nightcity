@@ -168,6 +168,11 @@ const TOUCH = {
   aim: { act: false, x: 0, y: 0, bx: 0, by: 0, kx: 0, ky: 0 },
   firing: false,
 };
+window.TOUCH = TOUCH;
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window, 'VIEW_W', { get: () => VIEW_W, configurable: true });
+  Object.defineProperty(window, 'VIEW_H', { get: () => VIEW_H, configurable: true });
+}
 
 // thumb-sized: on a phone 1 canvas px ≈ 1pt, so r≥17 keeps targets near the 44pt guideline
 // thumb-sized: on a phone 1 canvas px ≈ 1pt, so r≥17 keeps targets near the 44pt guideline
@@ -412,7 +417,7 @@ function wipeSave() {
 // ---- fresh state ----
 function newGame() {
   return {
-    state: 'title', titleMode: 'menu', ui: null, uiS: { sel: 0, scroll: 0, tab: 0, confirm: false }, textQ: [],
+    state: 'title', titleMode: 'menu', ui: null, uiS: { sel: 0, scroll: 0, tab: 0, confirm: false }, textQ: [], invTheme: 'grey',
     gender: 'm',
     skin: null,
     playerName: cleanPlayerName((typeof window !== 'undefined' && window.NCPX_PLAYER && window.NCPX_PLAYER.name) || 'V'),
@@ -497,6 +502,7 @@ function saveGame() {
     state: G.state,
     deadT: G.deadT,
     deathFee: G.deathFee,
+    invTheme: G.invTheme,
   };
   try { localStorage.setItem(activeSaveKey(), JSON.stringify(d)); } catch (e) {}
   try { if (window.NCPX_SAVE && window.NCPX_SAVE.put) window.NCPX_SAVE.put(d); } catch (e) {}
@@ -533,7 +539,7 @@ function applySave() {
   G.skippyFound = !!d.skippyFound; G.bountyCount = d.bountyCount || 0;
   (d.dens || []).forEach(id => { const dn = WORLD.dens[id]; if (dn) { dn.cleared = true; dn.done = true; } });
   if (!WORLD.blockedPx(d.px, d.py)) { G.p.x = d.px; G.p.y = d.py; } // saves standing on old-version furniture fall back to spawn
-  G.state = d.state || 'play'; G.deadT = d.deadT || 0; G.deathFee = d.deathFee || 0;
+  G.state = d.state || 'play'; G.deadT = d.deadT || 0; G.deathFee = d.deathFee || 0; G.invTheme = d.invTheme || 'grey';
   G.p.hp = d.hp !== undefined ? d.hp : 100;
   return true;
 }
@@ -799,13 +805,18 @@ function drawScanOverlay(c) {
 }
 
 function uiPanelRect() {
+  const isMobile = !!(typeof TOUCH !== 'undefined' && TOUCH.on);
   switch (G.ui) {
     case 'pause': return [200, 60, 240, 226];
     case 'gang': return [128, 54, 384, 258];
     case 'bar': return [220, 110, 200, 130];
     case 'talk': return [110, 218, 420, 116];
     case 'casino': return [180, 70, 280, 220];
-    case 'guns': case 'cars': case 'ripper': case 'inv': return [56, 22, 528, 316];
+    case 'guns': case 'cars': case 'ripper': case 'inv':
+      if (isMobile) {
+        return [80, 25, 480, 275];
+      }
+      return [56, 22, 528, 316];
     default: return null;
   }
 }
