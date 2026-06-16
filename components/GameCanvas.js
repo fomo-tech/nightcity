@@ -533,7 +533,7 @@ function PixelDeadOverlay({ player, language }) {
   const headerTxt = isVi
     ? "⚠ CẢNH BÁO: HỆ THỐNG NGƯNG HOẠT ĐỘNG"
     : "⚠ WARNING: BIOMETRIC LINK SEVERED";
-  const titleTxt = isVi ? "MẤT SINH HIỆU" : "FLATLINED";
+  const titleTxt = isVi ? "Chờ Hồi Sinh" : "FLATLINED";
   const feeLabel = isVi ? "PHÍ TRUY THU TRAUMA TEAM:" : "TRAUMA TEAM FEE:";
   const statusLabel = isVi ? "TRẠNG THÁI:" : "STATUS:";
   const statusVal = isVi
@@ -4925,7 +4925,7 @@ export default function GameCanvas() {
           {/* Header strip */}
           <div className="inv-modal-header">
             <span className="inv-modal-header-title">
-              {language === "vi" ? "▶ TÚI ĐỒ / CHỈ SỐ" : "▶ NEURAL GEAR SYSTEM"}
+              {language === "vi" ? "Bản thân" : "▶ NEURAL GEAR SYSTEM"}
             </span>
             <span className="inv-modal-header-eddies">€$ {fmt(playerState.eddies)}</span>
           </div>

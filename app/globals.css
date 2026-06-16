@@ -181,9 +181,9 @@
   --pixel-panel: #080b12;
   --pixel-panel-2: #111522;
   --pixel-line: #2c3444;
-  --font-game: 'Orbitron', 'Share Tech Mono', system-ui, sans-serif;
-  --font-pixel: 'Press Start 2P', cursive;
-  --font-pixel-mono: 'VT323', monospace;
+  --font-game: 'Tiny5', 'Chakra Petch', 'Orbitron', 'Share Tech Mono', system-ui, sans-serif;
+  --font-pixel: 'Tiny5', 'Press Start 2P', cursive;
+  --font-pixel-mono: 'Tiny5', 'VT323', monospace;
   --font-mono: var(--font-game);
   --font-title: var(--font-game);
   --font-body: var(--font-game);
