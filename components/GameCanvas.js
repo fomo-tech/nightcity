@@ -6526,6 +6526,11 @@ function setupRealtimeBridge(getStore) {
       if (msg.type === "npcState") net.npcState = msg;
       if (msg.type === "npcHit")
         net.npcEvents = [msg, ...net.npcEvents].slice(0, 24);
+      // Immediate host promotion: server notifies new host directly so gang AI resumes instantly
+      if (msg.type === "hostChanged") {
+        net.hostId = msg.hostId || net.hostId;
+        net.isHost = !!msg.isHost;
+      }
     };
     ws.onclose = () => {
       net.connected = false;

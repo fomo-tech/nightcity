@@ -84,8 +84,8 @@ async function main() {
   const players = new Map();
   const rooms = new Map();
   const roomMeta = new Map();
-  const PLAYER_STALE_MS = 12000;
-  const HEARTBEAT_MS = 4000;
+  const PLAYER_STALE_MS = 6000;
+  const HEARTBEAT_MS = 2000;
 
   function roomPlayers(room) {
     if (!rooms.has(room)) rooms.set(room, new Set());
@@ -101,10 +101,14 @@ async function main() {
   function electHost(roomName) {
     const ids = rooms.get(roomName) || new Set();
     const meta = roomInfo(roomName);
-    if (meta.hostId && ids.has(meta.hostId)) return meta.hostId;
+    // Dead players (hp=0) cannot be host — they may be in a death screen and not sending npcState
+    const currentP = meta.hostId ? players.get(meta.hostId) : null;
+    if (meta.hostId && ids.has(meta.hostId) && currentP && currentP.hp > 0) return meta.hostId;
     const oldHost = meta.hostId;
-    meta.hostId = ids.values().next().value || null;
-    if (oldHost && oldHost !== meta.hostId) meta.npcSnapshot = null;
+    // Prefer an alive player; fall back to any player in the room
+    const aliveId = [...ids].find(id => { const p = players.get(id); return p && p.hp > 0; });
+    meta.hostId = aliveId || ids.values().next().value || null;
+    if (oldHost !== meta.hostId) meta.npcSnapshot = null;
     return meta.hostId;
   }
 
@@ -119,24 +123,39 @@ async function main() {
         rooms.delete(p.room);
         roomMeta.delete(p.room);
       } else {
-        electHost(p.room);
+        const prevHost = roomInfo(p.room).hostId;
+        const newHostId = electHost(p.room);
+        // Immediately notify new host so gang AI resumes without waiting for next broadcast cycle
+        if (prevHost !== newHostId && newHostId) {
+          const hw = [...wss.clients].find(c => c.playerId === newHostId && c.readyState === c.OPEN);
+          if (hw) try { hw.send(JSON.stringify({ type: 'hostChanged', hostId: newHostId, isHost: true })); } catch (e) {}
+        }
       }
     }
   }
 
   function broadcast(roomName) {
     const ids = rooms.get(roomName) || new Set();
+    const prevHost = roomInfo(roomName).hostId;
+    const newHostId = electHost(roomName);
+    // When host changes (e.g. old host died), immediately notify new host so gang AI resumes instantly
+    if (prevHost !== newHostId && newHostId) {
+      const hw = [...wss.clients].find(c => c.playerId === newHostId && c.readyState === c.OPEN);
+      if (hw) try { hw.send(JSON.stringify({ type: 'hostChanged', hostId: newHostId, isHost: true })); } catch (e) {}
+    }
     const payload = JSON.stringify({
       type: 'players',
       room: roomName,
-      hostId: electHost(roomName),
+      hostId: newHostId,
       serverT: Date.now(),
       players: [...ids].map(id => players.get(id)).filter(p => p && p.hp > 0).map(p => ({
         id: p.id, name: p.name, gang: p.gang, gangKey: p.gangKey, gangIcon: p.gangIcon, gangIconCol: p.gangIconCol, x: p.x, y: p.y, vx: p.vx || 0, vy: p.vy || 0, face: p.face, flip: p.flip, hp: p.hp, seq: p.seq, t: p.lastSeen, isLeader: p.isLeader, act: p.act || null,
       })),
     });
     for (const client of wss.clients) {
-      if (client.readyState === client.OPEN && client.room === roomName) client.send(payload);
+      if (client.readyState === client.OPEN && client.room === roomName) {
+        try { client.send(payload); } catch (e) {}
+      }
     }
   }
 
@@ -355,7 +374,7 @@ async function main() {
         forgetPlayer(id);
       }
     }
-    for (const room of rooms.keys()) broadcast(room);
+    // Only broadcast rooms that actually had stale-player changes (not ALL rooms every 500ms)
     for (const room of changed) broadcast(room);
   }, 500);
 
