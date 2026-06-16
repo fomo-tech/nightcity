@@ -5,7 +5,7 @@ import { useGameStore } from "@/store/useGameStore";
 
 const SAVE_KEY = "ncpx2077_v1";
 const ACCOUNT_KEY = "ncpx_account_v1";
-const SCRIPT_VERSION = "116";
+const SCRIPT_VERSION = "132";
 const GLOBAL_REALTIME_ROOM = "nightcity";
 const PERFORMANCE_MODE = false;
 const GAME_SCRIPTS = [
@@ -424,6 +424,184 @@ function GangPixelBadge({ mark, color, size = "sm" }) {
         />
       ))}
     </span>
+  );
+}
+
+function VirtualPixelKeyboard({ value, onChange, language, playSynthSfx, onClose }) {
+  const [layoutMode, setLayoutMode] = useState("VI");
+
+  const rows = [
+    ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"],
+    ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
+    ["A", "S", "D", "F", "G", "H", "J", "K", "L"],
+    ["Z", "X", "C", "V", "B", "N", "M"]
+  ];
+
+  const convertTelex = (str) => {
+    let s = str.toLowerCase();
+    s = s.replace(/dd/g, 'đ');
+    s = s.replace(/aa/g, 'â');
+    s = s.replace(/ee/g, 'ê');
+    s = s.replace(/oo/g, 'ô');
+    s = s.replace(/ow/g, 'ơ');
+    s = s.replace(/uw/g, 'ư');
+    s = s.replace(/aw/g, 'ă');
+    
+    s = s.replace(/u([aeiouyđâêôăơ]+)w/g, 'ư$1');
+    s = s.replace(/o([aeiouyđâêôăơ]+)w/g, 'ơ$1');
+    s = s.replace(/uw/g, 'ư');
+    s = s.replace(/ow/g, 'ơ');
+    s = s.replace(/w/g, 'ư');
+    
+    const vowels = {
+      'a': { 's': 'á', 'f': 'à', 'r': 'ả', 'x': 'ã', 'j': 'ạ' },
+      'ă': { 's': 'ắ', 'f': 'ằ', 'r': 'ẳ', 'x': 'ẵ', 'j': 'ặ' },
+      'â': { 's': 'ấ', 'f': 'ầ', 'r': 'ẩ', 'x': 'ẫ', 'j': 'ậ' },
+      'e': { 's': 'é', 'f': 'è', 'r': 'ẻ', 'x': 'ẽ', 'j': 'ẹ' },
+      'ê': { 's': 'ế', 'f': 'ề', 'r': 'ể', 'x': 'ễ', 'j': 'ệ' },
+      'i': { 's': 'í', 'f': 'ì', 'r': 'ỉ', 'x': 'ĩ', 'j': 'ị' },
+      'o': { 's': 'ó', 'f': 'ò', 'r': 'ỏ', 'x': 'õ', 'j': 'ọ' },
+      'ô': { 's': 'ố', 'f': 'ồ', 'r': 'ổ', 'x': 'ỗ', 'j': 'ộ' },
+      'ơ': { 's': 'ớ', 'f': 'ờ', 'r': 'ở', 'x': 'ỡ', 'j': 'ợ' },
+      'u': { 's': 'ú', 'f': 'ù', 'r': 'ủ', 'x': 'ũ', 'j': 'ụ' },
+      'ư': { 's': 'ứ', 'f': 'ừ', 'r': 'ử', 'x': 'ữ', 'j': 'ự' },
+      'y': { 's': 'ý', 'f': 'ỳ', 'r': 'ỷ', 'x': 'ỹ', 'j': 'ỵ' }
+    };
+    
+    const words = s.split(' ');
+    for (let wIdx = 0; wIdx < words.length; wIdx++) {
+      let word = words[wIdx];
+      if (word.length > 1) {
+        const lastChar = word[word.length - 1];
+        if (['s', 'f', 'r', 'x', 'j'].includes(lastChar)) {
+          const chars = word.slice(0, -1).split('');
+          let vowelIndices = [];
+          const isVowel = c => 'aeiouyăâêôươáàảãạắằẳẵặấầẩẫậéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ'.includes(c);
+          for (let i = 0; i < chars.length; i++) {
+            if (isVowel(chars[i])) vowelIndices.push(i);
+          }
+          
+          if (vowelIndices.length > 0) {
+            let targetIdx = vowelIndices[0];
+            if (vowelIndices.length === 2) {
+              const baseWord = word.slice(0, -1);
+              const lastBaseChar = baseWord[baseWord.length - 1];
+              const hasFinalConsonant = !isVowel(lastBaseChar);
+              
+              const vStr = baseWord.slice(vowelIndices[0], vowelIndices[1] + 1);
+              if (vStr === 'uy') {
+                targetIdx = vowelIndices[1];
+              } else if (hasFinalConsonant) {
+                targetIdx = vowelIndices[1];
+              } else {
+                targetIdx = vowelIndices[0];
+              }
+            } else if (vowelIndices.length === 3) {
+              targetIdx = vowelIndices[1];
+            }
+            
+            let cleanChar = chars[targetIdx];
+            const baseMap = {
+              'á':'a', 'à':'a', 'ả':'a', 'ã':'a', 'ạ':'a',
+              'ắ':'ă', 'ằ':'ă', 'ẳ':'ă', 'ẵ':'ă', 'ặ':'ă',
+              'ấ':'â', 'ầ':'â', 'ẩ':'â', 'ẫ':'â', 'ậ':'â',
+              'é':'e', 'è':'e', 'ẻ':'e', 'ẽ':'e', 'ẹ':'e',
+              'ế':'ê', 'ề':'ê', 'ể':'ê', 'ễ':'ê', 'ệ':'ê',
+              'í':'i', 'ì':'i', 'ỉ':'i', 'ĩ':'i', 'ị':'i',
+              'ó':'o', 'ò':'o', 'ỏ':'o', 'õ':'o', 'ọ':'o',
+              'ố':'ô', 'ồ':'ô', 'ổ':'ô', 'ỗ':'ô', 'ộ':'ô',
+              'ớ':'ơ', 'ờ':'ơ', 'ở':'ơ', 'ỡ':'ơ', 'ợ':'ơ',
+              'ú':'u', 'ù':'u', 'ủ':'u', 'ũ':'u', 'ụ':'u',
+              'ứ':'ư', 'ừ':'ư', 'ử':'ư', 'ữ':'ư', 'ự':'ư',
+              'ý':'y', 'ỳ':'y', 'ỷ':'y', 'ỹ':'y', 'ỵ':'y'
+            };
+            if (baseMap[cleanChar]) cleanChar = baseMap[cleanChar];
+            
+            if (vowels[cleanChar] && vowels[cleanChar][lastChar]) {
+              chars[targetIdx] = vowels[cleanChar][lastChar];
+              word = chars.join('');
+            }
+          }
+        }
+      }
+      words[wIdx] = word;
+    }
+    return words.join(' ').toUpperCase();
+  };
+
+  const handleKeyPress = (key) => {
+    if (playSynthSfx) playSynthSfx("click");
+    if (key === "BACK") {
+      onChange(value.slice(0, -1));
+    } else if (key === "SPACE") {
+      if (value.length < 18) {
+        onChange(value + " ");
+      }
+    } else if (key === "CLEAR") {
+      onChange("");
+    } else {
+      if (value.length < 18) {
+        const nextVal = value + key;
+        if (layoutMode === "VI") {
+          onChange(convertTelex(nextVal));
+        } else {
+          onChange(nextVal.toUpperCase());
+        }
+      }
+    }
+  };
+
+  return (
+    <div className="virtual-pixel-keyboard">
+      <div className="keyboard-row control-row">
+        <button
+          className={`keyboard-btn lang-toggle-btn ${layoutMode === "VI" ? "active" : ""}`}
+          onClick={() => {
+            if (playSynthSfx) playSynthSfx("click");
+            setLayoutMode(layoutMode === "VI" ? "EN" : "VI");
+          }}
+        >
+          {layoutMode === "VI" ? "TELEX: VI" : "TELEX: EN"}
+        </button>
+        <button className="keyboard-btn space-btn" onClick={() => handleKeyPress("SPACE")}>
+          SPACE
+        </button>
+        <button className="keyboard-btn clear-btn" onClick={() => handleKeyPress("CLEAR")}>
+          {language === "vi" ? "XÓA HẾT" : "CLEAR"}
+        </button>
+        {onClose && (
+          <button
+            className="keyboard-btn close-btn"
+            onClick={() => {
+              if (playSynthSfx) playSynthSfx("click");
+              onClose();
+            }}
+            style={{ color: "var(--cyber-pink)", borderColor: "rgba(255, 42, 109, 0.25)", minWidth: "30px", padding: "0 6px" }}
+          >
+            ✕
+          </button>
+        )}
+      </div>
+      {rows.map((row, rIdx) => (
+        <div key={rIdx} className="keyboard-row">
+          {rIdx === 3 && (
+            <button className="keyboard-btn back-btn" onClick={() => handleKeyPress("BACK")}>
+              ◀
+            </button>
+          )}
+          {row.map((key) => (
+            <button key={key} className="keyboard-btn letter-btn" onClick={() => handleKeyPress(key)}>
+              {key}
+            </button>
+          ))}
+          {rIdx === 3 && (
+            <button className="keyboard-btn back-btn" onClick={() => handleKeyPress("BACK")}>
+              DEL
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -2093,8 +2271,14 @@ export default function GameCanvas() {
   const lastUiSnapshot = useRef("");
   const tabsRef = useRef(null);
 
+  const [isMobileDevice, setIsMobileDevice] = useState(false);
+  const [showVirtualKeyboard, setShowVirtualKeyboard] = useState(false);
+
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
+    const hasTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    setIsMobileDevice(hasTouch);
+
     setLanguage("vi");
     window.__NCPX_LOW_FX = PERFORMANCE_MODE;
     window.__NCPX_JSX_PLAYER_HUD = !PERFORMANCE_MODE;
@@ -2118,6 +2302,9 @@ export default function GameCanvas() {
       try {
         if (typeof window !== "undefined" && window.G) {
           const g = window.G;
+          if (window.TOUCH?.on && !isMobileDevice) {
+            setIsMobileDevice(true);
+          }
           const nextUi = g.ui || null;
           if (PERFORMANCE_MODE && !nextUi) {
             if (lastUiSnapshot.current !== "perf:null") {
@@ -2172,6 +2359,9 @@ export default function GameCanvas() {
             setPlayerState(nextPlayer);
             setJsxBanner(nextBanner);
             setJsxMsgs(nextMsgs);
+            if (nextUi !== "gang") {
+              setShowVirtualKeyboard(false);
+            }
           }
 
         }
@@ -4529,8 +4719,8 @@ export default function GameCanvas() {
           </div>
         </div>
 
-        {/* Section 2: Faction Generator (Editor) */}
-        {(!G.gang || G.isGangLeader || G.gang === "player") && (
+        {/* Section 2: Faction Generator (Editor) / Info Box */}
+        {(!G.gang || G.gang === "SOLO" || G.isGangLeader) ? (
           <div className="gang-generator-box">
             <div className="gang-generator-header">
               {language === "vi" ? "THIẾT LẬP BĂNG ĐẢNG" : "FACTION GENERATOR"}
@@ -4549,19 +4739,42 @@ export default function GameCanvas() {
                       playSynthSfx("click");
                       G.gangNameSel =
                         (G.gangNameSel - 1 + names.length) % names.length;
+                      G.gangDraft = names[G.gangNameSel];
                       forceUpdate();
                     }}
                   >
                     ◀
                   </button>
-                  <div className="gang-selector-value gang-name-value">
-                    {names[G.gangNameSel]}
-                  </div>
+                  <input
+                    type="text"
+                    className="gang-name-input"
+                    value={typeof G.gangDraft !== "undefined" && G.gangDraft !== null ? G.gangDraft : names[G.gangNameSel]}
+                    maxLength={18}
+                    readOnly={isMobileDevice}
+                    onChange={(e) => {
+                      if (!isMobileDevice) {
+                        const newVal = e.target.value.toUpperCase();
+                        G.gangDraft = newVal;
+                        forceUpdate();
+                      }
+                    }}
+                    onFocus={() => {
+                      if (isMobileDevice) setShowVirtualKeyboard(true);
+                    }}
+                    onClick={() => {
+                      if (isMobileDevice) setShowVirtualKeyboard(true);
+                    }}
+                    onTouchStart={() => {
+                      if (isMobileDevice) setShowVirtualKeyboard(true);
+                    }}
+                    placeholder={language === "vi" ? "NHẬP TÊN BĂNG..." : "ENTER NAME..."}
+                  />
                   <button
                     className="gang-selector-btn"
                     onClick={() => {
                       playSynthSfx("click");
                       G.gangNameSel = (G.gangNameSel + 1) % names.length;
+                      G.gangDraft = names[G.gangNameSel];
                       forceUpdate();
                     }}
                   >
@@ -4569,6 +4782,8 @@ export default function GameCanvas() {
                   </button>
                 </div>
               </div>
+
+
 
               {/* Field 2: Icon Selector */}
               <div className="gang-field-group">
@@ -4623,9 +4838,47 @@ export default function GameCanvas() {
                   ? "CẬP NHẬT TÊN & BIỂU TƯỢNG"
                   : "UPDATE GANG DETAILS"
                 : language === "vi"
-                  ? "THÀNH LẬP BĂNG ĐẢNG"
-                  : "ESTABLISH FACTION"}
+                  ? "THÀNH LẬP BĂNG ĐẢNG ($1,000)"
+                  : "ESTABLISH FACTION ($1,000)"}
             </button>
+          </div>
+        ) : (
+          <div className="gang-generator-box info-only">
+            <div className="gang-generator-header">
+              {language === "vi" ? "BẢNG ĐIỀU KHIỂN BĂNG" : "GANG INFORMATION"}
+            </div>
+            <div className="gang-info-text" style={{ padding: "8px 0", fontSize: "10px", color: "#8a93a6", lineHeight: "1.4" }}>
+              {language === "vi"
+                ? "BẠN LÀ THÀNH VIÊN BĂNG ĐẢNG. CHỈ THỦ LĨNH MỚI CÓ QUYỀN THAY ĐỔI TÊN HOẶC BIỂU TƯỢNG BĂNG."
+                : "YOU ARE A GANG MEMBER. ONLY THE LEADER CAN CHANGE GANG NAME OR ICON DETAILS."}
+            </div>
+          </div>
+        )}
+
+        {/* Section 2b: Gang Members List */}
+        {G.gang && G.gang !== "SOLO" && (
+          <div className="gang-members-box">
+            <div className="gang-members-header">
+              {language === "vi" 
+                ? `THÀNH VIÊN BĂNG (${window.gangMemberCount ? window.gangMemberCount() : 1}/5)` 
+                : `GANG MEMBERS (${window.gangMemberCount ? window.gangMemberCount() : 1}/5)`}
+            </div>
+            <div className="gang-members-list">
+              <div className="gang-member-item self">
+                <span className="gang-member-dot" style={{ background: profile?.gangIconCol || "var(--cyber-cyan)", width: "6px", height: "6px", borderRadius: "50%", display: "inline-block", marginRight: "4px" }}></span>
+                <span className="gang-member-name" style={{ flex: 1 }}>{fmtName(profile?.name || "V")} (BẠN)</span>
+                <span className="gang-member-role" style={{ color: G.isGangLeader ? "var(--cyber-yellow)" : "#8a93a6", textShadow: G.isGangLeader ? "0 0 4px var(--cyber-yellow)" : "none", fontSize: "9px", textTransform: "uppercase" }}>
+                  {G.isGangLeader ? (language === "vi" ? "THỦ LĨNH" : "LEADER") : (language === "vi" ? "THÀNH VIÊN" : "MEMBER")}
+                </span>
+              </div>
+              {(G.remotePlayers || []).filter(rp => Number(rp.hp) > 0 && window.sameGangProfile && window.sameGangProfile(rp, profile)).map((rp, idx) => (
+                <div key={idx} className="gang-member-item">
+                  <span className="gang-member-dot" style={{ background: rp.gangIconCol || "var(--cyber-cyan)", width: "6px", height: "6px", borderRadius: "50%", display: "inline-block", marginRight: "4px" }}></span>
+                  <span className="gang-member-name" style={{ flex: 1 }}>{fmtName(rp.name)}</span>
+                  <span className="gang-member-role" style={{ fontSize: "9px", textTransform: "uppercase" }}>{language === "vi" ? "THÀNH VIÊN" : "MEMBER"}</span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
@@ -5826,6 +6079,22 @@ export default function GameCanvas() {
               {renderModalContent(activeUi)}
             </div>
           </div>
+
+          {/* Custom Virtual Telex/English Keyboard Drawer (Shown only on mobile when focused in gang menu) */}
+          {activeUi === "gang" && isMobileDevice && showVirtualKeyboard && (
+            <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", bottom: 0, left: 0, width: "100%", zIndex: 100000 }}>
+              <VirtualPixelKeyboard
+                value={typeof window.G?.gangDraft !== "undefined" && window.G?.gangDraft !== null ? window.G.gangDraft : (window.PLAYER_GANG_NAMES || ["SOLO"])[window.G?.gangNameSel || 0]}
+                onChange={(newVal) => {
+                  if (window.G) window.G.gangDraft = newVal;
+                  forceUpdate();
+                }}
+                language={language}
+                playSynthSfx={playSynthSfx}
+                onClose={() => setShowVirtualKeyboard(false)}
+              />
+            </div>
+          )}
         </div>
       )}
 

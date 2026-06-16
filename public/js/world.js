@@ -164,7 +164,9 @@ function genWorld() {
         setRect(r[0], r[1], r[2], r[3], WT.BLDG); // buildings are SOLID (the block fill made them sidewalk)
         const b = { x: r[0], y: r[1], w: r[2], h: r[3], roof: roofsCol[rng() * 4 | 0], neon: rng() < 0.4 ? dCol : null, sign: null };
         if (rng() < 0.4) b.sign = { text: BRANDS[rng() * BRANDS.length | 0], col: NEON[rng() * NEON.length | 0] };
-        if (rng() < 0.32) { b.ent = true; b.den = rng() < 0.5; b.theme = b.den ? 'den' : 'flat'; }
+        b.ent = true;
+        b.den = rng() < 0.3;
+        b.theme = b.den ? 'den' : 'flat';
         bldgs.push(b);
       }
       if (rng() < 0.8 && alleys.length) { const a = alleys[alleys.length - 1]; crateSpots.push({ x: a.x * TILE + 8, y: a.y * TILE + 8 }); }
@@ -236,7 +238,9 @@ function genWorld() {
       setRect(r[0], r[1], r[2], r[3], WT.BLDG);
       const b = { x: r[0], y: r[1], w: r[2], h: r[3], roof: roofsCol[rng() * roofsCol.length | 0], neon: rng() < 0.55 ? dCol : null, sign: null };
       if (rng() < 0.42) b.sign = { text: BRANDS[rng() * BRANDS.length | 0], col: NEON[rng() * NEON.length | 0] };
-      if (rng() < 0.24 && r[2] >= 6 && r[3] >= 6) { b.ent = true; b.theme = rng() < 0.35 ? 'den' : 'flat'; b.den = b.theme === 'den'; }
+      b.ent = true;
+      b.den = rng() < 0.3;
+      b.theme = b.den ? 'den' : 'flat';
       bldgs.push(b);
     }
     if (rng() < 0.82 && alleys.length) { const a = alleys[alleys.length - 1]; crateSpots.push({ x: a.x * TILE + 8, y: a.y * TILE + 8 }); }
@@ -263,7 +267,18 @@ function genWorld() {
       const n = b.den ? 2 : 1;
       for (let k = 0; k < n; k++)
         crateSpots.push({ x: (b.x + 1 + (rng() * (b.w - 2) | 0)) * TILE + 8, y: (b.y + 1 + (rng() * Math.max(1, b.h - 3) | 0)) * TILE + 8 });
-      if (b.den) { b.denId = dens.length; dens.push({ id: dens.length, tx0: b.x, ty0: b.y, tx1: b.x + b.w - 1, ty1: b.y + b.h - 1, done: false, cleared: false, left: 0 }); }
+      const hasBots = b.den || (b.theme === 'flat' && rng() < 0.35);
+      if (hasBots) { b.denId = dens.length; dens.push({ id: dens.length, tx0: b.x, ty0: b.y, tx1: b.x + b.w - 1, ty1: b.y + b.h - 1, done: false, cleared: false, left: 0, isFlat: b.theme === 'flat' }); }
+      
+      // Spawn random gifts inside flats and dens (60% chance for 1 or 2 items)
+      if (rng() < 0.60) {
+        const giftCount = rng() < 0.3 ? 2 : 1;
+        for (let g = 0; g < giftCount; g++) {
+          const gtx = b.x + 1 + (rng() * (b.w - 2) | 0);
+          const gty = b.y + 1 + (rng() * Math.max(1, b.h - 3) | 0);
+          gift(gtx, gty, 'indoor_gift');
+        }
+      }
     }
   }
 
@@ -334,7 +349,7 @@ function genWorld() {
   // buildings: enterable → interior on ground + roof on its own fading layer
   for (const b of bldgs) {
     if (b.ent) {
-      const r = { x: b.x * TILE, y: b.y * TILE, w: b.w * TILE, h: b.h * TILE, cv: mkCanvas(b.w * TILE, b.h * TILE), a: 1, tx0: b.x, ty0: b.y, tx1: b.x + b.w - 1, ty1: b.y + b.h - 1, doorTx: b.doors.slice(), doorTy: b.y + b.h - 1, lights: [] };
+      const r = { x: b.x * TILE, y: b.y * TILE, w: b.w * TILE, h: b.h * TILE, cv: mkCanvas(b.w * TILE, b.h * TILE), a: 1, tx0: b.x, ty0: b.y, tx1: b.x + b.w - 1, ty1: b.y + b.h - 1, doorTx: b.doors.slice(), doorTy: b.y + b.h - 1, lights: [], theme: b.theme };
       _bakeInterior(c, b, r, rng, npcs, obst);
       _bakeExterior(r.cv.getContext('2d'), b, -b.x * TILE, -b.y * TILE, signs, roofs.length);
       roofs.push(r);

@@ -1141,7 +1141,7 @@ select {
 
 /* Premium Boot Sequence Overlay */
 .boot-overlay {
-  position: fixed;
+  position: absolute;
   inset: 0;
   z-index: 100;
   background: radial-gradient(circle at center, #0f0a28 0%, #030306 100%);
@@ -1154,7 +1154,7 @@ select {
 }
 
 .boot-overlay {
-  position: fixed;
+  position: absolute;
   inset: 0;
   z-index: 100;
   background: radial-gradient(circle at center, #0a0518 0%, #020204 100%);
@@ -3242,6 +3242,130 @@ select {
   color: #fff;
 }
 
+.gang-name-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #fff;
+  font-family: var(--font-title);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-align: center;
+  padding: 0 4px;
+  text-transform: uppercase;
+  width: 100%;
+}
+
+.gang-name-input::placeholder {
+  color: rgba(255, 255, 255, 0.25);
+}
+
+/* Custom Virtual Pixel Keyboard Styles */
+.virtual-pixel-keyboard {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: 100%;
+  padding: 8px 12px;
+  background: rgba(10, 11, 16, 0.98);
+  border-top: 2px solid var(--cyber-cyan);
+  box-shadow: 0 -10px 25px rgba(5, 217, 232, 0.15);
+  box-sizing: border-box;
+  margin-top: 0;
+  transform: translateY(0);
+  animation: slideUp 0.25s cubic-bezier(0.1, 0.76, 0.55, 0.94) forwards;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.keyboard-row {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+}
+
+.control-row {
+  margin-bottom: 2px;
+}
+
+.keyboard-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-family: var(--font-title);
+  font-size: 13px;
+  font-weight: bold;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s ease;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%);
+}
+
+.keyboard-btn:hover {
+  background: rgba(249, 240, 2, 0.12);
+  border-color: var(--cyber-yellow);
+  color: var(--cyber-yellow);
+  text-shadow: 0 0 5px var(--cyber-yellow);
+}
+
+.keyboard-btn:active {
+  transform: scale(0.95);
+  background: rgba(249, 240, 2, 0.2);
+}
+
+.letter-btn {
+  flex: 1;
+  max-width: 44px;
+}
+
+.back-btn {
+  flex: 1.2;
+  max-width: 56px;
+  color: var(--cyber-pink);
+  border-color: rgba(255, 42, 109, 0.2);
+}
+
+.back-btn:hover {
+  border-color: var(--cyber-pink);
+  color: var(--cyber-pink);
+  text-shadow: 0 0 5px var(--cyber-pink);
+}
+
+.lang-toggle-btn {
+  flex: 1.5;
+  color: var(--cyber-cyan);
+  border-color: rgba(5, 217, 232, 0.2);
+}
+
+.lang-toggle-btn.active {
+  background: rgba(5, 217, 232, 0.1);
+  border-color: var(--cyber-cyan);
+  text-shadow: 0 0 5px var(--cyber-cyan);
+}
+
+.space-btn {
+  flex: 3;
+}
+
+.clear-btn {
+  flex: 1.2;
+  color: #8a93a6;
+}
+
 .icon-selector-row {
   height: auto;
   min-height: 58px;
@@ -3349,6 +3473,154 @@ select {
   opacity: 0.35;
   cursor: not-allowed;
   pointer-events: none;
+}
+
+/* Faction Members List Styles */
+.gang-members-box {
+  background: rgba(6, 8, 14, 0.85);
+  border: 1px solid rgba(189, 0, 255, 0.3);
+  box-shadow: 0 0 15px rgba(189, 0, 255, 0.1);
+  padding: 12px;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%);
+}
+
+.gang-members-header {
+  font-family: var(--font-title);
+  font-size: 9px;
+  color: var(--cyber-pink);
+  letter-spacing: 1.5px;
+  border-bottom: 1px dashed rgba(189, 0, 255, 0.2);
+  padding-bottom: 6px;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+
+.gang-members-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.gang-members-list::-webkit-scrollbar {
+  width: 4px;
+}
+.gang-members-list::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+.gang-members-list::-webkit-scrollbar-thumb {
+  background: var(--cyber-pink);
+}
+
+.gang-member-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%);
+}
+
+.gang-member-item.self {
+  background: rgba(5, 217, 232, 0.05);
+  border-color: rgba(5, 217, 232, 0.15);
+}
+
+.gang-member-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.gang-member-name {
+  font-size: 11px;
+  color: #fff;
+  flex: 1;
+}
+
+.gang-member-role {
+  font-size: 9px;
+  color: #8a93a6;
+  text-transform: uppercase;
+}
+
+@media (max-height: 480px) {
+  .cyber-modal-container {
+    width: 95% !important;
+    max-width: 620px !important;
+  }
+  
+  .gang-modal-body {
+    display: grid !important;
+    grid-template-columns: 1fr 1.1fr !important;
+    gap: 10px !important;
+    max-height: 250px !important;
+    overflow-y: auto !important;
+    padding-right: 4px;
+  }
+  
+  .gang-status-card {
+    grid-column: 1;
+    padding: 8px !important;
+  }
+  
+  .gang-members-box {
+    grid-column: 1;
+    padding: 8px !important;
+  }
+  
+  .gang-members-list {
+    max-height: 65px !important;
+  }
+  
+  .gang-actions-section {
+    grid-column: 1;
+    gap: 6px !important;
+  }
+  
+  .gang-generator-box {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    padding: 8px !important;
+    gap: 8px !important;
+  }
+  
+  .gang-generator-fields {
+    gap: 6px !important;
+  }
+  
+  .gang-field-group {
+    gap: 3px !important;
+  }
+  
+  .gang-field-selector {
+    height: 30px !important;
+  }
+  
+  .icon-selector-row {
+    min-height: 44px !important;
+  }
+  
+  .gang-icon-preview-box {
+    padding: 2px !important;
+    margin: 0 4px !important;
+    gap: 2px !important;
+  }
+  
+  .gang-icon-badge-wrap {
+    transform: scale(0.8) !important;
+    margin-top: 0 !important;
+  }
+  
+  .gang-action-submit {
+    padding: 8px !important;
+  }
+  
+  .gang-network-btn {
+    padding: 8px !important;
+  }
 }
 
 /* Retro System Settings Dashboard Styles */
@@ -5301,6 +5573,214 @@ select {
   .game-shell.forced-landscape .inv-modal-inner {
     max-height: calc(100% - 40px) !important;
     overflow-y: auto !important;
+  }
+
+  .game-shell.forced-landscape .cyber-modal-container {
+    width: 95% !important;
+    max-width: 620px !important;
+  }
+
+  .game-shell.forced-landscape .gang-modal-body {
+    display: grid !important;
+    grid-template-columns: 1fr 1.1fr !important;
+    gap: 10px !important;
+    max-height: 250px !important;
+    overflow-y: auto !important;
+    padding-right: 4px;
+  }
+  
+  .game-shell.forced-landscape .gang-status-card {
+    grid-column: 1;
+    padding: 8px !important;
+  }
+  
+  .game-shell.forced-landscape .gang-members-box {
+    grid-column: 1;
+    padding: 8px !important;
+  }
+  
+  .game-shell.forced-landscape .gang-members-list {
+    max-height: 65px !important;
+  }
+  
+  .game-shell.forced-landscape .gang-actions-section {
+    grid-column: 1;
+    gap: 6px !important;
+  }
+  
+  .game-shell.forced-landscape .gang-generator-box {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    padding: 8px !important;
+    gap: 8px !important;
+  }
+  
+  .game-shell.forced-landscape .gang-generator-fields {
+    gap: 6px !important;
+  }
+  
+  .game-shell.forced-landscape .gang-field-group {
+    gap: 3px !important;
+  }
+  
+  .game-shell.forced-landscape .gang-field-selector {
+    height: 30px !important;
+  }
+  
+  .game-shell.forced-landscape .icon-selector-row {
+    min-height: 44px !important;
+  }
+  
+  .game-shell.forced-landscape .gang-icon-preview-box {
+    padding: 2px !important;
+    margin: 0 4px !important;
+    gap: 2px !important;
+  }
+  
+  .game-shell.forced-landscape .gang-icon-badge-wrap {
+    transform: scale(0.8) !important;
+    margin-top: 0 !important;
+  }
+  
+  .game-shell.forced-landscape .gang-action-submit {
+    padding: 8px !important;
+  }
+  
+  .game-shell.forced-landscape .gang-network-btn {
+    padding: 8px !important;
+  }
+
+  .game-shell.forced-landscape .cyber-modal-container.casino-modal {
+    width: 530px !important;
+    max-width: 95% !important;
+    padding: 10px 14px !important;
+  }
+
+  .game-shell.forced-landscape .casino-modal-grid {
+    flex-direction: row;
+    gap: 14px;
+    align-items: flex-start;
+  }
+
+  .game-shell.forced-landscape .casino-col-left,
+  .game-shell.forced-landscape .casino-col-right {
+    flex: 1;
+    width: 50%;
+  }
+
+  .game-shell.forced-landscape .casino-col-left p {
+    font-size: 10px !important;
+    margin-bottom: 0px !important;
+  }
+
+  .game-shell.forced-landscape .quick-bet-row {
+    margin-top: 2px !important;
+    gap: 4px !important;
+  }
+
+  .game-shell.forced-landscape .quick-bet-btn {
+    padding: 2.5px 0 !important;
+    font-size: 9px !important;
+  }
+
+  .game-shell.forced-landscape .taixiu-board {
+    margin: 2px 0 !important;
+    gap: 6px !important;
+  }
+
+  .game-shell.forced-landscape .taixiu-card {
+    padding: 4px 6px !important;
+    border-radius: 6px !important;
+  }
+
+  .game-shell.forced-landscape .taixiu-card-header {
+    font-size: 15px !important;
+  }
+
+  .game-shell.forced-landscape .taixiu-card-sub,
+  .game-shell.forced-landscape .taixiu-card-ratio {
+    font-size: 7px !important;
+  }
+
+  .game-shell.forced-landscape .taixiu-card-range {
+    font-size: 11px !important;
+    margin: 1px 0 !important;
+  }
+
+  .game-shell.forced-landscape .casino-table {
+    height: 75px !important;
+    margin: 2px 0 !important;
+  }
+
+  .game-shell.forced-landscape .casino-plate {
+    width: 150px !important;
+    height: 38px !important;
+  }
+
+  .game-shell.forced-landscape .casino-cup-container {
+    bottom: 8px !important;
+  }
+
+  .game-shell.forced-landscape .casino-cup {
+    width: 65px !important;
+    height: 58px !important;
+  }
+
+  .game-shell.forced-landscape .casino-cup-container.lifted {
+    transform: translate(-50%, -50px) rotate(-15deg) !important;
+  }
+
+  .game-shell.forced-landscape .casino-dice-area {
+    bottom: 10px !important;
+    gap: 6px !important;
+  }
+
+  .game-shell.forced-landscape .dice-face {
+    width: 22px !important;
+    height: 22px !important;
+    padding: 1.5px !important;
+    border-width: 1px !important;
+    border-radius: 4px !important;
+  }
+
+  .game-shell.forced-landscape .dice-dot {
+    width: 4px !important;
+    height: 4px !important;
+  }
+
+  .game-shell.forced-landscape .dice-face[data-val="1"] .dice-dot {
+    width: 6px !important;
+    height: 6px !important;
+  }
+
+  .game-shell.forced-landscape .casino-result-banner {
+    padding: 4px 8px !important;
+    border-radius: 4px !important;
+  }
+
+  .game-shell.forced-landscape .result-main-text {
+    font-size: 11px !important;
+  }
+
+  .game-shell.forced-landscape .result-details {
+    font-size: 9px !important;
+    margin-top: 2px !important;
+  }
+
+  .game-shell.forced-landscape .casino-history-section {
+    margin-top: 4px !important;
+    padding-top: 4px !important;
+    gap: 4px !important;
+  }
+
+  .game-shell.forced-landscape .history-dots {
+    gap: 4px !important;
+  }
+
+  .game-shell.forced-landscape .history-dot {
+    width: 15px !important;
+    height: 15px !important;
+    font-size: 8px !important;
   }
 }
 

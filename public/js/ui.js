@@ -1359,9 +1359,25 @@ function drawGangMenu(c) {
 }
 
 function gangMenuAct(sel) {
-  if (sel === 0) { setPlayerGang(cleanPlayerName(G.gangDraft || PLAYER_GANG_NAMES[G.gangNameSel || 0])); G.ui = null; SFX.buy(); return; }
+  const isVi = window.NCPX_I18N && window.NCPX_I18N.lang() === 'vi';
+  if (sel === 0) {
+    const isCreating = !G.gang || G.gang === 'SOLO';
+    if (isCreating) {
+      if (G.eddies < 1000) {
+        msg(isVi ? 'KHÔNG ĐỦ 1,000 EDDIES ĐỂ TẠO BĂNG!' : 'NOT ENOUGH 1,000 EDDIES TO CREATE GANG!', '#ff2a6d');
+        SFX.deny();
+        return;
+      }
+      G.eddies -= 1000;
+      msg(isVi ? 'ĐÃ TRỪ 1,000 EDDIES PHÍ TẠO BĂNG!' : 'PAID 1,000 EDDIES CREATION FEE!', '#00ff9f');
+    }
+    setPlayerGang(cleanPlayerName(G.gangDraft || PLAYER_GANG_NAMES[G.gangNameSel || 0]));
+    G.ui = null;
+    SFX.buy();
+    return;
+  }
   if (sel === 1) {
-    if (!gangHasRoom(playerProfile())) { msg('BĂNG ĐÃ ĐỦ 10 NGƯỜI', '#ff2a6d'); return; }
+    if (!gangHasRoom(playerProfile())) { msg(isVi ? 'BĂNG ĐÃ ĐỦ 5 THÀNH VIÊN' : 'GANG IS FULL (MAX 5 MEMBERS)', '#ff2a6d'); return; }
     const target = nearestRemotePlayer(rp => G.gang && !sameGangProfile(rp, playerProfile()));
     if (target && window.NCPX_NET && window.NCPX_NET.invite) {
       window.NCPX_NET.invite(target.id, playerProfile());
@@ -1380,7 +1396,7 @@ function gangMenuAct(sel) {
     return;
   }
   if (sel === 3 && G.gangJoinReq && G.gang && window.NCPX_NET && window.NCPX_NET.invite) {
-    if (!gangHasRoom(playerProfile())) { msg('BĂNG ĐÃ ĐỦ 10 NGƯỜI', '#ff2a6d'); return; }
+    if (!gangHasRoom(playerProfile())) { msg(isVi ? 'BĂNG ĐÃ ĐỦ 5 THÀNH VIÊN' : 'GANG IS FULL (MAX 5 MEMBERS)', '#ff2a6d'); return; }
     window.NCPX_NET.invite(G.gangJoinReq.from, playerProfile());
     msg('ĐÃ DUYỆT ' + cleanPlayerName(G.gangJoinReq.fromName), '#00ff9f');
     G.gangJoinReq = null;
@@ -1389,7 +1405,7 @@ function gangMenuAct(sel) {
     return;
   }
   if (sel === 4 && G.playerInvite) {
-    if (!gangHasRoom(G.playerInvite)) { msg('BĂNG ĐÃ ĐỦ 10 NGƯỜI', '#ff2a6d'); return; }
+    if (!gangHasRoom(G.playerInvite)) { msg(isVi ? 'BĂNG ĐÃ ĐỦ 5 THÀNH VIÊN' : 'GANG IS FULL (MAX 5 MEMBERS)', '#ff2a6d'); return; }
     joinPlayerGang(G.playerInvite.gang, G.playerInvite.gangIcon, G.playerInvite.gangIconCol);
     G.ui = null;
     SFX.buy();

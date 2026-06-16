@@ -19,7 +19,7 @@ function turnToward(cur, want, max) {
   return cur + clamp(diff, -max, max);
 }
 const FOV_HALF = 1.0; // ~57° half-angle view cone
-const MAX_PARTS = 260, MAX_TEXTS = 48, MAX_BULLETS = 140, MAX_SLASHES = 36, MAX_GLOWS = 64, MAX_PICKUPS = 160, MAX_DECALS = 360;
+const MAX_PARTS = 260, MAX_TEXTS = 48, MAX_BULLETS = 140, MAX_SLASHES = 36, MAX_GLOWS = 64, MAX_PICKUPS = 240, MAX_DECALS = 360;
 const MAP_LOOT_TARGET = 96, MAP_LOOT_T = 1800;
 function enemyRange(e) {
   const base = e.psycho ? 420 : e.bounty ? 230 : e.kind === 'gun' ? 185 : 160;
@@ -74,7 +74,7 @@ function sameGangProfile(a, b) {
   const bg = String((b && b.gang) || '').toUpperCase();
   return ak && bk && ak !== 'SOLO' && bk !== 'SOLO' ? ak === bk && ag === bg : ag && ag !== 'SOLO' && ag === bg;
 }
-const MAX_GANG_MEMBERS = 10;
+const MAX_GANG_MEMBERS = 5;
 function gangMemberCount(profile) {
   profile = profile || playerProfile();
   if (!profile || !profile.gang || profile.gang === 'SOLO') return 0;
@@ -645,8 +645,29 @@ function addMapLoot(kind, x, y, opts) {
 function seedMapLoot() {
   G.pickups = [];
   for (const s of WORLD.giftSpots) {
-    const kind = s.kind === 'doc' ? 'doc' : (Math.random() < 0.55 ? 'gold' : 'xp');
-    addMapLoot(kind, s.x, s.y, { amt: s.amt || (kind === 'xp' ? irnd(18, 60) : irnd(20, 95)) });
+    let kind = s.kind;
+    let wpnId = null;
+    if (kind === 'indoor_gift') {
+      const r = Math.random();
+      if (r < 0.28) {
+        kind = 'wpn';
+        const cheapWeapons = ['liberty', 'lexington', 'unity', 'knife', 'bat', 'saratoga', 'igla', 'overture', 'copperhead'];
+        wpnId = cheapWeapons[Math.floor(Math.random() * cheapWeapons.length)];
+      } else {
+        const r2 = Math.random();
+        if (r2 < 0.40) kind = 'gold';
+        else if (r2 < 0.70) kind = 'xp';
+        else if (r2 < 0.85) kind = 'gift';
+        else kind = 'hp';
+      }
+    } else if (kind !== 'doc') {
+      const r = Math.random();
+      if (r < 0.40) kind = 'gold';
+      else if (r < 0.70) kind = 'xp';
+      else if (r < 0.85) kind = 'gift';
+      else kind = 'hp';
+    }
+    addMapLoot(kind, s.x, s.y, { id: wpnId, amt: s.amt || (kind === 'xp' ? irnd(18, 60) : irnd(20, 95)) });
   }
   spawnMapLoot(Math.max(0, MAP_LOOT_TARGET - G.pickups.length));
 }
@@ -1827,9 +1848,22 @@ function killEnemy(e) {
   NCPX.emit('kill', { enemy: e });
 }
 
+function getRoofAt(x, y) {
+  if (typeof WORLD === 'undefined' || !WORLD.roofs) return null;
+  const tx = Math.floor(x / 16);
+  const ty = Math.floor(y / 16);
+  for (const r of WORLD.roofs) {
+    if (tx >= r.tx0 && tx <= r.tx1 && ty >= r.ty0 && ty <= r.ty1) {
+      return r;
+    }
+  }
+  return null;
+}
+
 function damagePlayer(dmg) {
   const p = G.p;
   if (p.iframes > 0) return;
+  if (G.ui !== null) return; // Immune to damage while inside menu/shop
   let armor = p.armor + ((G.os === 'berserk' && p.osT > 0) ? CYB.berserk.tiers[G.cyber.berserk - 1].armor : 0);
   dmg = dmg * 100 / (100 + armor);
   p.hp -= dmg;
@@ -2050,12 +2084,18 @@ function updateEnemies(dt) {
     const aggroLos = isRival && d < aggroRange && WORLD.losClear(e.x, e.y - 4, px, py - 4);
     const aggroHear = isRival && d < Math.min(96, aggroRange) && !G.pHidden;
 
+    const rV = getRoofAt(px, py);
+    const rE = getRoofAt(e.x, e.y);
+    const isPlayerSafe = G.ui !== null || (rV && (['guns', 'ripper', 'cars', 'casino', 'clothing', 'bar', 'clouds'].includes(rV.theme) || rV !== rE));
+
     // ---- field of view: facing cone + wall occlusion + proximity sense ----
     const aToV = Math.atan2(ty - e.y, tx - e.x);
     const range = enemyRange(e);
     let seen = false;
     if (friendlyPlayer) {
       seen = false; e.detect = 0; e.alerted = false; e.alertT = 0;
+    } else if (isPlayerSafe) {
+      seen = false; e.detect = 0; e.alerted = false; e.alertT = 0; // V is in a menu/shop, or inside a safe building while enemy is outside
     } else if (escortPlayer) {
       seen = d > 78;
       e.detect = 1;
@@ -2113,7 +2153,18 @@ function updateEnemies(dt) {
         mvx = e.wx || 0; mvy = e.wy || 0;
       }
     } else if (!e.alerted) {
-      if (e.detect > 0.12) { /* freeze and stare toward the noise */ }
+      if (isPlayerSafe) {
+        const dToV = distPx(e.x, e.y, px, py);
+        if (dToV < 140) {
+          const aAway = Math.atan2(e.y - py, e.x - px);
+          e.lookA = turnToward(e.lookA, aAway, 5 * dt);
+          mvx = Math.cos(aAway); mvy = Math.sin(aAway);
+        } else {
+          e.wanderT -= dt;
+          if (e.wanderT <= 0) { e.wanderT = rnd(1.5, 4); const a = rnd(0, Math.PI * 2); e.wx = Math.cos(a); e.wy = Math.sin(a); if (Math.random() < 0.4) { e.wx = 0; e.wy = 0; } }
+          mvx = (e.wx || 0) * 0.4; mvy = (e.wy || 0) * 0.4;
+        }
+      } else if (e.detect > 0.12) { /* freeze and stare toward the noise */ }
       else {
         e.wanderT -= dt;
         if (e.wanderT <= 0) { e.wanderT = rnd(1.5, 4); const a = rnd(0, Math.PI * 2); e.wx = Math.cos(a); e.wy = Math.sin(a); if (Math.random() < 0.4) { e.wx = 0; e.wy = 0; } }
@@ -2273,7 +2324,7 @@ function updateAirdrop(dt, dtW) {
       a.alt = 0; a.state = 'landed'; a.t = 90;
       SFX.explode(); G.shake = Math.max(G.shake, 3);
       addP(14, a.x, a.y, { col: '#8a7a5a', sp: 80, life: 0.5 });
-      msg('SUPPLY DROP LANDED — 90S BEFORE GANGS SECURE IT', '#ff6a00');
+      msg('Thùng tiếp tế đã rơi — Băng đảng sẽ chiếm được sau 90 giây', '#ff6a00');
       const net = typeof window !== 'undefined' && window.NCPX_NET;
       if (a.shared && net && net.connected && net.sendAirdropState) net.sendAirdropState({ seq: a.seq, x: a.x, y: a.y, alt: a.alt, state: a.state, t: a.t });
     }
@@ -2283,13 +2334,13 @@ function updateAirdrop(dt, dtW) {
     if (!a.guarded && distPx(G.p.x, G.p.y, a.x, a.y) < 520) {
       a.guarded = true;
       spawnPack(a.x, a.y, irnd(3, 5), { fac: 'barghest', alerted: true, alertT: 12, lkx: a.x, lky: a.y }, 30, 170);
-      msg('GANGS CONVERGING ON THE DROP', '#ff6a00');
+      msg('Băng đảng đang tập trung về phía thùng hàng tiếp tế', '#ff6a00');
     }
     if (a.t <= 0) {
       G.airdrop = null; G.airdropT = rnd(150, 240);
       const net = typeof window !== 'undefined' && window.NCPX_NET;
       if (a.shared && net && net.connected && net.sendAirdropExpire) net.sendAirdropExpire({ seq: a.seq });
-      msg('BARGHEST SECURED THE AIRDROP. NEXT TIME, MERC', '#8a93a6');
+      msg('Băng đảng đã chiếm được thùng tiếp tế. Lần sau nhanh tay hơn, lính đánh thuê', '#8a93a6');
     }
   }
 }
@@ -2355,7 +2406,7 @@ function buyWardrobeOutfit(row) {
     return;
   }
   const price = 100;
-  if (G.eddies < price) { msg(isVi ? 'KHÔNG ĐỦ EDDIES' : 'NOT ENOUGH EDDIES', '#ff5a5a'); SFX.deny(); return; }
+  if (G.eddies < price) { msg(isVi ? 'KHÔNG ĐỦ TIỀN' : 'NOT ENOUGH EDDIES', '#ff5a5a'); SFX.deny(); return; }
   G.eddies -= price;
   G.ui = null;
   G.skin = row;
@@ -2453,7 +2504,15 @@ function triggerDen(dn) {
     G.enemies.push(makeEnemy(s.x, s.y, tier, dist.fac, Math.random() < 0.5 ? 'gun' : 'melee', { denId: dn.id, gangPack: true }));
     dn.left++;
   }
-  if (dn.left > 0) { msg('GANG HIDEOUT — TAKE THEM OUT, CLAIM THE BONUS', '#ff9f1c'); SFX.msg(); }
+  if (dn.left > 0) {
+    const isVi = window.NCPX_I18N && window.NCPX_I18N.lang() === 'vi';
+    if (dn.isFlat) {
+      msg(isVi ? 'PHÁT HIỆN KẺ THÙ TRONG NHÀ!' : 'HOSTILES IN THE BUILDING!', '#ff5a5a');
+    } else {
+      msg(isVi ? 'SÀO HUYỆT BĂNG ĐẢNG — TIÊU DIỆT CHÚNG ĐỂ NHẬN THƯỞNG' : 'GANG HIDEOUT — TAKE THEM OUT, CLAIM THE BONUS', '#ff9f1c');
+    }
+    SFX.msg();
+  }
   else dn.cleared = true;
 }
 
