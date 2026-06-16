@@ -4,6 +4,17 @@ const next = require('next');
 const { WebSocketServer } = require('ws');
 const os = require('os');
 
+// Prevent server crashes from harmless TCP connection resets (browser tab close, mobile network switch, etc.)
+process.on('uncaughtException', (err) => {
+  if (err.code === 'ECONNRESET' || err.code === 'EPIPE') return;
+  console.error('[Fatal]', err);
+  process.exit(1);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[UnhandledRejection]', reason);
+});
+
+
 function getLocalIp() {
   const nets = os.networkInterfaces();
   const candidates = [];
@@ -215,7 +226,7 @@ async function main() {
       if (msg.type === 'invite') {
         const to = cleanText(msg.to, '', 18);
         const target = [...wss.clients].find(client => client.playerId === to && client.room === p.room && client.readyState === client.OPEN);
-        if (target) target.send(JSON.stringify({
+        if (target) try { target.send(JSON.stringify({
           type: 'invite',
           from: id,
           fromName: p.name,
@@ -223,31 +234,31 @@ async function main() {
           gangKey: cleanText(msg.gangKey || p.gangKey, p.gangKey, 18).toLowerCase(),
           gangIcon: cleanIcon(msg.gangIcon || p.gangIcon, p.gangIcon),
           gangIconCol: cleanColor(msg.gangIconCol || p.gangIconCol, p.gangIconCol),
-        }));
+        })); } catch (e) {}
         return;
       }
       if (msg.type === 'joinRequest') {
         const to = cleanText(msg.to, '', 18);
         const target = [...wss.clients].find(client => client.playerId === to && client.room === p.room && client.readyState === client.OPEN);
-        if (target) target.send(JSON.stringify({
+        if (target) try { target.send(JSON.stringify({
           type: 'joinRequest',
           from: id,
           fromName: p.name,
           gang: cleanText(msg.gang || p.gang, p.gang, 18).toUpperCase(),
-        }));
+        })); } catch (e) {}
         return;
       }
       if (msg.type === 'hit') {
         const to = cleanText(msg.to, '', 18);
         const target = [...wss.clients].find(client => client.playerId === to && client.room === p.room && client.readyState === client.OPEN);
-        if (target) target.send(JSON.stringify({
+        if (target) try { target.send(JSON.stringify({
           type: 'damage',
           from: id,
           fromName: p.name,
           dmg: Math.max(0, Math.min(999, Number(msg.dmg) || 0)),
           crit: !!msg.crit,
           weapon: cleanText(msg.weapon, 'WEAPON', 24).toUpperCase(),
-        }));
+        })); } catch (e) {}
         return;
       }
       if (msg.type === 'combatFx') {
@@ -268,7 +279,9 @@ async function main() {
           shots: cleanFxShots(msg.shots, cleanColor(msg.col, '#ffe9a0')),
         });
         for (const client of wss.clients) {
-          if (client.readyState === client.OPEN && client.room === p.room && client.playerId !== id) client.send(payload);
+          if (client.readyState === client.OPEN && client.room === p.room && client.playerId !== id) {
+            try { client.send(payload); } catch (e) {}
+          }
         }
         return;
       }
@@ -290,7 +303,9 @@ async function main() {
           drops,
         });
         for (const client of wss.clients) {
-          if (client.readyState === client.OPEN && client.room === p.room) client.send(payload);
+          if (client.readyState === client.OPEN && client.room === p.room) {
+            try { client.send(payload); } catch (e) {}
+          }
         }
         return;
       }
@@ -306,7 +321,9 @@ async function main() {
         roomInfo(p.room).npcSnapshot = state;
         const payload = JSON.stringify(state);
         for (const client of wss.clients) {
-          if (client.readyState === client.OPEN && client.room === p.room && client.playerId !== id) client.send(payload);
+          if (client.readyState === client.OPEN && client.room === p.room && client.playerId !== id) {
+            try { client.send(payload); } catch (e) {}
+          }
         }
         return;
       }
@@ -314,7 +331,7 @@ async function main() {
         const hostId = roomInfo(p.room).hostId;
         if (!hostId || hostId === id) return;
         const target = [...wss.clients].find(client => client.playerId === hostId && client.room === p.room && client.readyState === client.OPEN);
-        if (target) target.send(JSON.stringify({
+        if (target) try { target.send(JSON.stringify({
           type: 'npcHit',
           from: id,
           enemyId: cleanText(msg.enemyId, '', 24),
@@ -323,7 +340,7 @@ async function main() {
           dir: Number.isFinite(Number(msg.dir)) ? Number(msg.dir) : 0,
           kb: Math.max(0, Math.min(1000, Number(msg.kb) || 0)),
           burn: Number.isFinite(Number(msg.burn)) ? Number(msg.burn) : 0,
-        }));
+        })); } catch (e) {}
         return;
       }
       if (msg.type !== 'state') return;
