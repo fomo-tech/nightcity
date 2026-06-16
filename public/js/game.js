@@ -1132,10 +1132,15 @@ function updateRemotePlayers(rawPlayers, dt) {
     } else {
       const px = rp.x, py = rp.y;
       const jump = distPx(rp.x, rp.y, px2, py2);
+      const prevHitT = rp.hitT || 0;
+      const prevHp = rp.hp;
       Object.assign(rp, raw);
-      rp.hp = raw.hp == null ? rp.hp : raw.hp;
+      const srvHp = raw.hp == null ? prevHp : raw.hp;
+      // While hitT > 0 we just hit this player locally — keep the lower hp estimate so the HP
+      // bar doesn't snap back to the server's stale pre-hit value before it propagates back.
+      rp.hp = (prevHitT > 0 && srvHp > prevHp) ? prevHp : srvHp;
       rp.maxhp = raw.maxhp || rp.maxhp || 100;
-      rp.hitT = Math.max(0, (rp.hitT || 0) - dt);
+      rp.hitT = Math.max(0, prevHitT - dt);
       rp.tx = px2; rp.ty = py2; rp.vx = rvx; rp.vy = rvy; rp.staleT = 0;
       const f = jump > 180 ? 1 : follow;
       rp.x = lerp(px, px2, f);

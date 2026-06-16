@@ -15,7 +15,7 @@ const GAME_SCRIPTS = [
   "/js/sprites.js",
   "/js/world.js",
   "/js/ui.js",
-  "/js/game.js?v=2",
+  "/js/game.js?v=3",
   "/mods/mods.js",
 ];
 
