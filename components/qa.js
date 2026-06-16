@@ -5,7 +5,8 @@ import { useGameStore } from "@/store/useGameStore";
 
 const SAVE_KEY = "ncpx2077_v1";
 const ACCOUNT_KEY = "ncpx_account_v1";
-const SCRIPT_VERSION = "102";
+const SCRIPT_VERSION = "103";
+const GLOBAL_REALTIME_ROOM = "nightcity";
 const PERFORMANCE_MODE = false;
 const GAME_SCRIPTS = [
   "/js/font.js",
@@ -6112,26 +6113,8 @@ export default function GameCanvas() {
 
 function setupRealtimeBridge(getStore) {
   if (typeof window === "undefined" || window.NCPX_NET) return;
-  const cleanRoom = (value) =>
-    String(value || "default")
-      .replace(/[^a-zA-Z0-9_-]/g, "")
-      .slice(0, 40) || "default";
-  const realtimeRoom = () => {
-    let fromUrl = "";
-    try {
-      fromUrl = new URLSearchParams(window.location.search).get("room") || "";
-    } catch (error) {}
-    let fromStorage = "";
-    try {
-      fromStorage = localStorage.getItem("ncpx_realtime_room") || "";
-    } catch (error) {}
-    return cleanRoom(
-      fromUrl ||
-        window.NCPX_REALTIME_ROOM ||
-        fromStorage ||
-        "nightcity",
-    );
-  };
+  const cleanRoom = () => GLOBAL_REALTIME_ROOM;
+  const realtimeRoom = () => GLOBAL_REALTIME_ROOM;
   const net = {
     id: null,
     hostId: null,
@@ -6224,11 +6207,11 @@ function setupRealtimeBridge(getStore) {
       return out;
     },
     switchRoom(room) {
-      const next = cleanRoom(room || "nightcity");
+      const next = cleanRoom(room);
       if (next === net.room) return;
       net.room = next;
       try {
-        localStorage.setItem("ncpx_realtime_room", next);
+        localStorage.removeItem("ncpx_realtime_room");
       } catch (error) {}
       if (net.ws) {
         net.closed = true;

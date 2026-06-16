@@ -44,6 +44,7 @@ const dev = process.env.NODE_ENV !== 'production';
 const hostname = process.env.HOST || '0.0.0.0';
 const port = Number(process.env.PORT || 3000);
 const maxPort = port + 10;
+const GLOBAL_REALTIME_ROOM = 'nightcity';
 
 function cleanText(value, fallback, max) {
   return String(value || fallback).replace(/[^\p{L}\p{N}_ -]/gu, '').trim().slice(0, max) || fallback;
@@ -54,7 +55,7 @@ function cleanIcon(value, fallback) {
 }
 
 function cleanRoom(value) {
-  return String(value || 'default').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40) || 'default';
+  return GLOBAL_REALTIME_ROOM;
 }
 
 function cleanColor(value, fallback) {

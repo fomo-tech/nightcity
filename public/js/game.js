@@ -23,6 +23,10 @@ function enemyRange(e) {
   const base = e.psycho ? 420 : e.bounty ? 230 : e.kind === 'gun' ? 185 : 160;
   return base * ((G && G.weather && WEATHERS[G.weather.kind].range) || 1); // fog/storms shorten sight
 }
+function gangAggroRange(e) {
+  const base = e.psycho ? 460 : e.kind === 'gun' || e.kind === 'heavy' ? 310 : 230;
+  return base + Math.min(90, (e.tier || 1) * 18);
+}
 function fmt(n) {
   n = Math.round(n); let s = String(Math.abs(n)), o = '';
   while (s.length > 3) { o = ',' + s.slice(-3) + o; s = s.slice(0, -3); }
@@ -1914,6 +1918,9 @@ function updateEnemies(dt) {
     const d = distPx(e.x, e.y, tx, ty);
 
     const isRival = !e.ally && G.gang !== e.fac;
+    const aggroRange = isRival ? gangAggroRange(e) : 0;
+    const aggroLos = isRival && d < aggroRange && WORLD.losClear(e.x, e.y - 4, px, py - 4);
+    const aggroHear = isRival && d < Math.min(96, aggroRange) && !G.pHidden;
 
     // ---- field of view: facing cone + wall occlusion + proximity sense ----
     const aToV = Math.atan2(ty - e.y, tx - e.x);
@@ -1934,12 +1941,17 @@ function updateEnemies(dt) {
       const fov = isRival ? 1.4 : FOV_HALF;
       const da = Math.abs(((aToV - e.lookA) + Math.PI * 3) % (Math.PI * 2) - Math.PI);
       const inCone = d < prox || (d < range && (da < fov || e.psycho)) || (G.driving && (G.carSpd || 0) > 140 && d < 230);
-      if (inCone) seen = WORLD.losClear(e.x, e.y - 4, px, py - 4);
+      if (aggroLos || inCone) seen = WORLD.losClear(e.x, e.y - 4, px, py - 4);
       if (seen && !G.driving && G.pHidden && d > 26) seen = false; // V is in the bushes
+    }
+    if (!seen && aggroHear) {
+      e.alerted = true; e.alertT = Math.max(e.alertT, 2.4);
+      e.lkx = px; e.lky = py;
+      e.lookA = turnToward(e.lookA, aToV, 5 * dt);
     }
     e.seen = seen;
     if (seen) {
-      e.detect = (e.psycho || isRival) ? 1 : Math.min(1, e.detect + dt * (1.2 + (1 - Math.min(1, d / range)) * 2.2));
+      e.detect = (e.psycho || isRival || aggroLos) ? 1 : Math.min(1, e.detect + dt * (1.2 + (1 - Math.min(1, d / range)) * 2.2));
       if (!e.alerted && !e.ally && e.detect < 1) {
         console.log(`[AI-DETECT] Enemy ${e.name} (${e.fac}) saw player but did not alert. G.gang=${G.gang}, isRival=${isRival}, detect=${e.detect}`);
       }

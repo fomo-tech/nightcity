@@ -199,8 +199,8 @@ function _renderText(s, col, sc) {
   const cv = document.createElement('canvas');
   cv.width = w + Math.ceil(6 * sc);
   
-  const paddingY = Math.ceil(6 * sc);
-  cv.height = Math.ceil(25 * sc);
+  const paddingY = Math.ceil(10 * sc);
+  cv.height = Math.ceil(35 * sc);
   
   const c = cv.getContext('2d');
   c.font = gameFont(sc);
@@ -226,7 +226,7 @@ function drawText(c, s, x, y, col, sc) {
     cv = _renderText(s, col, sc);
     _txtCache.set(key, cv);
   }
-  const dy = y - Math.ceil(6 * sc);
+  const dy = y - Math.ceil(10 * sc);
   c.drawImage(cv, Math.round(x), Math.round(dy));
 }
 
