@@ -2357,7 +2357,7 @@ export default function GameCanvas() {
           : "RED NEON CASINO — DICE GAME";
       case "inv":
         return lang === "vi"
-          ? "TÚI ĐỒ / ĐIỀU KHIỂN CHROME"
+          ? "TÚI ĐỒ"
           : "NEURAL INVENTORY / COGNITIVE DECK";
       case "gang":
         return lang === "vi" ? "QUẢN LÝ BĂNG ĐẢNG" : "CYBER CREW & GANG PANEL";

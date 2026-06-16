@@ -6263,5 +6263,162 @@ select {
   100% { transform: scale(1); opacity: 1; }
 }
 
+/* Casino Grid Layout for Mobile Landscape */
+.casino-modal-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.casino-col-left,
+.casino-col-right {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+}
+
+/* Mobile Landscape Layout (low heights / landscape orientation) */
+@media (max-height: 480px), screen and (orientation: landscape) {
+  /* Enlarge modal container width in landscape */
+  .cyber-modal-container.casino-modal {
+    width: 530px !important;
+    max-width: 95% !important;
+    padding: 10px 14px !important;
+  }
+
+  .casino-modal-grid {
+    flex-direction: row;
+    gap: 14px;
+    align-items: flex-start;
+  }
+
+  .casino-col-left,
+  .casino-col-right {
+    flex: 1;
+    width: 50%;
+  }
+
+  .casino-col-left p {
+    font-size: 10px !important;
+    margin-bottom: 0px !important;
+  }
+
+  /* Compact controls on left side */
+  .quick-bet-row {
+    margin-top: 2px !important;
+    gap: 4px !important;
+  }
+
+  .quick-bet-btn {
+    padding: 2.5px 0 !important;
+    font-size: 9px !important;
+  }
+
+  .taixiu-board {
+    margin: 2px 0 !important;
+    gap: 6px !important;
+  }
+
+  .taixiu-card {
+    padding: 4px 6px !important;
+    border-radius: 6px !important;
+  }
+
+  .taixiu-card-header {
+    font-size: 15px !important;
+  }
+
+  .taixiu-card-sub,
+  .taixiu-card-ratio {
+    font-size: 7px !important;
+  }
+
+  .taixiu-card-range {
+    font-size: 11px !important;
+    margin: 1px 0 !important;
+  }
+
+  /* Compact casino table on right side */
+  .casino-table {
+    height: 75px !important;
+    margin: 2px 0 !important;
+  }
+
+  .casino-plate {
+    width: 150px !important;
+    height: 38px !important;
+  }
+
+  .casino-cup-container {
+    bottom: 8px !important;
+  }
+
+  .casino-cup {
+    width: 65px !important;
+    height: 58px !important;
+  }
+
+  .casino-cup-container.lifted {
+    transform: translate(-50%, -50px) rotate(-15deg) !important;
+  }
+
+  .casino-dice-area {
+    bottom: 10px !important;
+    gap: 6px !important;
+  }
+
+  .dice-face {
+    width: 22px !important;
+    height: 22px !important;
+    padding: 1.5px !important;
+    border-width: 1px !important;
+    border-radius: 4px !important;
+  }
+
+  .dice-dot {
+    width: 4px !important;
+    height: 4px !important;
+  }
+
+  .dice-face[data-val="1"] .dice-dot {
+    width: 6px !important;
+    height: 6px !important;
+  }
+
+  /* Compact banner and history */
+  .casino-result-banner {
+    padding: 4px 8px !important;
+    border-radius: 4px !important;
+  }
+
+  .result-main-text {
+    font-size: 11px !important;
+  }
+
+  .result-details {
+    font-size: 9px !important;
+    margin-top: 2px !important;
+  }
+
+  .casino-history-section {
+    margin-top: 4px !important;
+    padding-top: 4px !important;
+    gap: 4px !important;
+  }
+
+  .history-dots {
+    gap: 4px !important;
+  }
+
+  .history-dot {
+    width: 15px !important;
+    height: 15px !important;
+    font-size: 8px !important;
+  }
+}
+
 
 

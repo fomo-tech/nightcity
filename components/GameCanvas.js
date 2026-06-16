@@ -2977,7 +2977,7 @@ export default function GameCanvas() {
           : "RED NEON CASINO — DICE GAME";
       case "inv":
         return lang === "vi"
-          ? "TÚI ĐỒ / ĐIỀU KHIỂN CHROME"
+          ? "TÚI ĐỒ"
           : "NEURAL INVENTORY / COGNITIVE DECK";
       case "gang":
         return lang === "vi" ? "QUẢN LÝ BĂNG ĐẢNG" : "CYBER CREW & GANG PANEL";
@@ -4262,194 +4262,203 @@ export default function GameCanvas() {
 
     return (
       <div className="cyber-modal-body" style={{ gap: "10px" }}>
-        {/* Player Balance bar */}
-        <div className="casino-balance-bar">
-          <span className="balance-label">{language === "vi" ? "SỐ DƯ CỦA BẠN" : "YOUR BALANCE"}</span>
-          <span className="balance-value">€$ {fmt(window.G.eddies)}</span>
-        </div>
+        <div className="casino-modal-grid">
+          <div className="casino-col-left">
+            {/* Player Balance bar */}
+            <div className="casino-balance-bar">
+              <span className="balance-label">{language === "vi" ? "SỐ DƯ CỦA BẠN" : "YOUR BALANCE"}</span>
+              <span className="balance-value">€$ {fmt(window.G.eddies)}</span>
+            </div>
 
-        <p
-          style={{
-            color: "#8a93a6",
-            fontSize: "11px",
-            textAlign: "center",
-            marginBottom: "2px",
-          }}
-        >
-          {language === "vi"
-            ? "TRÒ CHƠI TÀI XỈU - ĐẶT CƯỢC PHÂN ĐỊNH THẮNG THUA"
-            : "BET ON TAI OR XIU - DOUBLE OR NOTHING"}
-        </p>
-
-        {/* Bet Size adjustment */}
-        <div className="gang-select-row" style={{ marginBottom: "2px" }}>
-          <span>{language === "vi" ? "TIỀN ĐẶT CƯỢC" : "BET SIZE"}</span>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <button
-              className="gang-nav-btn"
-              disabled={casinoRolling}
-              onClick={() => {
-                playSynthSfx("click");
-                s.bet = Math.max(100, s.bet - 100);
-                forceUpdate();
+            <p
+              style={{
+                color: "#8a93a6",
+                fontSize: "11px",
+                textAlign: "center",
+                marginBottom: "2px",
               }}
             >
-              ◀
-            </button>
-            <span style={{ color: "var(--cyber-yellow)", fontWeight: "bold" }}>
-              €$ {fmt(s.bet)}
-            </span>
+              {language === "vi"
+                ? "TRÒ CHƠI TÀI XỈU - ĐẶT CƯỢC PHÂN ĐỊNH THẮNG THUA"
+                : "BET ON TAI OR XIU - DOUBLE OR NOTHING"}
+            </p>
+
+            {/* Bet Size adjustment */}
+            <div className="gang-select-row" style={{ marginBottom: "2px", width: "100%" }}>
+              <span>{language === "vi" ? "TIỀN ĐẶT CƯỢC" : "BET SIZE"}</span>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <button
+                  className="gang-nav-btn"
+                  disabled={casinoRolling}
+                  onClick={() => {
+                    playSynthSfx("click");
+                    s.bet = Math.max(100, s.bet - 100);
+                    forceUpdate();
+                  }}
+                >
+                  ◀
+                </button>
+                <span style={{ color: "var(--cyber-yellow)", fontWeight: "bold" }}>
+                  €$ {fmt(s.bet)}
+                </span>
+                <button
+                  className="gang-nav-btn"
+                  disabled={casinoRolling}
+                  onClick={() => {
+                    playSynthSfx("click");
+                    s.bet = s.bet + 100;
+                    forceUpdate();
+                  }}
+                >
+                  ▶
+                </button>
+              </div>
+            </div>
+
+            {/* Quick chip bet buttons */}
+            <div className="quick-bet-row">
+              <button className="quick-bet-btn" disabled={casinoRolling} onClick={() => addBet(100)}>+100</button>
+              <button className="quick-bet-btn" disabled={casinoRolling} onClick={() => addBet(500)}>+500</button>
+              <button className="quick-bet-btn" disabled={casinoRolling} onClick={() => addBet(1000)}>+1K</button>
+              <button className="quick-bet-btn" disabled={casinoRolling} onClick={() => addBet(5000)}>+5K</button>
+              <button className="quick-bet-btn" disabled={casinoRolling} onClick={() => setBetMax()}>MAX</button>
+              <button className="quick-bet-btn clear" disabled={casinoRolling} onClick={() => clearBet()}>{language === "vi" ? "XÓA" : "CLR"}</button>
+            </div>
+
+            {/* Tai Xiu Card Selection */}
+            <div className="taixiu-board">
+              <div
+                className={`taixiu-card xiu-card ${s.choice === 0 ? "selected" : ""}`}
+                onClick={() => {
+                  if (casinoRolling) return;
+                  playSynthSfx("click");
+                  s.choice = 0;
+                  forceUpdate();
+                }}
+              >
+                <span className="taixiu-card-header">{language === "vi" ? "XỈU" : "XIU"}</span>
+                <span className="taixiu-card-sub">SMALL</span>
+                <span className="taixiu-card-range">4 - 10</span>
+                <span className="taixiu-card-ratio">1 : 1</span>
+              </div>
+
+              <div
+                className={`taixiu-card tai-card ${s.choice === 1 ? "selected" : ""}`}
+                onClick={() => {
+                  if (casinoRolling) return;
+                  playSynthSfx("click");
+                  s.choice = 1;
+                  forceUpdate();
+                }}
+              >
+                <span className="taixiu-card-header">{language === "vi" ? "TÀI" : "TAI"}</span>
+                <span className="taixiu-card-sub">BIG</span>
+                <span className="taixiu-card-range">11 - 17</span>
+                <span className="taixiu-card-ratio">1 : 1</span>
+              </div>
+            </div>
+
             <button
-              className="gang-nav-btn"
+              className="cyber-action-btn primary"
               disabled={casinoRolling}
+              style={{ width: "100%", marginTop: "4px" }}
               onClick={() => {
                 playSynthSfx("click");
-                s.bet = s.bet + 100;
-                forceUpdate();
+                rollDice();
               }}
             >
-              ▶
+              {casinoPhase === "shaking"
+                ? (language === "vi" ? "ĐANG LẮC XÚC XẮC..." : "SHAKING DICE...")
+                : casinoPhase === "throwing"
+                ? (language === "vi" ? "ĐANG MỞ BÁT..." : "REVEALING...")
+                : (language === "vi" ? "LẮC XÚC XẮC // ROLL DICE" : "ROLL DICE // LẮC XÚC XẮC")}
             </button>
           </div>
-        </div>
 
-        {/* Quick chip bet buttons */}
-        <div className="quick-bet-row">
-          <button className="quick-bet-btn" disabled={casinoRolling} onClick={() => addBet(100)}>+100</button>
-          <button className="quick-bet-btn" disabled={casinoRolling} onClick={() => addBet(500)}>+500</button>
-          <button className="quick-bet-btn" disabled={casinoRolling} onClick={() => addBet(1000)}>+1K</button>
-          <button className="quick-bet-btn" disabled={casinoRolling} onClick={() => addBet(5000)}>+5K</button>
-          <button className="quick-bet-btn" disabled={casinoRolling} onClick={() => setBetMax()}>MAX</button>
-          <button className="quick-bet-btn clear" disabled={casinoRolling} onClick={() => clearBet()}>{language === "vi" ? "XÓA" : "CLR"}</button>
-        </div>
+          <div className="casino-col-right">
+            {/* Dice rolling area */}
+            <div className="casino-table">
+              <div className="casino-plate">
+                {/* Retro Pixel Plate SVG */}
+                <svg className="pixel-plate-svg" width="190" height="48" viewBox="0 0 190 48" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ imageRendering: "pixelated", position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: 1 }}>
+                  <path d="M 24 2 H 166 L 188 24 L 166 46 H 24 L 2 24 Z" fill="#111116" />
+                  <path d="M 25 4 H 165 L 185 24 L 165 44 H 25 L 5 24 Z" fill="#1b2132" />
+                  <path d="M 26 5 H 164 L 183 24 L 164 43 H 26 L 7 24 Z" stroke="#bd00ff" strokeWidth="2" strokeOpacity="0.8" fill="none" />
+                  <path d="M 32 10 H 158 L 172 24 L 158 38 H 32 L 18 24 Z" fill="#0c0f17" />
+                  <rect x="30" y="8" width="130" height="2" fill="#242c42" />
+                  <rect x="20" y="24" width="150" height="2" fill="#080a0f" />
+                </svg>
 
-        {/* Tai Xiu Card Selection */}
-        <div className="taixiu-board">
-          <div
-            className={`taixiu-card xiu-card ${s.choice === 0 ? "selected" : ""}`}
-            onClick={() => {
-              if (casinoRolling) return;
-              playSynthSfx("click");
-              s.choice = 0;
-              forceUpdate();
-            }}
-          >
-            <span className="taixiu-card-header">{language === "vi" ? "XỈU" : "XIU"}</span>
-            <span className="taixiu-card-sub">SMALL</span>
-            <span className="taixiu-card-range">4 - 10</span>
-            <span className="taixiu-card-ratio">1 : 1</span>
-          </div>
+                {/* Shaking cup */}
+                <div className={`casino-cup-container ${casinoPhase === "shaking" ? "shaking" : s.dice ? "lifted" : ""}`} style={{ zIndex: 10 }}>
+                  <svg width="80" height="72" viewBox="0 0 80 72" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ imageRendering: "pixelated", display: "block" }}>
+                    <path d="M 16 2 H 64 L 76 16 L 76 58 L 68 70 H 12 L 4 58 L 4 16 Z" fill="#111116" />
+                    <path d="M 18 4 H 62 L 73 16 L 73 56 L 66 68 H 14 L 7 56 L 7 16 Z" fill="url(#cupGrad)" />
+                    <path d="M 20 6 H 60 L 70 16 L 70 54 L 64 66 H 16 L 10 54 L 10 16 Z" stroke="#bd00ff" strokeWidth="2" fill="none" />
+                    <rect x="20" y="28" width="40" height="6" fill="#f9f002" />
+                    <rect x="20" y="34" width="40" height="2" fill="#c2ba02" />
+                    <rect x="36" y="24" width="8" height="4" fill="#f9f002" />
+                    <rect x="36" y="34" width="8" height="4" fill="#f9f002" />
+                    <path d="M 12 18 L 18 12 M 12 30 L 22 20" stroke="#ffffff" strokeWidth="2" strokeOpacity="0.4" />
+                    <defs>
+                      <linearGradient id="cupGrad" x1="0" y1="0" x2="80" y2="72" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stopColor="#251a3d" />
+                        <stop offset="50%" stopColor="#120c24" />
+                        <stop offset="100%" stopColor="#080512" />
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                </div>
 
-          <div
-            className={`taixiu-card tai-card ${s.choice === 1 ? "selected" : ""}`}
-            onClick={() => {
-              if (casinoRolling) return;
-              playSynthSfx("click");
-              s.choice = 1;
-              forceUpdate();
-            }}
-          >
-            <span className="taixiu-card-header">{language === "vi" ? "TÀI" : "TAI"}</span>
-            <span className="taixiu-card-sub">BIG</span>
-            <span className="taixiu-card-range">11 - 17</span>
-            <span className="taixiu-card-ratio">1 : 1</span>
-          </div>
-        </div>
-
-        {/* Dice rolling area */}
-        <div className="casino-table">
-          <div className="casino-plate">
-            {/* Retro Pixel Plate SVG */}
-            <svg className="pixel-plate-svg" width="190" height="48" viewBox="0 0 190 48" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ imageRendering: "pixelated", position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: 1 }}>
-              <path d="M 24 2 H 166 L 188 24 L 166 46 H 24 L 2 24 Z" fill="#111116" />
-              <path d="M 25 4 H 165 L 185 24 L 165 44 H 25 L 5 24 Z" fill="#1b2132" />
-              <path d="M 26 5 H 164 L 183 24 L 164 43 H 26 L 7 24 Z" stroke="#bd00ff" strokeWidth="2" strokeOpacity="0.8" fill="none" />
-              <path d="M 32 10 H 158 L 172 24 L 158 38 H 32 L 18 24 Z" fill="#0c0f17" />
-              <rect x="30" y="8" width="130" height="2" fill="#242c42" />
-              <rect x="20" y="24" width="150" height="2" fill="#080a0f" />
-            </svg>
-
-            {/* Shaking cup */}
-            <div className={`casino-cup-container ${casinoPhase === "shaking" ? "shaking" : s.dice ? "lifted" : ""}`} style={{ zIndex: 10 }}>
-              <svg width="80" height="72" viewBox="0 0 80 72" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ imageRendering: "pixelated", display: "block" }}>
-                <path d="M 16 2 H 64 L 76 16 L 76 58 L 68 70 H 12 L 4 58 L 4 16 Z" fill="#111116" />
-                <path d="M 18 4 H 62 L 73 16 L 73 56 L 66 68 H 14 L 7 56 L 7 16 Z" fill="url(#cupGrad)" />
-                <path d="M 20 6 H 60 L 70 16 L 70 54 L 64 66 H 16 L 10 54 L 10 16 Z" stroke="#bd00ff" strokeWidth="2" fill="none" />
-                <rect x="20" y="28" width="40" height="6" fill="#f9f002" />
-                <rect x="20" y="34" width="40" height="2" fill="#c2ba02" />
-                <rect x="36" y="24" width="8" height="4" fill="#f9f002" />
-                <rect x="36" y="34" width="8" height="4" fill="#f9f002" />
-                <path d="M 12 18 L 18 12 M 12 30 L 22 20" stroke="#ffffff" strokeWidth="2" strokeOpacity="0.4" />
-                <defs>
-                  <linearGradient id="cupGrad" x1="0" y1="0" x2="80" y2="72" gradientUnits="userSpaceOnUse">
-                    <stop offset="0%" stopColor="#251a3d" />
-                    <stop offset="50%" stopColor="#120c24" />
-                    <stop offset="100%" stopColor="#080512" />
-                  </linearGradient>
-                </defs>
-              </svg>
-            </div>
-
-            {/* Dice area */}
-            {(casinoPhase !== "idle" || s.dice) && (
-              <div className="casino-dice-area" style={{ zIndex: 5 }}>
-                {casinoPhase === "shaking"
-                  ? casinoDiceTemp.map((val) => renderDiceFace(val, true))
-                  : s.dice.map((val, idx) => renderDiceFace(val, false, idx))}
+                {/* Dice area */}
+                {(casinoPhase !== "idle" || s.dice) && (
+                  <div className="casino-dice-area" style={{ zIndex: 5 }}>
+                    {casinoPhase === "shaking"
+                      ? casinoDiceTemp.map((val) => renderDiceFace(val, true))
+                      : s.dice.map((val, idx) => renderDiceFace(val, false, idx))}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        </div>
-
-        <button
-          className="cyber-action-btn primary"
-          disabled={casinoRolling}
-          onClick={() => {
-            playSynthSfx("click");
-            rollDice();
-          }}
-        >
-          {casinoPhase === "shaking"
-            ? (language === "vi" ? "ĐANG LẮC XÚC XẮC..." : "SHAKING DICE...")
-            : casinoPhase === "throwing"
-            ? (language === "vi" ? "ĐANG MỞ BÁT..." : "REVEALING...")
-            : (language === "vi" ? "LẮC XÚC XẮC // ROLL DICE" : "ROLL DICE // LẮC XÚC XẮC")}
-        </button>
-
-        {/* Custom Premium Result Banner */}
-        {s.dice && casinoPhase === "idle" && s.result && (
-          <div className={`casino-result-banner ${s.result}`}>
-            <div className="result-glow-line" />
-            <div className="result-main-text">
-              {s.result === "win" && (language === "vi" ? "BẠN THẮNG! // YOU WIN" : "YOU WIN! // BẠN THẮNG")}
-              {s.result === "lose" && (language === "vi" ? "BẠN THUA // YOU LOSE" : "YOU LOSE // BẠN THUA")}
-              {s.result === "triple" && (language === "vi" ? "BA CON TRÙNG! // DEALER WINS" : "TRIPLE! // DEALER WINS")}
             </div>
-            <div className="result-details">
-              <span className="result-sum">
-                {language === "vi" ? "TỔNG ĐIỂM: " : "TOTAL SUM: "}
-                <strong>{s.dice[0] + s.dice[1] + s.dice[2]}</strong>
-                {" "}({s.dice[0] + s.dice[1] + s.dice[2] >= 11 ? (language === "vi" ? "TÀI" : "TAI") : (language === "vi" ? "XỈU" : "XIU")})
-              </span>
-              <span className="result-amount">
-                {s.result === "win" ? `+€$ ${fmt(s.bet)}` : s.result === "lose" ? `-€$ ${fmt(s.bet)}` : `€$ 0`}
-              </span>
-            </div>
-          </div>
-        )}
 
-        {/* Historical Trend history (Cầu) */}
-        <div className="casino-history-section">
-          <span className="history-title">{language === "vi" ? "LỊCH SỬ PHÂN ĐỊNH (CẦU)" : "LATEST TREND"}</span>
-          <div className="history-dots">
-            {history.map((h, i) => (
-              <div key={i} className={`history-dot ${h.outcome}`} title={`Sum: ${h.sum} (${h.outcome.toUpperCase()})`}>
-                <span className="history-dot-char">{h.outcome === 'tai' ? 'T' : h.outcome === 'xiu' ? 'X' : 'B'}</span>
+            {/* Custom Premium Result Banner */}
+            {s.dice && casinoPhase === "idle" && s.result ? (
+              <div className={`casino-result-banner ${s.result}`} style={{ width: "100%" }}>
+                <div className="result-glow-line" />
+                <div className="result-main-text">
+                  {s.result === "win" && (language === "vi" ? "BẠN THẮNG! // YOU WIN" : "YOU WIN! // BẠN THẮNG")}
+                  {s.result === "lose" && (language === "vi" ? "BẠN THUA // YOU LOSE" : "YOU LOSE // BẠN THUA")}
+                  {s.result === "triple" && (language === "vi" ? "BA CON TRÙNG! // DEALER WINS" : "TRIPLE! // DEALER WINS")}
+                </div>
+                <div className="result-details">
+                  <span className="result-sum">
+                    {language === "vi" ? "TỔNG: " : "SUM: "}
+                    <strong>{s.dice[0] + s.dice[1] + s.dice[2]}</strong>
+                    {" "}({s.dice[0] + s.dice[1] + s.dice[2] >= 11 ? (language === "vi" ? "TÀI" : "TAI") : (language === "vi" ? "XỈU" : "XIU")})
+                  </span>
+                  <span className="result-amount">
+                    {s.result === "win" ? `+€$ ${fmt(s.bet)}` : s.result === "lose" ? `-€$ ${fmt(s.bet)}` : `€$ 0`}
+                  </span>
+                </div>
               </div>
-            ))}
-            {history.length === 0 && (
-              <span className="history-empty">{language === "vi" ? "Chưa có lượt chơi nào" : "No results yet"}</span>
+            ) : (
+              <div style={{ height: "40px" }} />
             )}
+
+            {/* Historical Trend history (Cầu) */}
+            <div className="casino-history-section">
+              <span className="history-title">{language === "vi" ? "LỊCH SỬ PHÂN ĐỊNH (CẦU)" : "LATEST TREND"}</span>
+              <div className="history-dots">
+                {history.map((h, i) => (
+                  <div key={i} className={`history-dot ${h.outcome}`} title={`Sum: ${h.sum} (${h.outcome.toUpperCase()})`}>
+                    <span className="history-dot-char">{h.outcome === 'tai' ? 'T' : h.outcome === 'xiu' ? 'X' : 'B'}</span>
+                  </div>
+                ))}
+                {history.length === 0 && (
+                  <span className="history-empty">{language === "vi" ? "Chưa có lượt chơi nào" : "No results yet"}</span>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -5804,7 +5813,7 @@ export default function GameCanvas() {
       {activeUi && (
         <div className="cyber-modal-overlay" onClick={closeModal}>
           <div
-            className={`cyber-modal-container ${activeUi === "inv" ? "inv-modal theme-" + (playerState.invTheme || "grey") : ""} ${activeUi === "map" ? "large-map-modal" : ""} ${isWideUi(activeUi) ? "wide" : ""}`}
+            className={`cyber-modal-container ${activeUi === "inv" ? "inv-modal theme-" + (playerState.invTheme || "grey") : ""} ${activeUi === "map" ? "large-map-modal" : ""} ${activeUi === "casino" ? "casino-modal" : ""} ${isWideUi(activeUi) ? "wide" : ""}`}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="cyber-modal-header">
