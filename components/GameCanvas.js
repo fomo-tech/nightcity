@@ -4371,7 +4371,7 @@ export default function GameCanvas() {
                 ? (language === "vi" ? "ĐANG LẮC XÚC XẮC..." : "SHAKING DICE...")
                 : casinoPhase === "throwing"
                 ? (language === "vi" ? "ĐANG MỞ BÁT..." : "REVEALING...")
-                : (language === "vi" ? "LẮC XÚC XẮC // ROLL DICE" : "ROLL DICE // LẮC XÚC XẮC")}
+                : (language === "vi" ? "LẮC XÚC XẮC" : "ROLL DICE")}
             </button>
           </div>
 
@@ -4426,9 +4426,9 @@ export default function GameCanvas() {
               <div className={`casino-result-banner ${s.result}`} style={{ width: "100%" }}>
                 <div className="result-glow-line" />
                 <div className="result-main-text">
-                  {s.result === "win" && (language === "vi" ? "BẠN THẮNG! // YOU WIN" : "YOU WIN! // BẠN THẮNG")}
-                  {s.result === "lose" && (language === "vi" ? "BẠN THUA // YOU LOSE" : "YOU LOSE // BẠN THUA")}
-                  {s.result === "triple" && (language === "vi" ? "BA CON TRÙNG! // DEALER WINS" : "TRIPLE! // DEALER WINS")}
+                  {s.result === "win" && (language === "vi" ? "BẠN THẮNG" : "YOU WIN")}
+                  {s.result === "lose" && (language === "vi" ? "BẠN THUA" : "YOU LOSE")}
+                  {s.result === "triple" && (language === "vi" ? "BA CON TRÙNG" : "TRIPLE")}
                 </div>
                 <div className="result-details">
                   <span className="result-sum">
@@ -4623,8 +4623,8 @@ export default function GameCanvas() {
                   ? "CẬP NHẬT TÊN & BIỂU TƯỢNG"
                   : "UPDATE GANG DETAILS"
                 : language === "vi"
-                  ? "THÀNH LẬP BĂNG ĐẢNG // CREATE GANG"
-                  : "ESTABLISH FACTION // CREATE GANG"}
+                  ? "THÀNH LẬP BĂNG ĐẢNG"
+                  : "ESTABLISH FACTION"}
             </button>
           </div>
         )}
@@ -6031,7 +6031,7 @@ export default function GameCanvas() {
                     >
                       <span className="btn-glitch-layer"></span>
                       <span className="btn-content">
-                        {language === "vi" ? "BẮT ĐẦU // ENTER MATRIX" : "START // ENTER MATRIX"}
+                        {language === "vi" ? "BẮT ĐẦU" : "START"}
                       </span>
                     </button>
                   ) : (
