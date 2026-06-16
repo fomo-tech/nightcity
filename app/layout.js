@@ -16,7 +16,7 @@ export default function RootLayout({ children }) {
           height: 0,
           overflow: 'hidden',
           visibility: 'hidden',
-          fontFamily: '"Chakra Petch", "Orbitron", sans-serif'
+          fontFamily: '"Tiny5", "Chakra Petch", "Orbitron", sans-serif'
         }}>
           ẮẰẲẴẶÂẤẦẨẪẬÉÈẺẼẸÊẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÚÙỦŨỤƯỨỪỬỮỰÝỲỶỸÝĐ
         </div>

@@ -106,7 +106,7 @@ function textW(s, sc) {
 }
 
 const _txtCache = new Map();
-const GAME_FONT_FAMILY = '"Chakra Petch", "Orbitron", "Share Tech Mono", "Segoe UI", Arial, sans-serif';
+const GAME_FONT_FAMILY = '"Tiny5", "Chakra Petch", "Orbitron", "Share Tech Mono", "Segoe UI", Arial, sans-serif';
 const GAME_FONT_BASE = 12;
 const gameFont = sc => '900 ' + Math.max(GAME_FONT_BASE, GAME_FONT_BASE * sc) + 'px ' + GAME_FONT_FAMILY;
 

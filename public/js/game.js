@@ -1040,7 +1040,7 @@ function makeNpcSnapshot() {
       id: e.id, x: Math.round(e.x), y: Math.round(e.y), vx: Math.round(e.vx || 0), vy: Math.round(e.vy || 0),
       hp: Math.ceil(e.hp), maxhp: e.maxhp, tier: e.tier, fac: e.fac, kind: e.kind,
       state: e.state, alerted: !!e.alerted, face: e.face, flip: !!e.flip, anim: e.anim || 0,
-      bounty: !!e.bounty, psycho: !!e.psycho, war: !!e.war, name: e.name || gangLabel(e.fac),
+      bounty: !!e.bounty, psycho: !!e.psycho, war: !!e.war, ally: !!e.ally, mapSpawn: !!e.mapSpawn, gangPack: !!e.gangPack, name: e.name || gangLabel(e.fac),
       lookA: e.lookA || 0, detect: e.detect || 0, hitT: e.hitT || 0,
     })),
     civs: (G.civs || []).slice(0, 16).map(cv => ({
@@ -1061,7 +1061,7 @@ function applyNpcSnapshot(snap) {
     e.hp = raw.hp; e.maxhp = raw.maxhp || raw.hp || e.maxhp;
     e.tier = raw.tier || e.tier; e.fac = raw.fac || e.fac; e.kind = raw.kind || e.kind;
     e.state = raw.state || e.state; e.alerted = !!raw.alerted; e.face = raw.face || e.face; e.flip = !!raw.flip; e.anim = raw.anim || 0;
-    e.bounty = !!raw.bounty; e.psycho = !!raw.psycho; e.war = !!raw.war; e.name = raw.name || e.name;
+    e.bounty = !!raw.bounty; e.psycho = !!raw.psycho; e.war = !!raw.war; e.ally = !!raw.ally; e.mapSpawn = !!raw.mapSpawn; e.gangPack = !!raw.gangPack; e.name = raw.name || e.name;
     e.lookA = raw.lookA || 0; e.detect = raw.detect || 0; e.hitT = raw.hitT || 0; e.dead = false;
     return e;
   });
@@ -1918,7 +1918,8 @@ function updateEnemies(dt) {
     const d = distPx(e.x, e.y, tx, ty);
 
     const isRival = !e.ally && G.gang !== e.fac;
-    const aggroRange = isRival ? gangAggroRange(e) : 0;
+    const activeGangBot = !!(e.gangPack || e.mapSpawn || e.war || e.bounty || e.psycho || e.denId != null);
+    const aggroRange = isRival && activeGangBot ? gangAggroRange(e) : 0;
     const aggroLos = isRival && d < aggroRange && WORLD.losClear(e.x, e.y - 4, px, py - 4);
     const aggroHear = isRival && d < Math.min(96, aggroRange) && !G.pHidden;
 
@@ -2269,7 +2270,7 @@ function triggerDen(dn) {
     const s = spots.splice(Math.random() * spots.length | 0, 1)[0];
     if (distPx(s.x, s.y, G.p.x, G.p.y) < 26) continue; // never on top of V
     if (WORLD.blockedPx(s.x, s.y)) continue;           // never inside furniture
-    G.enemies.push(makeEnemy(s.x, s.y, tier, dist.fac, Math.random() < 0.5 ? 'gun' : 'melee', { denId: dn.id }));
+    G.enemies.push(makeEnemy(s.x, s.y, tier, dist.fac, Math.random() < 0.5 ? 'gun' : 'melee', { denId: dn.id, gangPack: true }));
     dn.left++;
   }
   if (dn.left > 0) { msg('GANG HIDEOUT — TAKE THEM OUT, CLAIM THE BONUS', '#ff9f1c'); SFX.msg(); }
@@ -2280,11 +2281,12 @@ function spawnPack(x, y, n, opts, rMin, rMax) {
   const fac = (opts && opts.fac) || DISTRICTS[WORLD.districtAt(x, y)].fac;
   const danger = DISTRICTS[WORLD.districtAt(x, y)].danger;
   const tier = danger + Math.floor(G.lvl / 4);
+  const spawnOpts = Object.assign({ gangPack: true }, opts || {});
   for (let i = 0; i < n; i++) {
     const s = findSpot(x, y, rMin || 8, rMax || 60); if (!s) continue;
     const gun = Math.random() < FACTIONS[fac].gun;
     const heavy = tier >= 3 && Math.random() < 0.18;
-    G.enemies.push(makeEnemy(s.x, s.y, tier, fac, heavy ? 'heavy' : gun ? 'gun' : 'melee', opts));
+    G.enemies.push(makeEnemy(s.x, s.y, tier, fac, heavy ? 'heavy' : gun ? 'gun' : 'melee', spawnOpts));
   }
   return tier;
 }
@@ -2307,7 +2309,7 @@ function spawnMapGangPack(minDanger) {
       const fac = dist.fac || s.dist.fac;
       const gun = Math.random() < FACTIONS[fac].gun;
       const heavy = tier >= 3 && Math.random() < 0.18;
-      G.enemies.push(makeEnemy(spot.x, spot.y, tier, fac, heavy ? 'heavy' : gun ? 'gun' : 'melee', { fac, mapSpawn: true }));
+      G.enemies.push(makeEnemy(spot.x, spot.y, tier, fac, heavy ? 'heavy' : gun ? 'gun' : 'melee', { fac, mapSpawn: true, gangPack: true }));
       i++;
     }
     if (G.enemies.length > before) return G.enemies.length - before;
