@@ -5709,23 +5709,11 @@ select {
   text-transform: uppercase;
 }
 
-/* Button position coordinates and neon styles */
-.btn-fire {
-  bottom: 25px;
-  right: 25px;
-  width: 66px;
-  height: 66px;
-  border-width: 2px;
-  --btn-color: #ff2a6d;
-  --btn-color-glow: rgba(255, 42, 109, 0.35);
-  z-index: 101;
-}
-
 .btn-dash {
   bottom: 25px;
-  right: 105px;
-  width: 44px;
-  height: 44px;
+  right: 25px;
+  width: 48px;
+  height: 48px;
   --btn-color: #05d9e8;
   --btn-color-glow: rgba(5, 217, 232, 0.25);
 }
@@ -5750,7 +5738,7 @@ select {
 
 .btn-use {
   bottom: 25px;
-  right: 165px;
+  right: 85px;
   width: 42px;
   height: 42px;
   --btn-color: rgba(249, 240, 2, 0.6);

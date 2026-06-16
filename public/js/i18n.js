@@ -225,6 +225,7 @@
     'CRIT +': 'CHÍ MẠNG +',
     'CRACK AIRDROP': 'MỞ AIRDROP',
     'ENTER VEHICLE': 'LÊN XE',
+    'EXIT VEHICLE': 'XUỐNG XE',
     'TALK': 'NÓI CHUYỆN',
     'FLIRT': 'TÁN GẪU',
     'GOOD TIME — $100': 'NGHỈ NGƠI — $100',

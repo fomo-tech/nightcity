@@ -73,7 +73,7 @@ function genWorld() {
     if (isShop) {
       setRect(ix, iy, 12, 12, WT.PLAZA);
       setRect(ix + 1, iy, 10, 6, WT.BLDG);
-      const names = { guns: 'Vũ Khí', ripper: 'CẤY SƠN', cars: 'Tiệm Xe', casino: 'Sòng Bài', clothing: 'Thời Trang' };
+      const names = { guns: 'Vũ Khí', ripper: 'Kỹ năng', cars: 'Tiệm Xe', casino: 'Sòng Bài', clothing: 'Thời Trang' };
       const cols = { guns: '#f9f002', ripper: '#05d9e8', cars: '#00ff9f', casino: '#bd00ff', clothing: '#ff2a6d' };
       bldgs.push({ x: ix + 1, y: iy, w: 10, h: 6, roof: '#24242e', neon: cols[isShop], sign: { text: names[isShop], col: cols[isShop] }, ent: true, theme: isShop });
       shops[isShop] = { x: (ix + 6) * TILE, y: (iy + 2) * TILE + 8, name: names[isShop] };

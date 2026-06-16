@@ -2,6 +2,7 @@ const { createServer: createHttpServer } = require('http');
 const { createServer: createProbeServer } = require('net');
 const next = require('next');
 const { WebSocketServer } = require('ws');
+const { MongoClient } = require('mongodb');
 const os = require('os');
 
 // Prevent server crashes from harmless TCP connection resets (browser tab close, mobile network switch, etc.)
@@ -45,6 +46,9 @@ const hostname = process.env.HOST || '0.0.0.0';
 const port = Number(process.env.PORT || 3000);
 const maxPort = port + 10;
 const GLOBAL_REALTIME_ROOM = 'nightcity';
+const mongoUri = process.env.MONGODB_URI;
+const mongoDbName = process.env.MONGODB_DB || 'night_city_pixel';
+let mongoClientPromise = null;
 
 function cleanText(value, fallback, max) {
   return String(value || fallback).replace(/[^\p{L}\p{N}_ -]/gu, '').trim().slice(0, max) || fallback;
@@ -58,9 +62,20 @@ function cleanRoom(value) {
   return GLOBAL_REALTIME_ROOM;
 }
 
+function cleanSlot(value) {
+  return String(value || 'default').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40) || 'default';
+}
+
 function cleanColor(value, fallback) {
   const s = String(value || fallback || '').trim();
   return /^#[0-9a-f]{6}$/i.test(s) ? s : fallback;
+}
+
+async function getSaveDb() {
+  if (!mongoUri) throw new Error('Missing MONGODB_URI');
+  if (!mongoClientPromise) mongoClientPromise = new MongoClient(mongoUri).connect();
+  const client = await mongoClientPromise;
+  return client.db(mongoDbName);
 }
 
 function canListen(nextPort) {
@@ -101,27 +116,18 @@ async function main() {
 
   function roomPlayers(room) {
     if (!rooms.has(room)) rooms.set(room, new Set());
-    if (!roomMeta.has(room)) roomMeta.set(room, { hostId: null, npcSnapshot: null });
+    if (!roomMeta.has(room)) roomMeta.set(room, { npcSnapshot: null });
     return rooms.get(room);
   }
 
   function roomInfo(room) {
-    if (!roomMeta.has(room)) roomMeta.set(room, { hostId: null, npcSnapshot: null });
+    if (!roomMeta.has(room)) roomMeta.set(room, { npcSnapshot: null });
     return roomMeta.get(room);
   }
 
   function electHost(roomName) {
-    const ids = rooms.get(roomName) || new Set();
-    const meta = roomInfo(roomName);
-    // Dead players (hp=0) cannot be host — they may be in a death screen and not sending npcState
-    const currentP = meta.hostId ? players.get(meta.hostId) : null;
-    if (meta.hostId && ids.has(meta.hostId) && currentP && currentP.hp > 0) return meta.hostId;
-    const oldHost = meta.hostId;
-    // Prefer an alive player; fall back to any player in the room
-    const aliveId = [...ids].find(id => { const p = players.get(id); return p && p.hp > 0; });
-    meta.hostId = aliveId || ids.values().next().value || null;
-    if (oldHost !== meta.hostId) meta.npcSnapshot = null;
-    return meta.hostId;
+    roomInfo(roomName);
+    return null;
   }
 
   function forgetPlayer(id) {
@@ -134,31 +140,17 @@ async function main() {
       if (room.size === 0) {
         rooms.delete(p.room);
         roomMeta.delete(p.room);
-      } else {
-        const prevHost = roomInfo(p.room).hostId;
-        const newHostId = electHost(p.room);
-        // Immediately notify new host so gang AI resumes without waiting for next broadcast cycle
-        if (prevHost !== newHostId && newHostId) {
-          const hw = [...wss.clients].find(c => c.playerId === newHostId && c.readyState === c.OPEN);
-          if (hw) try { hw.send(JSON.stringify({ type: 'hostChanged', hostId: newHostId, isHost: true })); } catch (e) {}
-        }
-      }
+      } else roomInfo(p.room);
     }
   }
 
   function broadcast(roomName) {
     const ids = rooms.get(roomName) || new Set();
-    const prevHost = roomInfo(roomName).hostId;
-    const newHostId = electHost(roomName);
-    // When host changes (e.g. old host died), immediately notify new host so gang AI resumes instantly
-    if (prevHost !== newHostId && newHostId) {
-      const hw = [...wss.clients].find(c => c.playerId === newHostId && c.readyState === c.OPEN);
-      if (hw) try { hw.send(JSON.stringify({ type: 'hostChanged', hostId: newHostId, isHost: true })); } catch (e) {}
-    }
+    roomInfo(roomName);
     const payload = JSON.stringify({
       type: 'players',
       room: roomName,
-      hostId: newHostId,
+      hostId: null,
       serverT: Date.now(),
       players: [...ids].map(id => players.get(id)).filter(p => p && p.hp > 0).map(p => ({
         id: p.id, name: p.name, gang: p.gang, gangKey: p.gangKey, gangIcon: p.gangIcon, gangIconCol: p.gangIconCol, x: p.x, y: p.y, vx: p.vx || 0, vy: p.vy || 0, face: p.face, flip: p.flip, hp: p.hp, seq: p.seq, t: p.lastSeen, isLeader: p.isLeader, act: p.act || null,
@@ -204,7 +196,7 @@ async function main() {
     } catch (error) {}
     players.set(id, { id, room, name: 'MERC', gang: 'SOLO', gangKey: 'solo', gangIcon: '', gangIconCol: '#8a93a6', x: 0, y: 0, vx: 0, vy: 0, face: 'down', flip: false, hp: 100, isLeader: false, seq: 0, lastSeen: Date.now() });
     roomPlayers(room).add(id);
-    const hostId = electHost(room);
+    electHost(room);
     ws.playerId = id;
     ws.room = room;
     ws.isAlive = true;
@@ -214,16 +206,47 @@ async function main() {
         console.error(`[WS Error] Player ${id}:`, err);
       }
     });
-    ws.send(JSON.stringify({ type: 'hello', id, room, hostId, isHost: hostId === id }));
+    ws.send(JSON.stringify({ type: 'hello', id, room, hostId: null, isHost: false }));
     const cachedNpc = roomInfo(room).npcSnapshot;
-    if (cachedNpc && hostId !== id) ws.send(JSON.stringify(cachedNpc));
+    if (cachedNpc) ws.send(JSON.stringify(cachedNpc));
     broadcast(room);
 
-    ws.on('message', raw => {
+    ws.on('message', async raw => {
       let msg = null;
       try { msg = JSON.parse(raw.toString()); } catch (error) { return; }
       const p = players.get(id);
       if (!p || !msg) return;
+      if (msg.type === 'saveGet' || msg.type === 'savePut' || msg.type === 'saveDelete') {
+        const reqId = cleanText(msg.reqId, '', 40);
+        const slot = cleanSlot(msg.slot);
+        const reply = payload => {
+          if (ws.readyState === ws.OPEN) {
+            try { ws.send(JSON.stringify(Object.assign({ type: 'saveResult', reqId, op: msg.type.replace('save', '').toLowerCase() }, payload))); } catch (e) {}
+          }
+        };
+        try {
+          const db = await getSaveDb();
+          if (msg.type === 'saveGet') {
+            const doc = await db.collection('saves').findOne({ slot }, { projection: { _id: 0 } });
+            reply({ ok: true, save: doc ? doc.save : null, updatedAt: doc ? doc.updatedAt : null });
+          } else if (msg.type === 'savePut') {
+            if (!msg.save || typeof msg.save !== 'object' || Array.isArray(msg.save)) throw new Error('Expected save object');
+            const now = new Date();
+            await db.collection('saves').updateOne(
+              { slot },
+              { $set: { slot, save: msg.save, updatedAt: now } },
+              { upsert: true }
+            );
+            reply({ ok: true, updatedAt: now.toISOString() });
+          } else {
+            await db.collection('saves').deleteOne({ slot });
+            reply({ ok: true });
+          }
+        } catch (error) {
+          reply({ ok: false, dbConnected: false, error: error.message || 'Save socket request failed' });
+        }
+        return;
+      }
       if (msg.type === 'invite') {
         const to = cleanText(msg.to, '', 18);
         const target = [...wss.clients].find(client => client.playerId === to && client.room === p.room && client.readyState === client.OPEN);
@@ -311,7 +334,6 @@ async function main() {
         return;
       }
       if (msg.type === 'npcState') {
-        if (roomInfo(p.room).hostId !== id) return;
         const state = {
           type: 'npcState',
           from: id,
@@ -329,10 +351,7 @@ async function main() {
         return;
       }
       if (msg.type === 'npcHit') {
-        const hostId = roomInfo(p.room).hostId;
-        if (!hostId || hostId === id) return;
-        const target = [...wss.clients].find(client => client.playerId === hostId && client.room === p.room && client.readyState === client.OPEN);
-        if (target) try { target.send(JSON.stringify({
+        const payload = JSON.stringify({
           type: 'npcHit',
           from: id,
           enemyId: cleanText(msg.enemyId, '', 24),
@@ -341,7 +360,12 @@ async function main() {
           dir: Number.isFinite(Number(msg.dir)) ? Number(msg.dir) : 0,
           kb: Math.max(0, Math.min(1000, Number(msg.kb) || 0)),
           burn: Number.isFinite(Number(msg.burn)) ? Number(msg.burn) : 0,
-        })); } catch (e) {}
+        });
+        for (const client of wss.clients) {
+          if (client.readyState === client.OPEN && client.room === p.room && client.playerId !== id) {
+            try { client.send(payload); } catch (e) {}
+          }
+        }
         return;
       }
       if (msg.type !== 'state') return;

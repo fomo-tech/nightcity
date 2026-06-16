@@ -5,7 +5,7 @@ import { useGameStore } from "@/store/useGameStore";
 
 const SAVE_KEY = "ncpx2077_v1";
 const ACCOUNT_KEY = "ncpx_account_v1";
-const SCRIPT_VERSION = "108";
+const SCRIPT_VERSION = "113";
 const GLOBAL_REALTIME_ROOM = "nightcity";
 const PERFORMANCE_MODE = false;
 const GAME_SCRIPTS = [
@@ -1497,17 +1497,6 @@ function MobileTouchControls({ player, playSynthSfx }) {
       {/* Top Center Controls Panel */}
       <div className="mobile-top-bar">
         <button
-          onTouchStart={(e) => handlePress("pause", e)}
-          onMouseDown={(e) => handlePress("pause", e)}
-          className="top-bar-btn"
-          title="Settings"
-        >
-          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="3" />
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-          </svg>
-        </button>
-        <button
           onTouchStart={(e) => handlePress("radio", e)}
           onMouseDown={(e) => handlePress("radio", e)}
           className="top-bar-btn"
@@ -1559,25 +1548,6 @@ function MobileTouchControls({ player, playSynthSfx }) {
       {/* Bottom Right Action Cluster */}
       {!menuActive && (
         <div className="mobile-action-cluster">
-          {/* FIRE */}
-          <button
-            onTouchStart={(e) => handlePress("fire", e)}
-            onTouchEnd={(e) => handleRelease("fire", e)}
-            onTouchCancel={(e) => handleRelease("fire", e)}
-            onMouseDown={(e) => handlePress("fire", e)}
-            onMouseUp={(e) => handleRelease("fire", e)}
-            className="action-btn btn-fire"
-          >
-            <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10" strokeDasharray="3 3" />
-              <circle cx="12" cy="12" r="3" fill="currentColor" />
-              <line x1="12" y1="1" x2="12" y2="6" />
-              <line x1="12" y1="18" x2="12" y2="23" />
-              <line x1="1" y1="12" x2="6" y2="12" />
-              <line x1="18" y1="12" x2="23" y2="12" />
-            </svg>
-            <span className="btn-sub-label">ATK</span>
-          </button>
 
           {/* DASH */}
           <button
@@ -2286,19 +2256,25 @@ export default function GameCanvas() {
             : "> ESTABLISHING CONNECTION...",
         );
         window.NCPX_SAVE_KEY = localSaveKey;
+        window.NCPX_LANG = language;
+        window.NCPX_CLOUD_SLOT = cloudSlot;
+        window.NCPX_ACCOUNT = {
+          id: activeAccount.id,
+          provider: activeAccount.provider || "quick",
+        };
+        window.NCPX_PLAYER = {
+          name: activeAccount.name || playerName,
+          gang: "SOLO",
+        };
+        setupRealtimeBridge(() => useGameStore.getState());
         try {
-          const res = await fetch(`/api/save/${cloudSlot}`, {
-            cache: "no-store",
-          });
-          if (res.ok) {
-            const data = await res.json();
-            if (data.ok && data.dbConnected !== false) {
-              cloudAvailable = true;
-              if (data.save)
-                localStorage.setItem(localSaveKey, JSON.stringify(data.save));
-            } else {
-              cloudAvailable = false;
-            }
+          const data = await window.NCPX_NET.saveGet(cloudSlot);
+          if (data.ok && data.dbConnected !== false) {
+            cloudAvailable = true;
+            if (data.save)
+              localStorage.setItem(localSaveKey, JSON.stringify(data.save));
+          } else {
+            cloudAvailable = false;
           }
         } catch (error) {
           cloudAvailable = false;
@@ -2332,12 +2308,7 @@ export default function GameCanvas() {
             );
             saveTimer = setTimeout(async () => {
               try {
-                const response = await fetch(`/api/save/${cloudSlot}`, {
-                  method: "PUT",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ save, accountId: activeAccount.id }),
-                });
-                if (!response.ok) throw new Error("Cloud save failed");
+                await window.NCPX_NET.savePut(cloudSlot, save, activeAccount.id);
                 markSaved();
               } catch (error) {
                 setStatus(
@@ -2361,7 +2332,7 @@ export default function GameCanvas() {
               return;
             }
             try {
-              await fetch(`/api/save/${cloudSlot}`, { method: "DELETE" });
+              await window.NCPX_NET.saveDelete(cloudSlot);
               setStatus(
                 "ready",
                 language === "vi"
@@ -6346,6 +6317,8 @@ function setupRealtimeBridge(getStore) {
     dropEvents: [],
     npcState: null,
     npcEvents: [],
+    saveSeq: 0,
+    savePending: new Map(),
     connected: false,
     retry: 0,
     closed: false,
@@ -6377,9 +6350,46 @@ function setupRealtimeBridge(getStore) {
         return;
       net.ws.send(JSON.stringify({ type: "playerDrop", ...(payload || {}) }));
     },
+    saveRequest(type, payload) {
+      return new Promise((resolve, reject) => {
+        const reqId = `${Date.now().toString(36)}_${++net.saveSeq}`;
+        const send = () => {
+          if (!net.ws || net.ws.readyState !== WebSocket.OPEN) {
+            reject(new Error("Save socket unavailable"));
+            return;
+          }
+          const timer = setTimeout(() => {
+            net.savePending.delete(reqId);
+            reject(new Error("Save socket timeout"));
+          }, 6000);
+          net.savePending.set(reqId, { resolve, reject, timer });
+          net.ws.send(JSON.stringify({ type, reqId, ...(payload || {}) }));
+        };
+        if (net.ws && net.ws.readyState === WebSocket.OPEN) send();
+        else if (net.ws && net.ws.readyState === WebSocket.CONNECTING) {
+          const timer = setTimeout(() => {
+            net.ws?.removeEventListener?.("open", onOpen);
+            reject(new Error("Save socket unavailable"));
+          }, 4000);
+          const onOpen = () => {
+            clearTimeout(timer);
+            send();
+          };
+          net.ws.addEventListener("open", onOpen, { once: true });
+        } else reject(new Error("Save socket unavailable"));
+      });
+    },
+    saveGet(slot) {
+      return net.saveRequest("saveGet", { slot });
+    },
+    savePut(slot, save, accountId) {
+      return net.saveRequest("savePut", { slot, save, accountId });
+    },
+    saveDelete(slot) {
+      return net.saveRequest("saveDelete", { slot });
+    },
     sendNpcState(snapshot) {
       if (
-        !net.isHost ||
         !net.ws ||
         net.ws.readyState !== WebSocket.OPEN ||
         !snapshot
@@ -6468,14 +6478,14 @@ function setupRealtimeBridge(getStore) {
       if (msg.type === "hello") {
         net.id = msg.id;
         net.room = msg.room || net.room;
-        net.hostId = msg.hostId || net.hostId;
-        net.isHost = !!msg.isHost || net.hostId === net.id;
+        net.hostId = null;
+        net.isHost = false;
       }
       if (msg.type === "players") {
         const seenAt =
           typeof performance !== "undefined" ? performance.now() : Date.now();
-        net.hostId = msg.hostId || net.hostId;
-        net.isHost = !!net.hostId && net.hostId === net.id;
+        net.hostId = null;
+        net.isHost = false;
         const liveIds = new Set();
         for (const p of msg.players || []) {
           if (!p || p.id === net.id) continue;
@@ -6509,11 +6519,16 @@ function setupRealtimeBridge(getStore) {
       if (msg.type === "npcState") net.npcState = msg;
       if (msg.type === "npcHit")
         net.npcEvents = [msg, ...net.npcEvents].slice(0, 24);
-      // Immediate host promotion: server notifies new host directly so gang AI resumes instantly
-      if (msg.type === "hostChanged") {
-        net.hostId = msg.hostId || net.hostId;
-        net.isHost = !!msg.isHost;
+      if (msg.type === "saveResult" && msg.reqId) {
+        const pending = net.savePending.get(msg.reqId);
+        if (pending) {
+          clearTimeout(pending.timer);
+          net.savePending.delete(msg.reqId);
+          if (msg.ok) pending.resolve(msg);
+          else pending.reject(new Error(msg.error || "Save socket failed"));
+        }
       }
+      if (msg.type === "hostChanged" && msg.npcState) net.npcState = msg.npcState;
     };
     ws.onclose = () => {
       net.connected = false;
@@ -6522,6 +6537,11 @@ function setupRealtimeBridge(getStore) {
       net.hostId = null;
       net.isHost = false;
       net.npcState = null;
+      for (const [reqId, pending] of net.savePending) {
+        clearTimeout(pending.timer);
+        pending.reject(new Error("Save socket closed"));
+        net.savePending.delete(reqId);
+      }
       if (!net.closed) {
         const delay = Math.min(3000, 350 + net.retry * 450);
         net.retry++;

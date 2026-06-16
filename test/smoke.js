@@ -417,6 +417,10 @@ window.NCPX_NET.events = [{ type: 'combatFx', from: 'rp_smoke', kind: 'fire', x:
 applyRealtimeEvents(window.NCPX_NET);
 const exactBullet = G.bullets[exactBefore];
 assert(exactBullet && exactBullet.x === 123 && exactBullet.y === 234 && exactBullet.vx === 456 && exactBullet.vy === 78 && exactBullet.col === '#7af2ff', 'realtime gun tracer uses exact projectile path');
+const npcFxBefore = G.bullets.length;
+window.NCPX_NET.events = [{ type: 'combatFx', from: 'room_peer', npc: true, kind: 'fire', x: G.p.x + 46, y: G.p.y, a: 0, shots: [{ x: 321, y: 234, vx: 222, vy: 0, life: 0.7, col: '#ff5a7a' }] }];
+applyRealtimeEvents(window.NCPX_NET);
+assert(G.bullets.length === npcFxBefore + 1 && G.bullets[npcFxBefore].fx && G.bullets[npcFxBefore].col === '#ff5a7a', 'room npc gun tracer fx renders for all players');
 const snapBulletBefore = G.bullets.length;
 updateRemotePlayers([{ id: 'rp_smoke', name: 'REMOTE', gang: 'SOLO', gangKey: 'solo', x: G.p.x + 52, y: G.p.y, hp: 100, act: { seq: 7, kind: 'fire', a: Math.PI, pellets: 1, spd: 320, col: '#ffe9a0' } }], 1 / 60);
 assert(G.bullets.length > snapBulletBefore && G.remotePlayers[0].lastActSeq === 7, 'realtime gun tracer fx also renders from player snapshot act');
@@ -427,14 +431,14 @@ updateRemotePlayers([], 1 / 60);
 assert(G.remotePlayers.length === 0, 'missing realtime player is removed immediately while connected');
 delete window.NCPX_NET; G.remotePlayers = [];
 
-// ---- realtime NPC authority: non-host mirrors host snapshot only ----
+// ---- realtime room NPC authority: bots belong to the room, not a user host ----
 G.enemies = [makeEnemy(G.p.x + 70, G.p.y, 1, 'scavs', 'melee', {})];
 window.NCPX_NET = { connected: true, isHost: false, room: 'smoke', players: [], npcState: null, takeEvents: () => [], takeNpcEvents: () => [], send: () => {} };
 steps(2);
-assert(G.enemies.length === 0, 'non-host clears unsynced local gang bots');
+assert(G.enemies.length === 1 && !G.roomIsHost, 'room client keeps ticking bots without a user host');
 window.NCPX_NET.npcState = { enemies: [{ id: 'host_bot', x: G.p.x + 80, y: G.p.y, hp: 30, maxhp: 30, tier: 1, fac: 'mox', kind: 'melee', state: 'idle', gangPack: true, name: 'RITA' }], civs: [] };
 steps(2);
-assert(G.enemies.length === 1 && G.enemies[0].id === 'host_bot' && G.enemies[0].fac === 'mox' && G.enemies[0].gangPack, 'non-host applies host gang bot snapshot');
+assert(G.enemies.length === 1 && G.enemies[0].id === 'host_bot' && G.enemies[0].fac === 'mox' && G.enemies[0].gangPack && !G.roomIsHost, 'room bot snapshot applies without assigning a host');
 let remoteDrops = [{ fromName: 'REMOTE', drops: [{ kind: 'ed', amt: 77, x: G.p.x + 20, y: G.p.y }, { kind: 'wpn', id: 'knife', x: G.p.x + 24, y: G.p.y }] }];
 window.NCPX_NET.takeDropEvents = () => remoteDrops.splice(0);
 steps(2);

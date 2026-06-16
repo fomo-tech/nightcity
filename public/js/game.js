@@ -101,6 +101,11 @@ function sendCombatFx(payload) {
   if (typeof window === 'undefined' || !window.NCPX_NET || !window.NCPX_NET.combatFx) return;
   window.NCPX_NET.combatFx(Object.assign({ seq: G.netActSeq }, payload || {}));
 }
+function sendNpcCombatFx(payload) {
+  if (typeof window === 'undefined' || !window.NCPX_NET || !window.NCPX_NET.connected || !window.NCPX_NET.combatFx) return;
+  G.npcActSeq = (G.npcActSeq || 0) + 1;
+  window.NCPX_NET.combatFx(Object.assign({ seq: G.npcActSeq, npc: true }, payload || {}));
+}
 function applyCombatFx(ev) {
   if (!ev || !G.p) return;
   const kind = String(ev.kind || '');
@@ -158,7 +163,7 @@ function drawGangWorldLabel(c, gang, icon, iconCol, x, y, col) {
   }
 }
 function isRealtimeNpcReplica() {
-  return !!(typeof window !== 'undefined' && window.NCPX_NET && window.NCPX_NET.connected && !window.NCPX_NET.isHost);
+  return false;
 }
 function sendNpcHit(e, dmg, crit, dir, kb, burn) {
   if (!e || !e.id || typeof window === 'undefined' || !window.NCPX_NET || !window.NCPX_NET.npcHit) return;
@@ -189,7 +194,6 @@ function touchButtons() {
       { k: 'radio', x: 70, y: 76, r: comfy ? 18 : 15, label: 'FM' },
       { k: 'car', x: 115, y: 76, r: comfy ? 18 : 15, label: 'V' },
       { k: 'inv', x: 160, y: 76, r: comfy ? 18 : 15, label: 'TAB' },
-      { k: 'fire', x: VIEW_W - 90, y: VIEW_H - 75, r: comfy ? 26 : 22, label: 'FIRE' },
       { k: 'dash', x: VIEW_W - 35, y: VIEW_H - 75, r: comfy ? 20 : 17, label: 'DASH' },
       { k: 'doc', x: VIEW_W - 90, y: VIEW_H - 130, r: comfy ? 18 : 15, label: 'C' },
       { k: 'use', x: VIEW_W - 35, y: VIEW_H - 130, r: comfy ? 18 : 15, label: 'E' },
@@ -206,7 +210,6 @@ function touchButtons() {
     { k: 'radio', x: cx - 25, y: 26, r: comfy ? 19 : 16, label: 'FM' },
     { k: 'car', x: cx + 25, y: 26, r: comfy ? 19 : 16, label: 'V' },
     { k: 'inv', x: cx + 75, y: 26, r: comfy ? 19 : 16, label: 'TAB' },
-    { k: 'fire', x: VIEW_W - 105, y: VIEW_H - 75, r: comfy ? 26 : 22, label: 'FIRE' },
     { k: 'dash', x: VIEW_W - 45, y: VIEW_H - 75, r: comfy ? 22 : 18, label: 'DASH' },
     { k: 'doc', x: VIEW_W - 105, y: VIEW_H - 135, r: comfy ? 18 : 15, label: 'C' },
     { k: 'use', x: VIEW_W - 45, y: VIEW_H - 135, r: comfy ? 18 : 15, label: 'E' },
@@ -357,7 +360,7 @@ function applyTouch() {
         G.mouse.sx = clamp((G.p.x - G.cam.x) * WORLD_ZOOM + Math.cos(a) * 90, 4, VIEW_W - 4);
         G.mouse.sy = clamp((G.p.y - G.cam.y) * WORLD_ZOOM + Math.sin(a) * 90, 4, VIEW_H - 4);
       }
-      const fire = len > 0.45;
+      const fire = len > 0.15;
       if (fire !== TOUCH.firing) { TOUCH.firing = fire; G.mouse.down = fire; }
     } else if (TOUCH.held['fire']) {
       // Hold dedicated fire button: auto-aim at nearest enemy or fire forward
@@ -966,14 +969,15 @@ function updateRealtime(dt) {
   applyRealtimeEvents(net);
   applyRemoteDropEvents(net);
   applyNpcHitEvents(net);
-  if (net.connected && !net.isHost) {
-    if (net.npcState) applyNpcSnapshot(net.npcState);
-    else { G.enemies = []; G.gangWar = null; }
+  if (net.connected && net.npcState) {
+    const snap = net.npcState;
+    net.npcState = null;
+    applyNpcSnapshot(snap);
   }
   updateRemotePlayers(net.players || [], dt);
   G.onlineCount = (net.connected ? 1 : 0) + (G.remotePlayers || []).length;
   G.onlineRoom = net.room || G.onlineRoom || 'default';
-  G.roomIsHost = !!net.isHost;
+  G.roomIsHost = false;
   if (net.invites && net.invites.length) {
     const inv = net.invites[0];
     if (!G.playerInvite || G.playerInvite.from !== inv.from || G.playerInvite.gang !== inv.gang) {
@@ -992,7 +996,7 @@ function updateRealtime(dt) {
   if (G.netT > 0 || !G.p) return;
   G.netT = 0.033;
   sendRealtimeState(Math.ceil(G.p.hp));
-  if (net.isHost && net.sendNpcState) {
+  if (net.connected && net.sendNpcState) {
     G.npcSyncT = (G.npcSyncT || 0) - 0.08;
     if (G.npcSyncT <= 0) {
       G.npcSyncT = 0.12;
@@ -1076,7 +1080,7 @@ function applyNpcSnapshot(snap) {
 }
 
 function applyNpcHitEvents(net) {
-  if (!net.isHost || !net.takeNpcEvents) return;
+  if (!net.takeNpcEvents) return;
   const events = net.takeNpcEvents();
   for (const ev of events) {
     const e = G.enemies.find(x => x.id === ev.enemyId && !x.dead);
@@ -1381,6 +1385,11 @@ const SHOP_PROMPTS = {
 function interactScan() {
   G.prompt = null;
   const p = G.p;
+  if (G.driving) {
+    G.prompt = '[E/V] EXIT VEHICLE';
+    if (press('KeyE')) exitCar();
+    return;
+  }
   for (const k of ['guns', 'ripper', 'cars', 'bar', 'casino', 'clothing']) {
     const s = WORLD.shops[k];
     if (!s) continue;
@@ -2004,10 +2013,14 @@ function updateEnemies(dt) {
         if (e.chargeT <= 0 && dT < 360 && dT > 60) { e.chargeT = 5; e.kbx = Math.cos(aTo) * 320; e.kby = Math.sin(aTo) * 320; SFX.dash(); }
         if (seen && e.burstT <= 0 && d < 320) {
           e.burstT = 3.6;
+          const fxShots = [];
           for (let k = 0; k < 14; k++) {
             const a = k / 14 * Math.PI * 2;
-            G.bullets.push({ x: e.x, y: e.y - 4, vx: Math.cos(a) * 200, vy: Math.sin(a) * 200, dmg: 8 + 2 * e.tier, from: 'e', life: 2, col: '#bd00ff', pierce: 0, turn: 0 });
+            const b = { x: e.x, y: e.y - 4, vx: Math.cos(a) * 200, vy: Math.sin(a) * 200, dmg: 8 + 2 * e.tier, from: 'e', life: 2, col: '#bd00ff', pierce: 0, turn: 0 };
+            G.bullets.push(b);
+            fxShots.push({ x: b.x, y: b.y, vx: b.vx, vy: b.vy, life: b.life, col: b.col });
           }
+          sendNpcCombatFx({ kind: 'fire', x: e.x, y: e.y, a: aTo, pellets: fxShots.length, shots: fxShots, col: '#bd00ff' });
           SFX.shoot('shotgun');
         }
         if (targetIsPlayer && d < 24 && p.iframes <= 0 && !G.driving) damagePlayer(14 + 2 * e.tier);
@@ -2028,11 +2041,17 @@ function updateEnemies(dt) {
               e.aiming = false;
               e.shootCd = e.kind === 'heavy' ? 2.2 : rnd(1.2, 2);
               const shots = e.kind === 'heavy' ? 5 : 3;
+              const fxShots = [];
               for (let k = 0; k < shots; k++) {
                 const a = aToV + rnd(-8, 8) * Math.PI / 180;
-                if (targetIsPlayer) G.bullets.push({ x: e.x, y: e.y - 4, vx: Math.cos(a) * 230, vy: Math.sin(a) * 230, dmg: (e.kind === 'heavy' ? 7 : 5) + 2 * e.tier, from: 'e', life: 1.6, col: '#ff5a7a', pierce: 0, turn: 0 });
+                if (targetIsPlayer) {
+                  const b = { x: e.x, y: e.y - 4, vx: Math.cos(a) * 230, vy: Math.sin(a) * 230, dmg: (e.kind === 'heavy' ? 7 : 5) + 2 * e.tier, from: 'e', life: 1.6, col: '#ff5a7a', pierce: 0, turn: 0 };
+                  G.bullets.push(b);
+                  fxShots.push({ x: b.x, y: b.y, vx: b.vx, vy: b.vy, life: b.life, col: b.col });
+                }
                 else damageEnemy(gangTarget, (e.kind === 'heavy' ? 5 : 3) + e.tier, false, a, 35);
               }
+              if (fxShots.length) sendNpcCombatFx({ kind: 'fire', x: e.x, y: e.y, a: aToV, pellets: fxShots.length, shots: fxShots, col: '#ff5a7a' });
               SFX.shoot(e.kind === 'heavy' ? 'shotgun' : 'smg');
             }
           }
@@ -2047,6 +2066,7 @@ function updateEnemies(dt) {
             if (targetIsPlayer && distPx(e.x, e.y, px, py) < 26 && p.iframes <= 0 && !G.driving) damagePlayer(7 + 2.5 * e.tier);
             else if (gangTarget && distPx(e.x, e.y, gangTarget.x, gangTarget.y) < 26) damageEnemy(gangTarget, 5 + 1.5 * e.tier, false, aToV, 90);
             G.slashes.push({ x: e.x, y: e.y, a: aToV, t: 0.12, range: 20, col: '#ff5a7a' });
+            sendNpcCombatFx({ kind: 'melee', x: e.x, y: e.y, a: aToV, range: 20, col: '#ff5a7a' });
           }
           mvx = 0; mvy = 0;
         } else if (!seen && dT < 16) { mvx = 0; mvy = 0; e.lookA += 1.5 * dt; }
