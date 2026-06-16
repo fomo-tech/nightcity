@@ -87,7 +87,7 @@ assert(WORLD.trees.length > 90, 'green pixel trees seeded (' + WORLD.trees.lengt
 assert(Object.keys(DISTRICTS).filter(k => DISTRICTS[k].danger >= 3).length >= 3, 'more three-star danger districts');
 G.enemies = [];
 const mapPackN = spawnMapGangPack(3);
-assert(mapPackN >= 3 && G.enemies.every(e => e.mapSpawn && DISTRICTS[WORLD.districtAt(e.x, e.y)].danger >= 3), 'map-wide gang pack spawns in high danger zones');
+assert(mapPackN >= 5 && G.enemies.every(e => e.mapSpawn && DISTRICTS[WORLD.districtAt(e.x, e.y)].danger >= 3), 'map-wide gang pack spawns larger crews in high danger zones');
 G.enemies = [];
 G.p.iframes = 99999; // god mode for the soak; the death test clears it explicitly
 

@@ -5,7 +5,7 @@ import { useGameStore } from "@/store/useGameStore";
 
 const SAVE_KEY = "ncpx2077_v1";
 const ACCOUNT_KEY = "ncpx_account_v1";
-const SCRIPT_VERSION = "103";
+const SCRIPT_VERSION = "104";
 const GLOBAL_REALTIME_ROOM = "nightcity";
 const PERFORMANCE_MODE = false;
 const GAME_SCRIPTS = [

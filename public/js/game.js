@@ -2297,7 +2297,7 @@ function spawnMapGangPack(minDanger) {
     const s = findRandomSpot(wantDanger);
     if (!s) continue;
     const danger = s.dist.danger;
-    const n = minDanger ? irnd(3, 4) : danger >= 3 ? irnd(2, 3) : irnd(1, 2);
+    const n = danger >= 3 ? irnd(5, 7) : irnd(1, 2);
     const tier = danger + Math.floor(G.lvl / 4);
     const before = G.enemies.length;
     for (let i = 0, guard = 0; i < n && guard < n * 5; guard++) {
@@ -2513,9 +2513,9 @@ function updateSpawns(dt) {
   // map-wide gang patrols: dangerous districts seed more bodies even before V arrives
   G.mapSpawnT = (G.mapSpawnT || 0) - dt;
   if (G.mapSpawnT <= 0) {
-    G.mapSpawnT = 8.5;
+    G.mapSpawnT = 7;
     const mapBots = G.enemies.filter(e => !e.dead && e.mapSpawn).length;
-    const mapCap = 10 + Math.min(6, Math.ceil(G.lvl / 2));
+    const mapCap = 18 + Math.min(10, Math.ceil(G.lvl / 2));
     if (mapBots < mapCap) spawnMapGangPack();
   }
   // bounties
