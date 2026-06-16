@@ -5,7 +5,7 @@ import { useGameStore } from "@/store/useGameStore";
 
 const SAVE_KEY = "ncpx2077_v1";
 const ACCOUNT_KEY = "ncpx_account_v1";
-const SCRIPT_VERSION = "134";
+const SCRIPT_VERSION = "136";
 const GLOBAL_REALTIME_ROOM = "nightcity";
 const PERFORMANCE_MODE = false;
 const GAME_SCRIPTS = [
@@ -1985,20 +1985,11 @@ export default function GameCanvas() {
         logoutPending = localStorage.getItem("ncpx_logout_pending") || "false";
       } catch (e) {}
       if (!saved?.account?.id || !saved?.token) {
-        if (logoutPending === "true") {
-          if (!cancelled) {
-            setAuthReady(true);
-            setAuthMessage(
-              language === "vi" ? "ĐÃ ĐĂNG XUẤT" : "SIGNED OUT",
-            );
-            setBootStage("slot");
-          }
-          return;
-        } else {
-          const fallback = localQuickAccount("V");
-          installAccount(fallback, true);
-          saved = fallback;
+        if (!cancelled) {
+          setAuthReady(true);
+          setBootStage("slot");
         }
+        return;
       }
       try {
         const res = await fetch("/api/account/quick", {
@@ -2064,6 +2055,26 @@ export default function GameCanvas() {
     };
   }, []);
 
+  const getSavedCharacterInfo = () => {
+    if (typeof window === "undefined" || !activeAccount) return null;
+    const cloudSlot = activeAccount.slot || activeAccount.id || slot;
+    const localSaveKey = `${SAVE_KEY}:${cloudSlot}`;
+    try {
+      const raw = localStorage.getItem(localSaveKey);
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      return {
+        name: data.playerName || data.titleName || activeAccount.name || "V",
+        lvl: data.lvl || 1,
+        gender: data.gender || "m",
+        eddies: data.eddies || 0,
+        lifepath: data.p?.lifepath || data.lifepath || "streetkid"
+      };
+    } catch (e) {
+      return null;
+    }
+  };
+
   const getHasSavedCharacter = () => {
     if (typeof window === "undefined" || !activeAccount) return false;
     const cloudSlot = activeAccount.slot || activeAccount.id || slot;
@@ -2073,6 +2084,23 @@ export default function GameCanvas() {
     } catch (e) {
       return false;
     }
+  };
+
+  const handleDeleteCharacter = () => {
+    if (!activeAccount) return;
+    if (!confirm(language === "vi" ? "CẢNH BÁO: HÀNH ĐỘNG NÀY SẼ XÓA VĨNH VIỄN NHÂN VẬT VÀ TIẾN TRÌNH CHƠI. BẠN CÓ CHẮC CHẮN KHÔNG?" : "WARNING: THIS WILL PERMANENTLY ERASE YOUR CHARACTER AND SAVED PROGRESS. ARE YOU SURE?")) {
+      return;
+    }
+    const cloudSlot = activeAccount.slot || activeAccount.id || slot;
+    const localSaveKey = `${SAVE_KEY}:${cloudSlot}`;
+    try {
+      localStorage.removeItem(localSaveKey);
+    } catch (e) {}
+    if (window.NCPX_SAVE && window.NCPX_SAVE.remove) {
+      window.NCPX_SAVE.remove();
+    }
+    playSynthSfx("click");
+    forceUpdate();
   };
 
   const triggerMenuAction = (idx) => {
@@ -2668,13 +2696,7 @@ export default function GameCanvas() {
           language === "vi" ? "THIẾT BỊ ĐÃ SẴN SÀNG" : "DECK LOADED",
         );
 
-        // Only auto Jack-in if a saved character exists, otherwise use React character creator
-        if (hasSavedCharacter) {
-          setIsJackedIn(true);
-          if (window.__boot && !window.__NCPX_GAME_RUNNING) {
-            window.__boot();
-          }
-        }
+        // Do not auto jack-in, require clicking Jack In on character selection screen.
       } catch (error) {
         setStatus(
           "error",
@@ -2727,13 +2749,17 @@ export default function GameCanvas() {
               ? "> HỆ THỐNG ONLINE. LIÊN KẾT THẦN KINH SẴN SÀNG."
               : "> SYSTEM ONLINE. NEURAL LINK READY.",
           );
-          setBootStage("title");
+          if (activeAccount) {
+            setBootStage("char-create");
+          } else {
+            setBootStage("slot");
+          }
           clearInterval(interval);
         }
       }, 160);
       return () => clearInterval(interval);
     }
-  }, [status, language, isJackedIn]);
+  }, [status, language, isJackedIn, activeAccount]);
 
   useEffect(() => {
     window.NCPX_LANG = language;
@@ -2850,6 +2876,30 @@ export default function GameCanvas() {
         window.__boot();
       }
     }, 450);
+  };
+
+  const handleLogout = () => {
+    playSynthSfx("click");
+    try {
+      localStorage.removeItem(ACCOUNT_KEY);
+      localStorage.setItem("ncpx_logout_pending", "true");
+    } catch (e) {}
+    setActiveAccount(null);
+    setAccountToken("");
+    setIsJackedIn(false);
+    setBootStage("slot");
+    setNeedsCharacter(false);
+    booted.current = false;
+    if (typeof window !== "undefined") {
+      window.__NCPX_GAME_RUNNING = false;
+      if (window.G) {
+        window.G.ui = null;
+        window.G.state = "title";
+        window.G.titleMode = "name";
+        window.G.uiS = { sel: 0, scroll: 0, tab: 0, confirm: false };
+      }
+    }
+    forceUpdate();
   };
 
   const renderLore = () => (
@@ -3194,7 +3244,7 @@ export default function GameCanvas() {
   };
 
   const isWideUi = (ui) => {
-    return ["guns", "cars", "ripper", "inv", "wardrobe"].includes(ui);
+    return ["guns", "cars", "ripper", "inv", "wardrobe", "gang", "casino"].includes(ui);
   };
 
   const getModalTitle = (ui, lang) => {
@@ -5217,7 +5267,6 @@ export default function GameCanvas() {
             <div>N: {language === "vi" ? "Đổi kênh Radio" : "Cycle vehicle radio"} | TAB: {language === "vi" ? "Đóng menu" : "Close menu"}</div>
           </div>
         </div>
-
         {/* Action Buttons */}
         <div style={{ display: "flex", gap: "10px", marginTop: "8px" }}>
           <button
@@ -5260,10 +5309,19 @@ export default function GameCanvas() {
           >
             {language === "vi" ? "XÓA FILE LƯU" : "WIPE SAVE DATA"}
           </button>
+
+          <button
+            className="cyber-action-btn"
+            style={{ flex: 1, background: "rgba(5, 217, 232, 0.15)", border: "2px solid #05d9e8", color: "#05d9e8" }}
+            onClick={handleLogout}
+          >
+            {language === "vi" ? "ĐĂNG XUẤT" : "SIGN OUT"}
+          </button>
         </div>
       </div>
     );
   };
+
 
   const renderInventory = () => {
     if (typeof window === "undefined" || !window.G) return null;
@@ -6479,285 +6537,342 @@ export default function GameCanvas() {
                   {language === "vi" ? "THIẾT LẬP THẦN KINH V2077" : "NEURAL CONFIGURATION V2077"}
                 </div>
 
-                <div className="character-create-columns">
-                  {/* Left Column: Holographic Bios Pod */}
-                  <div className="char-bios-pod">
-                    <div className="pod-header">
-                      <span className="pod-pulse-dot"></span>
-                      <span>{language === "vi" ? "THIẾT BỊ CẤY GHÉP HOẠT ĐỘNG" : "BIOPOD ACTIVATED"}</span>
-                    </div>
+                {(() => {
+                  const hasSavedChar = getHasSavedCharacter();
+                  const savedChar = getSavedCharacterInfo();
 
-                    <div className="pod-preview-wrapper">
-                      <div className="pod-grid-bg"></div>
-                      <div className="pod-scanline"></div>
-                      <BootCharacterPreview gender={characterGender} active={true} />
-                    </div>
+                  if (hasSavedChar && savedChar) {
+                    return (
+                      <div className="character-create-columns">
+                        {/* Left Column: Holographic Bios Pod */}
+                        <div className="char-bios-pod">
+                          <div className="pod-header">
+                            <span className="pod-pulse-dot"></span>
+                            <span>{language === "vi" ? "THIẾT BỊ CẤY GHÉP HOẠT ĐỘNG" : "BIOPOD ACTIVATED"}</span>
+                          </div>
 
-                    <div className="pod-stats-panel">
-                      <div className="pod-stat-title">{language === "vi" ? "CHỈ SỐ TIỀM NĂNG" : "COGNITIVE ATTRIBUTES"}</div>
-                      {(() => {
-                        const lpStats = {
-                          nomad: { ref: 8, bdy: 7, int: 5, tec: 8, col: 6 },
-                          streetkid: { ref: 7, bdy: 6, int: 7, tec: 5, col: 9 },
-                          corpo: { ref: 6, bdy: 5, int: 9, tec: 7, col: 7 }
-                        }[characterLifepath] || { ref: 7, bdy: 6, int: 7, tec: 5, col: 9 };
-                        
-                        const statsLabels = [
-                          { key: "ref", label: language === "vi" ? "PHẢN XẠ / REF" : "REFLEXES" },
-                          { key: "bdy", label: language === "vi" ? "THỂ CHẤT / BDY" : "BODY" },
-                          { key: "int", label: language === "vi" ? "TRÍ TUỆ / INT" : "INTELLIGENCE" },
-                          { key: "tec", label: language === "vi" ? "KỸ THUẬT / TEC" : "TECHNICAL" },
-                          { key: "col", label: language === "vi" ? "BẢN LĨNH / COL" : "COOL" }
-                        ];
-                        
-                        return statsLabels.map(s => (
-                          <div key={s.key} className="pod-stat-row">
-                            <span className="stat-label">{s.label}</span>
-                            <div className="stat-bar-track">
-                              <div className="stat-bar-fill" style={{ width: `${lpStats[s.key] * 10}%` }}></div>
+                          <div className="pod-preview-wrapper">
+                            <div className="pod-grid-bg"></div>
+                            <div className="pod-scanline"></div>
+                            <BootCharacterPreview gender={savedChar.gender} active={true} />
+                          </div>
+
+                          <div className="pod-stats-panel">
+                            <div className="pod-stat-title">{language === "vi" ? "THÔNG TIN CHI TIẾT" : "NEURAL DETAILS"}</div>
+                            <div className="pod-stat-row" style={{ display: "flex", justifyContent: "space-between", margin: "4px 0", fontSize: "10px", fontFamily: "var(--font-pixel-mono)" }}>
+                              <span className="stat-label" style={{ color: "#8a93a6" }}>{language === "vi" ? "CẤP ĐỘ / LVL" : "LEVEL"}</span>
+                              <span className="stat-val" style={{ color: "var(--cyber-yellow)", fontWeight: "bold" }}>{savedChar.lvl}</span>
                             </div>
-                            <span className="stat-val">{lpStats[s.key]}/10</span>
+                            <div className="pod-stat-row" style={{ display: "flex", justifyContent: "space-between", margin: "4px 0", fontSize: "10px", fontFamily: "var(--font-pixel-mono)" }}>
+                              <span className="stat-label" style={{ color: "#8a93a6" }}>{language === "vi" ? "TIỀN EDDIES" : "EDDIES"}</span>
+                              <span className="stat-val" style={{ color: "var(--cyber-cyan)", fontWeight: "bold" }}>${savedChar.eddies.toLocaleString()}</span>
+                            </div>
+                            <div className="pod-stat-row" style={{ display: "flex", justifyContent: "space-between", margin: "4px 0", fontSize: "10px", fontFamily: "var(--font-pixel-mono)" }}>
+                              <span className="stat-label" style={{ color: "#8a93a6" }}>{language === "vi" ? "GIỚI TÍNH" : "GENDER"}</span>
+                              <span className="stat-val" style={{ color: "#fff" }}>{savedChar.gender === "m" ? (language === "vi" ? "NAM" : "MALE") : (language === "vi" ? "NỮ" : "FEMALE")}</span>
+                            </div>
+                            <div className="pod-stat-row" style={{ display: "flex", justifyContent: "space-between", margin: "4px 0", fontSize: "10px", fontFamily: "var(--font-pixel-mono)" }}>
+                              <span className="stat-label" style={{ color: "#8a93a6" }}>{language === "vi" ? "XUẤT THÂN" : "LIFEPATH"}</span>
+                              <span className="stat-val" style={{ color: "var(--cyber-yellow)", textTransform: "uppercase" }}>{savedChar.lifepath}</span>
+                            </div>
                           </div>
-                        ));
-                      })()}
-                    </div>
-                  </div>
-
-                  {/* Right Column: Configuration Details */}
-                  <div className="char-config-details">
-                    <div className="config-section">
-                      <label className="config-section-label">
-                        {language === "vi" ? "1. GIỚI TÍNH SINH HỌC:" : "1. BIOLOGICAL GENDER:"}
-                      </label>
-                      <div className="character-gender-row">
-                        <div
-                          className={`character-gender-btn ${characterGender === "m" ? "active" : ""}`}
-                          onClick={() => {
-                            setCharacterGender("m");
-                            playSynthSfx("hover");
-                          }}
-                        >
-                          {language === "vi" ? "MALE V / NAM V" : "MALE V"}
                         </div>
-                        <div
-                          className={`character-gender-btn ${characterGender === "f" ? "active" : ""}`}
-                          onClick={() => {
-                            setCharacterGender("f");
-                            playSynthSfx("hover");
-                          }}
-                        >
-                          {language === "vi" ? "FEMALE V / NỮ V" : "FEMALE V"}
-                        </div>
-                      </div>
-                    </div>
 
-                    <div className="config-section">
-                      <label className="config-section-label">
-                        {language === "vi" ? "2. LỰA CHỌN XUẤT THÂN:" : "2. SELECT LIFEPATH:"}
-                      </label>
-                      <div className="lifepath-selector-row">
-                        {["nomad", "streetkid", "corpo"].map(lp => (
-                          <div
-                            key={lp}
-                            className={`lifepath-card ${characterLifepath === lp ? "active" : ""}`}
-                            onClick={() => {
-                              setCharacterLifepath(lp);
-                              playSynthSfx("hover");
-                            }}
-                            onMouseEnter={() => setLifepathHovered(lp)}
-                          >
-                            <span className="lp-dot"></span>
-                            <span className="lp-name">{lp.toUpperCase()}</span>
+                        {/* Right Column: Profile details */}
+                        <div className="char-config-details">
+                          <div className="config-section" style={{ border: "2px dashed rgba(5,217,232,0.3)", padding: "16px", background: "rgba(0,0,0,0.3)" }}>
+                            <label className="config-section-label" style={{ color: "var(--cyber-yellow)", fontSize: "9px", display: "flex", alignItems: "center", gap: "6px", fontWeight: "bold", fontFamily: "var(--font-pixel)" }}>
+                              <span className="pod-pulse-dot" style={{ margin: 0 }}></span>
+                              {language === "vi" ? "PHÁT HIỆN HỒ SƠ LƯU TRỮ" : "ACTIVE NEURAL SAVE DETECTED"}
+                            </label>
+                            <div style={{ marginTop: "12px", fontFamily: "var(--font-pixel-mono)", fontSize: "12px", color: "#e8f6ff", display: "flex", flexDirection: "column", gap: "8px" }}>
+                              <div><span style={{ color: "#8a93a6" }}>MẬT DANH / CODENAME:</span> <strong style={{ color: "var(--cyber-cyan)" }}>{savedChar.name}</strong></div>
+                              <div><span style={{ color: "#8a93a6" }}>TIẾN TRÌNH / PROGRESS:</span> <strong style={{ color: "#00ff9f" }}>READY TO JACK IN</strong></div>
+                            </div>
                           </div>
-                        ))}
-                      </div>
 
-                      <div className="lifepath-desc-box">
-                        <div className="lp-desc-title">{lifepathHovered.toUpperCase()}</div>
-                        <div className="lp-desc-text">
-                          {lifepathHovered === "nomad" ? 
-                            (language === "vi" ? "Lớn lên ở Badlands, lục lọi bãi phế thải và cướp kho xăng. Tự do và tự lập là tất cả trong vùng hoang dã." : "Grew up in the Badlands, scavenging dumps and raiding fuel depots. Freedom and self-reliance are everything in the wastes.") :
-                           lifepathHovered === "streetkid" ?
-                            (language === "vi" ? "Muốn hiểu đường phố thì phải sống ở đó. Băng đảng và fixers là gia đình của bạn. Bạn thuộc lòng mọi ngóc ngách Night City." : "They say if you want to understand the streets, you gotta live 'em. Gangs and fixers are your family. You know every dark corner of Night City.") :
-                            (language === "vi" ? "Ít ai rời khỏi giới tập đoàn với linh hồn nguyên vẹn. Bạn đã bước qua các sảnh Arasaka, dùng bí mật bẩn thỉu để thăng tiến." : "Few leave the corporate world with their souls intact. You've walked the high-stress halls of Arasaka, using dirty secrets to climb the corporate ladder.")
-                          }
+                          <div className="retro-char-actions" style={{ marginTop: "24px", display: "flex", flexDirection: "column", gap: "10px" }}>
+                            <button
+                              className="retro-arcade-btn primary"
+                              style={{ width: "100%" }}
+                              onClick={handleJackIn}
+                            >
+                              {language === "vi" ? "KẾT NỐI THẦN KINH (VÀO GAME)" : "JACK IN (ENTER GAME)"}
+                            </button>
+
+                            <button
+                              className="retro-arcade-btn secondary"
+                              style={{ width: "100%", background: "rgba(255, 42, 60, 0.15)", border: "2px solid #ff2a3c", color: "#ff2a3c" }}
+                              onClick={handleDeleteCharacter}
+                            >
+                              {language === "vi" ? "XÓA NHÂN VẬT & CHƠI LẠI" : "DELETE CHARACTER & START OVER"}
+                            </button>
+
+                            <button
+                              className="retro-arcade-btn secondary"
+                              style={{ width: "100%" }}
+                              onClick={handleLogout}
+                            >
+                              {language === "vi" ? "ĐĂNG XUẤT TÀI KHOẢN" : "LOGOUT ACCOUNT"}
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    );
+                  } else {
+                    return (
+                      <div className="character-create-columns">
+                        {/* Left Column: Holographic Bios Pod */}
+                        <div className="char-bios-pod">
+                          <div className="pod-header">
+                            <span className="pod-pulse-dot"></span>
+                            <span>{language === "vi" ? "THIẾT BỊ CẤY GHÉP HOẠT ĐỘNG" : "BIOPOD ACTIVATED"}</span>
+                          </div>
 
-                    <div className="config-section">
-                      <div className="retro-codename-container">
-                        <label className="retro-codename-label">
-                          {language === "vi" ? "3. MẬT DANH NEURAL:" : "3. NEURAL CODENAME:"}
-                        </label>
-                        <input
-                          className="retro-codename-input"
-                          value={characterNameDraft}
-                          maxLength={18}
-                          onChange={(e) => setCharacterNameDraft(e.target.value)}
-                          placeholder="V"
-                          readOnly={forcedLandscape || (typeof navigator !== 'undefined' && /Mobi|Android|iPhone/i.test(navigator.userAgent))}
-                          autoFocus
-                        />
-                      </div>
+                          <div className="pod-preview-wrapper">
+                            <div className="pod-grid-bg"></div>
+                            <div className="pod-scanline"></div>
+                            <BootCharacterPreview gender={characterGender} active={true} />
+                          </div>
 
-                      {/* Virtual Cyber Arcade Keyboard */}
-                      <div className="retro-keyboard">
-                        {[
-                          ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"],
-                          ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
-                          ["A", "S", "D", "F", "G", "H", "J", "K", "L", "-"],
-                          ["Z", "X", "C", "V", "B", "N", "M", "SPACE", "DEL"]
-                        ].map((row, rIdx) => (
-                          <div key={rIdx} className="retro-keyboard-row">
-                            {row.map((key) => (
-                              <button
-                                key={key}
-                                type="button"
-                                className={`retro-keyboard-key ${key === "SPACE" ? "space-key" : ""} ${key === "DEL" ? "del-key" : ""}`}
-                                onClick={() => handleVirtualKey(key)}
+                          <div className="pod-stats-panel">
+                            <div className="pod-stat-title">{language === "vi" ? "CHỈ SỐ TIỀM NĂNG" : "COGNITIVE ATTRIBUTES"}</div>
+                            {(() => {
+                              const lpStats = {
+                                nomad: { ref: 8, bdy: 7, int: 5, tec: 8, col: 6 },
+                                streetkid: { ref: 7, bdy: 6, int: 7, tec: 5, col: 9 },
+                                corpo: { ref: 6, bdy: 5, int: 9, tec: 7, col: 7 }
+                              }[characterLifepath] || { ref: 7, bdy: 6, int: 7, tec: 5, col: 9 };
+
+                              const statsLabels = [
+                                { key: "ref", label: language === "vi" ? "PHẢN XẠ / REF" : "REFLEXES" },
+                                { key: "bdy", label: language === "vi" ? "THỂ CHẤT / BDY" : "BODY" },
+                                { key: "int", label: language === "vi" ? "TRÍ TUỆ / INT" : "INTELLIGENCE" },
+                                { key: "tec", label: language === "vi" ? "KỸ THUẬT / TEC" : "TECHNICAL" },
+                                { key: "col", label: language === "vi" ? "BẢN LĨNH / COL" : "COOL" }
+                              ];
+
+                              return statsLabels.map(s => (
+                                <div key={s.key} className="pod-stat-row">
+                                  <span className="stat-label">{s.label}</span>
+                                  <div className="stat-bar-track">
+                                    <div className="stat-bar-fill" style={{ width: `${lpStats[s.key] * 10}%` }}></div>
+                                  </div>
+                                  <span className="stat-val">{lpStats[s.key]}/10</span>
+                                </div>
+                              ));
+                            })()}
+                          </div>
+                        </div>
+
+                        {/* Right Column: Configuration Details */}
+                        <div className="char-config-details">
+                          <div className="config-section">
+                            <label className="config-section-label">
+                              {language === "vi" ? "1. GIỚI TÍNH SINH HỌC:" : "1. BIOLOGICAL GENDER:"}
+                            </label>
+                            <div className="character-gender-row">
+                              <div
+                                className={`character-gender-btn ${characterGender === "m" ? "active" : ""}`}
+                                onClick={() => {
+                                  setCharacterGender("m");
+                                  playSynthSfx("hover");
+                                }}
                               >
-                                {key === "SPACE" ? (language === "vi" ? "KHOẢNG TRẮNG" : "SPACE") : key}
-                              </button>
-                            ))}
+                                {language === "vi" ? "MALE V / NAM V" : "MALE V"}
+                              </div>
+                              <div
+                                className={`character-gender-btn ${characterGender === "f" ? "active" : ""}`}
+                                onClick={() => {
+                                  setCharacterGender("f");
+                                  playSynthSfx("hover");
+                                }}
+                              >
+                                {language === "vi" ? "FEMALE V / NỮ V" : "FEMALE V"}
+                              </div>
+                            </div>
                           </div>
-                        ))}
+
+                          <div className="config-section">
+                            <label className="config-section-label">
+                              {language === "vi" ? "2. LỰA CHỌN XUẤT THÂN:" : "2. SELECT LIFEPATH:"}
+                            </label>
+                            <div className="lifepath-selector-row">
+                              {["nomad", "streetkid", "corpo"].map(lp => (
+                                <div
+                                  key={lp}
+                                  className={`lifepath-card ${characterLifepath === lp ? "active" : ""}`}
+                                  onClick={() => {
+                                    setCharacterLifepath(lp);
+                                    playSynthSfx("hover");
+                                  }}
+                                  onMouseEnter={() => setLifepathHovered(lp)}
+                                >
+                                  <span className="lp-dot"></span>
+                                  <span className="lp-name">{lp.toUpperCase()}</span>
+                                </div>
+                              ))}
+                            </div>
+
+                            <div className="lifepath-desc-box">
+                              <div className="lp-desc-title">{lifepathHovered.toUpperCase()}</div>
+                              <div className="lp-desc-text">
+                                {lifepathHovered === "nomad" ? 
+                                  (language === "vi" ? "Lớn lên ở Badlands, lục lọi bãi phế thải và cướp kho xăng. Tự do và tự lập là tất cả trong vùng hoang dã." : "Grew up in the Badlands, scavenging dumps and raiding fuel depots. Freedom and self-reliance are everything in the wastes.") :
+                                 lifepathHovered === "streetkid" ?
+                                  (language === "vi" ? "Muốn hiểu đường phố thì phải sống ở đó. Băng đảng và fixers là gia đình của bạn. Bạn thuộc lòng mọi ngóc ngách Night City." : "They say if you want to understand the streets, you gotta live 'em. Gangs and fixers are your family. You know every dark corner of Night City.") :
+                                  (language === "vi" ? "Ít ai rời khỏi giới tập đoàn với linh hồn nguyên vẹn. Bạn đã bước qua các sảnh Arasaka, dùng bí mật bẩn thỉu để thăng tiến." : "Few leave the corporate world with their souls intact. You've walked the high-stress halls of Arasaka, using dirty secrets to climb the corporate ladder.")
+                                }
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="config-section">
+                            <div className="retro-codename-container">
+                              <label className="retro-codename-label">
+                                {language === "vi" ? "3. MẬT DANH NEURAL:" : "3. NEURAL CODENAME:"}
+                              </label>
+                              <input
+                                className="retro-codename-input"
+                                value={characterNameDraft}
+                                maxLength={18}
+                                onChange={(e) => setCharacterNameDraft(e.target.value)}
+                                placeholder="V"
+                                readOnly={forcedLandscape || (typeof navigator !== 'undefined' && /Mobi|Android|iPhone/i.test(navigator.userAgent))}
+                                autoFocus
+                              />
+                            </div>
+
+                            {/* Virtual Cyber Arcade Keyboard */}
+                            <div className="retro-keyboard">
+                              {[
+                                ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"],
+                                ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
+                                ["A", "S", "D", "F", "G", "H", "J", "K", "L", "-"],
+                                ["Z", "X", "C", "V", "B", "N", "M", "SPACE", "DEL"]
+                              ].map((row, rIdx) => (
+                                <div key={rIdx} className="retro-keyboard-row">
+                                  {row.map((key) => (
+                                    <button
+                                      key={key}
+                                      type="button"
+                                      className={`retro-keyboard-key ${key === "SPACE" ? "space-key" : ""} ${key === "DEL" ? "del-key" : ""}`}
+                                      onClick={() => handleVirtualKey(key)}
+                                    >
+                                      {key === "SPACE" ? (language === "vi" ? "KHOẢNG TRẮNG" : "SPACE") : key}
+                                    </button>
+                                  ))}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="retro-char-actions">
+                            <button
+                              className="retro-arcade-btn primary"
+                              onClick={handleCreateCharacter}
+                            >
+                              {language === "vi" ? "BẮT ĐẦU NHIỆM VỤ" : "START MISSION"}
+                            </button>
+                            <button
+                              className="retro-arcade-btn secondary"
+                              onClick={handleLogout}
+                            >
+                              {language === "vi" ? "ĐĂNG XUẤT" : "LOGOUT"}
+                            </button>
+                          </div>
+
+                          <div className="retro-status-msg">
+                            {language === "vi"
+                              ? "CHỈ KHỞI TẠO MỘT LẦN CHO SLOT NÀY"
+                              : "CREATED ONCE FOR THIS SLOT"}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-
-                    <div className="retro-char-actions">
-                      <button
-                        className="retro-arcade-btn primary"
-                        onClick={handleCreateCharacter}
-                      >
-                        {language === "vi" ? "BẮT ĐẦU NHIỆM VỤ" : "START MISSION"}
-                      </button>
-                      <button
-                        className="retro-arcade-btn secondary"
-                        onClick={() => {
-                          playSynthSfx("click");
-                          setNeedsCharacter(false);
-                          setBootStage("menu");
-                        }}
-                      >
-                        {language === "vi" ? "QUAY LẠI" : "BACK"}
-                      </button>
-                    </div>
-
-                    <div className="retro-status-msg">
-                      {language === "vi"
-                        ? "CHỈ KHỞI TẠO MỘT LẦN CHO SLOT NÀY"
-                        : "CREATED ONCE FOR THIS SLOT"}
-                    </div>
-                  </div>
-                </div>
+                    );
+                  }
+                })()}
               </div>
             )}
 
             {/* Stage: Choose Slot (Accounts) */}
+            {/* Stage: Choose Slot (Accounts) */}
             {bootStage === "slot" && (
-              <div className="retro-slot-panel login-portal-panel">
+              <div className="retro-slot-panel login-portal-panel" style={{ maxWidth: "440px", margin: "0 auto" }}>
                 <div className="retro-panel-title">
                   {language === "vi" ? "CỔNG XÁC THỰC THẦN KINH" : "NEURAL SECURITY GATEWAY"}
                 </div>
 
-                <div className="login-portal-columns">
-                  {/* Left Column: Register */}
-                  <div className="login-column">
-                    <div className="login-column-header">
-                      <span className="column-icon">⚡</span>
-                      <span>{language === "vi" ? "ĐĂNG KÝ TÂN MERCS" : "NEW REGISTRATION"}</span>
-                    </div>
+                <div className="login-column" style={{ width: "100%", boxSizing: "border-box" }}>
+                  <div className="login-column-header">
+                    <span className="column-icon">⚡</span>
+                    <span>{language === "vi" ? "ĐĂNG NHẬP HỆ THỐNG" : "SYSTEM LOGIN"}</span>
+                  </div>
 
-                    <div className="retro-input-group">
-                      <label>{language === "vi" ? "TÊN TÀI KHOẢN:" : "ACCOUNT NAME:"}</label>
-                      <input
-                        className="retro-codename-input"
-                        value={accountNameDraft}
-                        maxLength={18}
-                        onChange={(e) => setAccountNameDraft(e.target.value)}
-                        placeholder={language === "vi" ? "NHẬP TÊN" : "ENTER NAME"}
-                        readOnly={forcedLandscape || (typeof navigator !== 'undefined' && /Mobi|Android|iPhone/i.test(navigator.userAgent))}
-                      />
+                  <div className="retro-input-group">
+                    <label>{language === "vi" ? "TÊN TÀI KHOẢN / MẬT DANH:" : "ACCOUNT NAME / CODENAME:"}</label>
+                    <input
+                      className="retro-codename-input"
+                      value={accountNameDraft}
+                      maxLength={18}
+                      onChange={(e) => setAccountNameDraft(e.target.value)}
+                      placeholder={language === "vi" ? "NHẬP TÊN" : "ENTER NAME"}
+                      readOnly={forcedLandscape || (typeof navigator !== 'undefined' && /Mobi|Android|iPhone/i.test(navigator.userAgent))}
+                    />
 
-                      {/* Virtual Cyber Arcade Keyboard */}
-                      <div className="retro-keyboard">
-                        {[
-                          ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"],
-                          ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
-                          ["A", "S", "D", "F", "G", "H", "J", "K", "L", "-"],
-                          ["Z", "X", "C", "V", "B", "N", "M", "SPACE", "DEL"]
-                        ].map((row, rIdx) => (
-                          <div key={rIdx} className="retro-keyboard-row">
-                            {row.map((key) => (
-                              <button
-                                key={key}
-                                type="button"
-                                className={`retro-keyboard-key ${key === "SPACE" ? "space-key" : ""} ${key === "DEL" ? "del-key" : ""}`}
-                                onClick={() => handleVirtualKey(key, "login")}
-                              >
-                                {key === "SPACE" ? (language === "vi" ? "KHOẢNG TRẮNG" : "SPACE") : key}
-                              </button>
-                            ))}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="retro-button-group">
-                      <button
-                        className="retro-arcade-btn primary"
-                        disabled={authBusy}
-                        onClick={handleQuickAccount}
-                      >
-                        {authBusy
-                          ? language === "vi"
-                            ? "ĐANG TẠO..."
-                            : "CREATING..."
-                          : language === "vi"
-                            ? "ĐĂNG NHẬP NHANH"
-                            : "QUICK SIGN IN"}
-                      </button>
-
-                      <button
-                        className="retro-arcade-btn google"
-                        disabled={authBusy}
-                        onClick={handleGoogleAccount}
-                      >
-                        {authBusy
-                          ? language === "vi"
-                            ? "ĐANG KẾT NỐI..."
-                            : "CONNECTING..."
-                          : language === "vi"
-                            ? "ĐĂNG NHẬP GOOGLE"
-                            : "SIGN IN WITH GOOGLE"}
-                      </button>
+                    {/* Virtual Cyber Arcade Keyboard */}
+                    <div className="retro-keyboard">
+                      {[
+                        ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"],
+                        ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
+                        ["A", "S", "D", "F", "G", "H", "J", "K", "L", "-"],
+                        ["Z", "X", "C", "V", "B", "N", "M", "SPACE", "DEL"]
+                      ].map((row, rIdx) => (
+                        <div key={rIdx} className="retro-keyboard-row">
+                          {row.map((key) => (
+                            <button
+                              key={key}
+                              type="button"
+                              className={`retro-keyboard-key ${key === "SPACE" ? "space-key" : ""} ${key === "DEL" ? "del-key" : ""}`}
+                              onClick={() => handleVirtualKey(key, "login")}
+                            >
+                              {key === "SPACE" ? (language === "vi" ? "KHOẢNG TRẮNG" : "SPACE") : key}
+                            </button>
+                          ))}
+                        </div>
+                      ))}
                     </div>
                   </div>
 
-                  {/* Right Column: Code Recovery */}
-                  <div className="login-column">
-                    <div className="login-column-header">
-                      <span className="column-icon">🔑</span>
-                      <span>{language === "vi" ? "MÃ TRUY CẬP PHỤC HỒI" : "RECOVERY CODE ACCESS"}</span>
-                    </div>
-
-                    <div className="retro-input-group">
-                      <label>{language === "vi" ? "MÃ TOKEN (ACCOUNT:TOKEN):" : "TOKEN CODE (ACCOUNT:TOKEN):"}</label>
-                      <input
-                        className="retro-codename-input token-input"
-                        value={loginCodeDraft}
-                        onChange={(e) => setLoginCodeDraft(e.target.value)}
-                        placeholder="acct_xxx:ncp_xxx"
-                      />
-                    </div>
+                  <div className="retro-button-group" style={{ display: "flex", gap: "10px", width: "100%" }}>
+                    <button
+                      className="retro-arcade-btn primary"
+                      style={{ flex: 1 }}
+                      disabled={authBusy}
+                      onClick={handleQuickAccount}
+                    >
+                      {authBusy
+                        ? language === "vi"
+                          ? "ĐANG TẠO..."
+                          : "CREATING..."
+                        : language === "vi"
+                          ? "ĐĂNG NHẬP NHANH"
+                          : "QUICK SIGN IN"}
+                    </button>
 
                     <button
-                      className="retro-arcade-btn secondary"
+                      className="retro-arcade-btn google"
+                      style={{ flex: 1 }}
                       disabled={authBusy}
-                      onClick={handleLoginCode}
+                      onClick={handleGoogleAccount}
                     >
-                      {language === "vi" ? "XÁC THỰC MÃ CODE" : "SIGN IN WITH CODE"}
+                      {authBusy
+                        ? language === "vi"
+                          ? "ĐANG KẾT NỐI..."
+                          : "CONNECTING..."
+                        : language === "vi"
+                          ? "ĐĂNG NHẬP GOOGLE"
+                          : "SIGN IN WITH GOOGLE"}
                     </button>
                   </div>
                 </div>
@@ -6774,20 +6889,6 @@ export default function GameCanvas() {
                       <div className="log-line log-yellow">
                         <span className="log-yellow">[FDB]</span> {authMessage}
                       </div>
-                    )}
-                  </div>
-
-                  <div className="login-actions-row">
-                    {activeAccount && (
-                      <button
-                        className="retro-arcade-btn cancel-btn"
-                        onClick={() => {
-                          playSynthSfx("click");
-                          setBootStage("menu");
-                        }}
-                      >
-                        {language === "vi" ? "QUAY LẠI MENU" : "BACK TO MENU"}
-                      </button>
                     )}
                   </div>
                 </div>

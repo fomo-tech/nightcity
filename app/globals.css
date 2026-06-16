@@ -3100,6 +3100,31 @@ select {
   width: 100%;
 }
 
+@media (min-width: 560px) {
+  .gang-modal-body {
+    display: grid !important;
+    grid-template-columns: 1fr 1.1fr !important;
+    gap: 16px !important;
+    max-height: 290px !important;
+    overflow-y: auto !important;
+    padding-right: 4px;
+  }
+
+  .gang-status-card {
+    grid-column: 1;
+  }
+
+  .gang-members-box {
+    grid-column: 1;
+  }
+
+  .gang-generator-box {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    margin-top: 0 !important;
+  }
+}
+
 .gang-status-card {
   background: rgba(6, 8, 14, 0.85);
   border: 1px solid rgba(5, 217, 232, 0.3);
@@ -6830,6 +6855,27 @@ select {
   gap: 8px;
   align-items: center;
   width: 100%;
+}
+
+@media (min-width: 560px) {
+  .cyber-modal-container.casino-modal {
+    width: 660px !important;
+    max-width: 95% !important;
+    padding: 16px 20px !important;
+  }
+
+  .casino-modal-grid {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 16px !important;
+    align-items: flex-start !important;
+  }
+
+  .casino-col-left,
+  .casino-col-right {
+    flex: 1 !important;
+    width: 50% !important;
+  }
 }
 
 /* Mobile Landscape Layout (low heights / landscape orientation) */
