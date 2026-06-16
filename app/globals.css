@@ -3278,6 +3278,78 @@ select {
   animation: slideUp 0.25s cubic-bezier(0.1, 0.76, 0.55, 0.94) forwards;
 }
 
+/* Keyboard Input Preview Bar styles */
+.keyboard-preview-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  margin-bottom: 2px;
+  padding: 0 2px;
+}
+
+.keyboard-preview-label {
+  font-family: var(--font-title), sans-serif;
+  font-size: 9px;
+  color: var(--cyber-yellow);
+  text-shadow: 0 0 5px rgba(249, 240, 2, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-align: left;
+}
+
+.keyboard-preview-box {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid var(--cyber-cyan);
+  padding: 6px 10px;
+  min-height: 32px;
+  box-sizing: border-box;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%);
+  position: relative;
+  box-shadow: inset 0 0 8px rgba(5, 217, 232, 0.15);
+}
+
+.keyboard-preview-text {
+  font-family: var(--font-pixel), monospace;
+  font-size: 11px;
+  color: #fff;
+  text-shadow: 0 0 4px rgba(255, 255, 255, 0.6);
+  white-space: pre;
+  text-align: left;
+}
+
+.keyboard-preview-placeholder {
+  font-family: var(--font-pixel), monospace;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.3);
+  white-space: pre;
+  text-align: left;
+}
+
+.keyboard-cursor {
+  color: var(--cyber-cyan);
+  margin-left: 2px;
+  text-shadow: 0 0 5px var(--cyber-cyan);
+  font-weight: bold;
+}
+
+.keyboard-cursor.hidden {
+  opacity: 0;
+}
+
+.keyboard-cursor.visible {
+  opacity: 1;
+}
+
+.keyboard-preview-count {
+  font-family: var(--font-title), sans-serif;
+  font-size: 8px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
 @keyframes slideUp {
   from {
     transform: translateY(100%);

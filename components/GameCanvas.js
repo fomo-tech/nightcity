@@ -5,7 +5,7 @@ import { useGameStore } from "@/store/useGameStore";
 
 const SAVE_KEY = "ncpx2077_v1";
 const ACCOUNT_KEY = "ncpx_account_v1";
-const SCRIPT_VERSION = "132";
+const SCRIPT_VERSION = "134";
 const GLOBAL_REALTIME_ROOM = "nightcity";
 const PERFORMANCE_MODE = false;
 const GAME_SCRIPTS = [
@@ -427,8 +427,25 @@ function GangPixelBadge({ mark, color, size = "sm" }) {
   );
 }
 
-function VirtualPixelKeyboard({ value, onChange, language, playSynthSfx, onClose }) {
+function VirtualPixelKeyboard({
+  value,
+  onChange,
+  language,
+  playSynthSfx,
+  onClose,
+  placeholder,
+  title,
+  maxLength = 18
+}) {
   const [layoutMode, setLayoutMode] = useState("VI");
+  const [cursorVisible, setCursorVisible] = useState(true);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCursorVisible((v) => !v);
+    }, 500);
+    return () => clearInterval(interval);
+  }, []);
 
   const rows = [
     ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"],
@@ -534,13 +551,13 @@ function VirtualPixelKeyboard({ value, onChange, language, playSynthSfx, onClose
     if (key === "BACK") {
       onChange(value.slice(0, -1));
     } else if (key === "SPACE") {
-      if (value.length < 18) {
+      if (value.length < maxLength) {
         onChange(value + " ");
       }
     } else if (key === "CLEAR") {
       onChange("");
     } else {
-      if (value.length < 18) {
+      if (value.length < maxLength) {
         const nextVal = value + key;
         if (layoutMode === "VI") {
           onChange(convertTelex(nextVal));
@@ -553,6 +570,27 @@ function VirtualPixelKeyboard({ value, onChange, language, playSynthSfx, onClose
 
   return (
     <div className="virtual-pixel-keyboard">
+      {/* Input Preview Bar */}
+      <div className="keyboard-preview-bar">
+        {title && <span className="keyboard-preview-label">{title}</span>}
+        <div className="keyboard-preview-box">
+          {value ? (
+            <span className="keyboard-preview-text">
+              {value}
+              <span className={`keyboard-cursor ${cursorVisible ? "visible" : "hidden"}`}>▒</span>
+            </span>
+          ) : (
+            <span className="keyboard-preview-placeholder">
+              {placeholder || (language === "vi" ? "NHẬP TÊN..." : "ENTER...")}
+              <span className={`keyboard-cursor ${cursorVisible ? "visible" : "hidden"}`}>▒</span>
+            </span>
+          )}
+          <span className="keyboard-preview-count">
+            {value.length}/{maxLength}
+          </span>
+        </div>
+      </div>
+
       <div className="keyboard-row control-row">
         <button
           className={`keyboard-btn lang-toggle-btn ${layoutMode === "VI" ? "active" : ""}`}
@@ -2276,19 +2314,34 @@ export default function GameCanvas() {
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
-    const hasTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    setIsMobileDevice(hasTouch);
+    const checkMobile = () => {
+      const hasTouch = !!(
+        window.TOUCH?.on ||
+        ('ontouchstart' in window) ||
+        (navigator.maxTouchPoints > 0) ||
+        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+        window.location.search.includes("touch")
+      );
+      setIsMobileDevice(hasTouch);
+    };
+    checkMobile();
 
     setLanguage("vi");
     window.__NCPX_LOW_FX = PERFORMANCE_MODE;
     window.__NCPX_JSX_PLAYER_HUD = !PERFORMANCE_MODE;
     window.__NCPX_JSX_WEAPON_HUD = !PERFORMANCE_MODE;
     window.__NCPX_JSX_MINIMAP_HUD = !PERFORMANCE_MODE;
+
+    window.addEventListener("touchstart", checkMobile, { passive: true });
+    window.addEventListener("resize", checkMobile);
+
     return () => {
       window.__NCPX_JSX_PLAYER_HUD = false;
       window.__NCPX_JSX_WEAPON_HUD = false;
       window.__NCPX_JSX_MINIMAP_HUD = false;
       window.__NCPX_LOW_FX = false;
+      window.removeEventListener("touchstart", checkMobile);
+      window.removeEventListener("resize", checkMobile);
     };
   }, []);
 
@@ -2302,9 +2355,16 @@ export default function GameCanvas() {
       try {
         if (typeof window !== "undefined" && window.G) {
           const g = window.G;
-          if (window.TOUCH?.on && !isMobileDevice) {
-            setIsMobileDevice(true);
-          }
+          setIsMobileDevice((prev) => {
+            const hasTouch = !!(
+              window.TOUCH?.on ||
+              /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+              ('ontouchstart' in window) ||
+              (navigator.maxTouchPoints > 0) ||
+              window.location.search.includes("touch")
+            );
+            return hasTouch;
+          });
           const nextUi = g.ui || null;
           if (PERFORMANCE_MODE && !nextUi) {
             if (lastUiSnapshot.current !== "perf:null") {
@@ -4759,13 +4819,25 @@ export default function GameCanvas() {
                       }
                     }}
                     onFocus={() => {
-                      if (isMobileDevice) setShowVirtualKeyboard(true);
+                      const isMobile = isMobileDevice || (typeof window !== "undefined" && (('ontouchstart' in window) || navigator.maxTouchPoints > 0 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.location.search.includes("touch")));
+                      if (isMobile) {
+                        setIsMobileDevice(true);
+                        setShowVirtualKeyboard(true);
+                      }
                     }}
                     onClick={() => {
-                      if (isMobileDevice) setShowVirtualKeyboard(true);
+                      const isMobile = isMobileDevice || (typeof window !== "undefined" && (('ontouchstart' in window) || navigator.maxTouchPoints > 0 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.location.search.includes("touch")));
+                      if (isMobile) {
+                        setIsMobileDevice(true);
+                        setShowVirtualKeyboard(true);
+                      }
                     }}
                     onTouchStart={() => {
-                      if (isMobileDevice) setShowVirtualKeyboard(true);
+                      const isMobile = isMobileDevice || (typeof window !== "undefined" && (('ontouchstart' in window) || navigator.maxTouchPoints > 0 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.location.search.includes("touch")));
+                      if (isMobile) {
+                        setIsMobileDevice(true);
+                        setShowVirtualKeyboard(true);
+                      }
                     }}
                     placeholder={language === "vi" ? "NHẬP TÊN BĂNG..." : "ENTER NAME..."}
                   />
@@ -6084,7 +6156,7 @@ export default function GameCanvas() {
           {activeUi === "gang" && isMobileDevice && showVirtualKeyboard && (
             <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", bottom: 0, left: 0, width: "100%", zIndex: 100000 }}>
               <VirtualPixelKeyboard
-                value={typeof window.G?.gangDraft !== "undefined" && window.G?.gangDraft !== null ? window.G.gangDraft : (window.PLAYER_GANG_NAMES || ["SOLO"])[window.G?.gangNameSel || 0]}
+                value={String(typeof window.G?.gangDraft !== "undefined" && window.G?.gangDraft !== null ? window.G.gangDraft : (window.PLAYER_GANG_NAMES || ["SOLO"])[window.G?.gangNameSel || 0] || "")}
                 onChange={(newVal) => {
                   if (window.G) window.G.gangDraft = newVal;
                   forceUpdate();
@@ -6092,6 +6164,9 @@ export default function GameCanvas() {
                 language={language}
                 playSynthSfx={playSynthSfx}
                 onClose={() => setShowVirtualKeyboard(false)}
+                title={language === "vi" ? "TÊN BĂNG ĐẢNG MỚI:" : "NEW GANG NAME:"}
+                placeholder={language === "vi" ? "NHẬP TÊN BĂNG..." : "ENTER NAME..."}
+                maxLength={18}
               />
             </div>
           )}
