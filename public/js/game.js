@@ -19,6 +19,8 @@ function turnToward(cur, want, max) {
   return cur + clamp(diff, -max, max);
 }
 const FOV_HALF = 1.0; // ~57° half-angle view cone
+const MAX_PARTS = 260, MAX_TEXTS = 48, MAX_BULLETS = 140, MAX_SLASHES = 36, MAX_GLOWS = 64, MAX_PICKUPS = 160, MAX_DECALS = 360;
+const MAP_LOOT_TARGET = 96, MAP_LOOT_T = 1800;
 function enemyRange(e) {
   const base = e.psycho ? 420 : e.bounty ? 230 : e.kind === 'gun' ? 185 : 160;
   return base * ((G && G.weather && WEATHERS[G.weather.kind].range) || 1); // fog/storms shorten sight
@@ -438,7 +440,7 @@ function newGame() {
     weapons: {}, loadout: [null, null, null], slot: 0,
     cars: {}, activeCar: null, car: null, driving: false, summonCd: 0,
     cyber: {}, os: null,
-    enemies: [], enemySeq: 0, bullets: [], parts: [], decals: [], texts: [], pickups: [], crates: [], civs: [], civSeq: 0, slashes: [], glows: [], remotePlayers: [], remoteLerp: {}, onlineCount: 0, onlineRoom: 'default', roomIsHost: false, npcSyncT: 0, npcSyncSeq: 0, netAct: null, netActSeq: 0, netActRepeat: 0,
+    enemies: [], enemySeq: 0, bullets: [], parts: [], decals: [], texts: [], pickups: [], crates: [], civs: [], civSeq: 0, slashes: [], glows: [], remotePlayers: [], remoteLerp: {}, onlineCount: 0, onlineRoom: 'default', roomIsHost: false, npcSyncT: 0, npcSyncSeq: 0, netAct: null, netActSeq: 0, netActRepeat: 0, mapLootT: 0,
     bounty: null, bountyT: 10, bountyCount: 0, psychoPending: 0,
     airdrop: null, airdropT: 90, talk: null, fade: null,
     skippyFound: false, skippyHintT: 0,
@@ -567,9 +569,7 @@ function startGame(cont, gender) {
   G.gender = (gender || profileGender) === 'f' ? 'f' : 'm';
   G.p = makePlayer(WORLD.spawn.x, WORLD.spawn.y);
   G.crates = WORLD.crateSpots.map(s => ({ x: s.x, y: s.y, hp: 1, respT: 0 }));
-  G.pickups = WORLD.giftSpots.map(s => s.kind === 'doc'
-    ? { kind: 'doc', x: s.x, y: s.y, vx: 0, vy: 0, t: 240 }
-    : { kind: 'ed', amt: s.amt || irnd(20, 95), x: s.x, y: s.y, vx: 0, vy: 0, t: 240 });
+  seedMapLoot();
   if (cont && applySave()) {
     recalcStats();
     if (G.state === 'dead') {
@@ -601,6 +601,66 @@ function snapCam() {
   const wv_h = VIEW_H / WORLD_ZOOM;
   G.cam.x = clamp(G.p.x - wv_w / 2, 0, WORLD.W * TILE - wv_w);
   G.cam.y = clamp(G.p.y - wv_h / 2, 0, WORLD.H * TILE - wv_h);
+}
+
+function makePickup(kind, x, y, opts) {
+  opts = opts || {};
+  const pk = { kind, x, y, vx: opts.vx || 0, vy: opts.vy || 0, t: opts.t || MAP_LOOT_T };
+  if (opts.mapLoot) pk.mapLoot = true;
+  if (kind === 'gold' || kind === 'ed') pk.amt = opts.amt || irnd(20, 95);
+  else if (kind === 'xp') pk.amt = opts.amt || irnd(16, 55);
+  else if (kind === 'hp') pk.amt = opts.amt || irnd(22, 45);
+  else if (kind === 'wpn') pk.id = opts.id;
+  return pk;
+}
+
+function randomLootKind() {
+  const r = Math.random();
+  if (r < 0.30) return 'gold';
+  if (r < 0.58) return 'xp';
+  if (r < 0.76) return 'gift';
+  if (r < 0.92) return 'hp';
+  return 'doc';
+}
+
+function findMapLootSpot(cx, cy, radius) {
+  if (cx != null && cy != null) {
+    for (let k = 0; k < 50; k++) {
+      const s = findSpot(cx, cy, 0, radius || 220);
+      if (s && !WORLD.blockedPx(s.x, s.y)) return s;
+    }
+  }
+  for (let k = 0; k < 160; k++) {
+    const s = findRandomSpot(0);
+    if (s && !WORLD.blockedPx(s.x, s.y)) return s;
+  }
+  return null;
+}
+
+function addMapLoot(kind, x, y, opts) {
+  opts = Object.assign({ mapLoot: true, t: MAP_LOOT_T }, opts || {});
+  G.pickups.push(makePickup(kind, x, y, opts));
+}
+
+function seedMapLoot() {
+  G.pickups = [];
+  for (const s of WORLD.giftSpots) {
+    const kind = s.kind === 'doc' ? 'doc' : (Math.random() < 0.55 ? 'gold' : 'xp');
+    addMapLoot(kind, s.x, s.y, { amt: s.amt || (kind === 'xp' ? irnd(18, 60) : irnd(20, 95)) });
+  }
+  spawnMapLoot(Math.max(0, MAP_LOOT_TARGET - G.pickups.length));
+}
+
+function spawnMapLoot(n, cx, cy, radius) {
+  for (let i = 0; i < n; i++) {
+    const s = findMapLootSpot(cx, cy, radius);
+    if (!s) break;
+    const kind = randomLootKind();
+    addMapLoot(kind, s.x, s.y, {
+      amt: kind === 'gold' ? irnd(35, 180) : kind === 'xp' ? irnd(18, 70) : kind === 'hp' ? irnd(24, 50) : undefined,
+    });
+  }
+  trimPickups();
 }
 
 // =================== boot & input ===================
@@ -927,6 +987,7 @@ function step(dt) {
     G.texts = G.texts.filter(tx => (tx.t -= dt) > 0 && (tx.y -= 14 * dt, true));
     G.slashes = G.slashes.filter(s => (s.t -= dtW) > 0);
     G.glows = G.glows.filter(g => (g.t -= dtW) > 0);
+    trimFrameLists();
     // autosave
     G.saveT -= dt;
     if (G.saveT <= 0) { G.saveT = 12; saveGame(); }
@@ -969,6 +1030,7 @@ function updateRealtime(dt) {
   applyRealtimeEvents(net);
   applyRemoteDropEvents(net);
   applyNpcHitEvents(net);
+  applyAirdropNet(net);
   if (net.connected && net.npcState) {
     const snap = net.npcState;
     net.npcState = null;
@@ -1086,6 +1148,49 @@ function applyNpcHitEvents(net) {
     const e = G.enemies.find(x => x.id === ev.enemyId && !x.dead);
     if (!e) continue;
     damageEnemy(e, Math.max(0, Number(ev.dmg) || 0), !!ev.crit, Number(ev.dir) || 0, Number(ev.kb) || 0, Number(ev.burn) || 0);
+  }
+}
+
+function applyAirdropNet(net) {
+  if (net.airdropState) {
+    applyAirdropState(net.airdropState);
+    net.airdropState = null;
+  }
+  const events = net.takeAirdropEvents ? net.takeAirdropEvents() : [];
+  for (let i = events.length - 1; i >= 0; i--) {
+    const ev = events[i];
+    if (!ev) continue;
+    if (ev.type === 'airdropOpen') {
+      if (G.airdrop && (!ev.seq || G.airdrop.seq === ev.seq)) G.airdrop = null;
+      G.airdropT = rnd(150, 240);
+      spillAirdropLoot({ x: Number(ev.x) || G.p.x, y: Number(ev.y) || G.p.y }, ev.loot);
+      if (ev.from && net.id && ev.from === net.id) G.stats.airdrops = (G.stats.airdrops || 0) + 1;
+      banner('AIRDROP ĐÃ MỞ', (ev.fromName || 'MERC') + ' ĐÃ KHUI HÀNG CHUNG', '#ff6a00');
+      SFX.buy();
+    } else if (ev.type === 'airdropExpire') {
+      if (G.airdrop && (!ev.seq || G.airdrop.seq === ev.seq)) {
+        G.airdrop = null;
+        G.airdropT = rnd(150, 240);
+        msg('AIRDROP ĐÃ BIẾN MẤT KHỎI ROOM', '#8a93a6');
+      }
+    }
+  }
+}
+
+function applyAirdropState(raw) {
+  const x = Number(raw.x), y = Number(raw.y);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+  const seq = Math.round(Number(raw.seq) || 0);
+  const was = G.airdrop;
+  G.airdrop = {
+    x, y, seq, shared: true,
+    alt: clamp(Number(raw.alt) || 0, 0, 500),
+    state: raw.state === 'landed' ? 'landed' : 'falling',
+    t: clamp(Number(raw.t) || 0, 0, 180),
+  };
+  if (!was || was.seq !== seq) {
+    banner('AIRDROP ĐẾN', 'HÀNG TIẾP TẾ CHUNG CỦA ROOM Ở GIỮA BẢN ĐỒ', '#ff6a00');
+    SFX.msg();
   }
 }
 
@@ -1806,6 +1911,15 @@ function dropPlayerDeathLoot() {
 
 function xpGain(n) {
   n = Math.round(n * G.p.xpMult * (G.p.joyT > 0 ? 1.15 : 1));
+  const spot = findMapLootSpot(G.p.x, G.p.y, 42) || { x: G.p.x, y: G.p.y };
+  G.pickups.push(makePickup('xp', spot.x, spot.y, { amt: Math.max(1, n), vx: rnd(-18, 18), vy: rnd(-18, 18), t: 90 }));
+  addTxt(spot.x, spot.y - 18, 'XP DROP', '#05d9e8');
+  trimPickups();
+}
+
+function collectXp(n) {
+  n = Math.max(0, Math.round(n) || 0);
+  if (!n) return;
   G.xp += n;
   addTxt(G.p.x, G.p.y - 18, '+' + n + ' XP', '#05d9e8');
   while (G.xp >= xpFor(G.lvl)) {
@@ -1907,6 +2021,10 @@ function updateEnemies(dt) {
     const pdx = e.x - px, pdy = e.y - py;
     const playerD2 = pdx * pdx + pdy * pdy;
     const playerD = Math.sqrt(playerD2);
+    if (e.war) {
+      e.warT = (e.warT == null ? 35 : e.warT) - dt;
+      if ((e.warT <= 0 && playerD > 520) || e.warT <= -18) { e.dead = true; e.silent = true; continue; }
+    }
     // despawn strays (den dwellers stay home)
     if (playerD > 950 && !e.bounty && !e.psycho && e.denId == null && !e.war && !e.mapSpawn) { e.dead = true; e.silent = true; continue; }
     // Map-wide patrols exist to populate districts, but far-away AI should not
@@ -2122,16 +2240,20 @@ function findRandomSpot(minDanger) {
   return null;
 }
 
-// =================== airdrops (Dogtown) ===================
+// =================== airdrops (city center) ===================
 function spawnAirdrop() {
-  for (let k = 0; k < 80; k++) {
-    const tx = irnd(8, 40), ty = irnd(80, 114);
-    if (WORLD.solidAt(tx, ty) || WORLD.t[ty * WORLD.W + tx] >= 5) continue;
-    const x = tx * TILE + 8, y = ty * TILE + 8;
-    if (WORLD.districtAt(x, y) !== 'dogtown') continue;
-    G.airdrop = { x, y, alt: 360, state: 'falling', t: 0 };
-    banner('AIRDROP ĐẾN', 'MILITECH THẢ HÀNG TIẾP TẾ Ở DOGTOWN — ĐỪNG ĐỂ BARGHEST CƯỚP MẤT', '#ff6a00');
-    msg('REGINA: AIRDROP ON MILITECH FREQUENCIES. SOUTH-WEST, MOVE', '#ff6a00');
+  const cx = WORLD.W * TILE / 2, cy = WORLD.H * TILE / 2;
+  const s = findMapLootSpot(cx, cy, 360);
+  if (s) {
+    const net = typeof window !== 'undefined' && window.NCPX_NET;
+    if (net && net.connected && net.sendAirdropSpawn) {
+      net.sendAirdropSpawn({ x: s.x, y: s.y });
+      G.airdropT = 3;
+      return;
+    }
+    G.airdrop = { x: s.x, y: s.y, alt: 360, state: 'falling', t: 0 };
+    banner('AIRDROP ĐẾN', 'THẢ HÀNG TIẾP TẾ Ở GIỮA BẢN ĐỒ — NHANH TAY LẤY QUÀ', '#ff6a00');
+    msg('REGINA: AIRDROP SIGNAL LOCKED NEAR CITY CENTER', '#ff6a00');
     SFX.msg();
     return;
   }
@@ -2151,18 +2273,22 @@ function updateAirdrop(dt, dtW) {
       a.alt = 0; a.state = 'landed'; a.t = 90;
       SFX.explode(); G.shake = Math.max(G.shake, 3);
       addP(14, a.x, a.y, { col: '#8a7a5a', sp: 80, life: 0.5 });
-      msg('SUPPLY DROP LANDED — 90S BEFORE BARGHEST SECURES IT', '#ff6a00');
+      msg('SUPPLY DROP LANDED — 90S BEFORE GANGS SECURE IT', '#ff6a00');
+      const net = typeof window !== 'undefined' && window.NCPX_NET;
+      if (a.shared && net && net.connected && net.sendAirdropState) net.sendAirdropState({ seq: a.seq, x: a.x, y: a.y, alt: a.alt, state: a.state, t: a.t });
     }
   } else {
     a.t -= dt;
     // the welcome squad shows up when V closes in (spawning earlier would despawn as strays)
     if (!a.guarded && distPx(G.p.x, G.p.y, a.x, a.y) < 520) {
       a.guarded = true;
-      spawnPack(a.x, a.y, irnd(3, 4), { alerted: true, alertT: 12, lkx: a.x, lky: a.y }, 30, 170);
-      msg('BARGHEST CONVERGING ON THE DROP', '#ff6a00');
+      spawnPack(a.x, a.y, irnd(3, 5), { fac: 'barghest', alerted: true, alertT: 12, lkx: a.x, lky: a.y }, 30, 170);
+      msg('GANGS CONVERGING ON THE DROP', '#ff6a00');
     }
     if (a.t <= 0) {
       G.airdrop = null; G.airdropT = rnd(150, 240);
+      const net = typeof window !== 'undefined' && window.NCPX_NET;
+      if (a.shared && net && net.connected && net.sendAirdropExpire) net.sendAirdropExpire({ seq: a.seq });
       msg('BARGHEST SECURED THE AIRDROP. NEXT TIME, MERC', '#8a93a6');
     }
   }
@@ -2170,22 +2296,56 @@ function updateAirdrop(dt, dtW) {
 
 function openAirdrop() {
   const a = G.airdrop;
+  if (!a) return;
+  const loot = buildAirdropLoot(a);
+  const net = typeof window !== 'undefined' && window.NCPX_NET;
+  if (a.shared && net && net.connected && net.sendAirdropOpen) {
+    net.sendAirdropOpen({ seq: a.seq, x: a.x, y: a.y, loot });
+    return;
+  }
   G.airdrop = null; G.airdropT = rnd(150, 240);
   G.stats.airdrops = (G.stats.airdrops || 0) + 1;
+  spillAirdropLoot(a, loot);
+  banner('ĐÃ LẤY ĐƯỢC AIRDROP', 'QUÀ + VÀNG + EXP + MÁU + TRANG BỊ', '#ff6a00');
+  SFX.buy(); SFX.levelup();
+  trimPickups();
+  saveGame();
+}
+
+function buildAirdropLoot(a) {
+  const loot = [];
   for (let k = 0; k < 5; k++)
-    G.pickups.push({ kind: 'ed', amt: Math.round((60 + 10 * G.lvl) * rnd(0.8, 1.3)), x: a.x + rnd(-8, 8), y: a.y + rnd(-8, 8), vx: rnd(-30, 30), vy: rnd(-30, 30), t: 60 });
-  G.pickups.push({ kind: 'doc', x: a.x, y: a.y - 6, vx: 0, vy: 0, t: 60 });
+    loot.push({ kind: 'gold', amt: Math.round((80 + 12 * G.lvl) * rnd(0.9, 1.5)), x: a.x + rnd(-14, 14), y: a.y + rnd(-14, 14), vx: rnd(-30, 30), vy: rnd(-30, 30) });
+  for (let k = 0; k < 3; k++)
+    loot.push({ kind: 'xp', amt: Math.round((45 + 10 * G.lvl) * rnd(0.9, 1.4)), x: a.x + rnd(-16, 16), y: a.y + rnd(-16, 16), vx: rnd(-24, 24), vy: rnd(-24, 24) });
+  loot.push({ kind: 'gift', x: a.x, y: a.y - 8, vx: 0, vy: 0 });
+  loot.push({ kind: 'hp', amt: 60, x: a.x - 10, y: a.y + 8, vx: 0, vy: 0 });
+  loot.push({ kind: 'doc', x: a.x + 10, y: a.y + 8, vx: 0, vy: 0 });
   // rarity-boosted gear
   const pool = WEAPONS.filter(w => !w.iconic && !w.granted && !w.hidden && w.price > 0 && w.lvl <= G.lvl + 5);
   const un = pool.filter(w => !G.weapons[w.id]);
   const hi = (un.length ? un : pool).filter(w => w.rar >= 2);
   const w = pick(hi.length ? hi : (un.length ? un : pool));
-  if (w) G.pickups.push({ kind: 'wpn', id: w.id, x: a.x, y: a.y + 6, vx: 0, vy: 0, t: 90 });
+  if (w) loot.push({ kind: 'wpn', id: w.id, x: a.x, y: a.y + 6, vx: 0, vy: 0 });
+  return loot;
+}
+
+function spillAirdropLoot(a, loot) {
+  loot = Array.isArray(loot) && loot.length ? loot : buildAirdropLoot(a);
+  for (const d of loot) {
+    const x = Number.isFinite(Number(d.x)) ? Number(d.x) : a.x;
+    const y = Number.isFinite(Number(d.y)) ? Number(d.y) : a.y;
+    const vx = Number.isFinite(Number(d.vx)) ? Number(d.vx) : 0;
+    const vy = Number.isFinite(Number(d.vy)) ? Number(d.vy) : 0;
+    if (d.kind === 'wpn' && WPN[d.id]) G.pickups.push({ kind: 'wpn', id: d.id, x, y, vx, vy, t: 90 });
+    else if (d.kind === 'doc') G.pickups.push({ kind: 'doc', x, y, vx, vy, t: 90 });
+    else if (d.kind === 'gift') G.pickups.push(makePickup('gift', x, y, { vx, vy, t: 120 }));
+    else if (d.kind === 'hp') G.pickups.push(makePickup('hp', x, y, { amt: Number(d.amt) || 60, vx, vy, t: 90 }));
+    else if (d.kind === 'xp') G.pickups.push(makePickup('xp', x, y, { amt: Number(d.amt) || 60, vx, vy, t: 90 }));
+    else G.pickups.push(makePickup('gold', x, y, { amt: Number(d.amt) || 100, vx, vy, t: 90 }));
+  }
   addP(16, a.x, a.y, { col: '#ff9f1c', sp: 90, life: 0.5 });
-  banner('ĐÃ LẤY ĐƯỢC AIRDROP', 'TIẾP TẾ MILITECH: TRANG BỊ + EDDIES', '#ff6a00');
-  SFX.buy(); SFX.levelup();
-  xpGain(25 + 8 * G.lvl);
-  saveGame();
+  trimPickups();
 }
 
 function buyWardrobeOutfit(row) {
@@ -2338,6 +2498,7 @@ function spawnMapGangPack(minDanger) {
 }
 
 function updateGangWars(dt) {
+  if (G.gangWar && (G.gangWar.t -= dt) <= 0) G.gangWar = null;
   if (G.gangInvite && press('KeyJ')) {
     G.gang = G.gangInvite;
     const name = gangLabel(G.gang);
@@ -2354,8 +2515,8 @@ function updateGangWars(dt) {
   const facA = DISTRICTS[WORLD.districtAt(s.x, s.y)].fac;
   const facB = rivalFaction(facA);
   const tier = DISTRICTS[WORLD.districtAt(s.x, s.y)].danger + Math.floor(G.lvl / 4);
-  spawnPack(s.x - 28, s.y, irnd(1, 2), { fac: facA, war: true, alerted: true, alertT: 20, lkx: s.x + 30, lky: s.y }, 6, 60);
-  spawnPack(s.x + 28, s.y, irnd(1, 2), { fac: facB, war: true, alerted: true, alertT: 20, lkx: s.x - 30, lky: s.y }, 6, 60);
+  spawnPack(s.x - 28, s.y, irnd(1, 2), { fac: facA, war: true, warT: 38, alerted: true, alertT: 20, lkx: s.x + 30, lky: s.y }, 6, 60);
+  spawnPack(s.x + 28, s.y, irnd(1, 2), { fac: facB, war: true, warT: 38, alerted: true, alertT: 20, lkx: s.x - 30, lky: s.y }, 6, 60);
   G.gangWar = { x: s.x, y: s.y, a: facA, b: facB, t: 28, tier };
   banner('GIAO TRANH BĂNG ĐẢNG', gangLabel(facA) + ' VS ' + gangLabel(facB), '#f9f002');
 }
@@ -2600,6 +2761,7 @@ function completeBounty() {
 // =================== pickups / crates / civs ===================
 function updatePickups(dt) {
   const p = G.p;
+  G.mapLootT = Math.max(0, (G.mapLootT || 0) - dt);
   for (const pk of G.pickups) {
     pk.t -= dt;
     if (pk.noSelfPickup || pk.ownerId === 'self') continue;
@@ -2615,7 +2777,15 @@ function updatePickups(dt) {
     }
     if (d2 < 12 * 12 && !G.driving) {
       pk.t = -1;
-      if (pk.kind === 'ed') { G.eddies += pk.amt; addTxt(p.x, p.y - 16, '+$' + fmt(pk.amt), '#f9f002'); SFX.coin(); }
+      if (pk.kind === 'ed' || pk.kind === 'gold') { G.eddies += pk.amt; addTxt(p.x, p.y - 16, '+$' + fmt(pk.amt), '#f9f002'); SFX.coin(); }
+      else if (pk.kind === 'xp') { collectXp(pk.amt); SFX.coin(); }
+      else if (pk.kind === 'hp') {
+        const before = p.hp;
+        p.hp = Math.min(p.maxhp, p.hp + (pk.amt || 35));
+        addTxt(p.x, p.y - 16, '+' + Math.round(p.hp - before) + ' HP', '#2ecc71');
+        SFX.heal();
+      }
+      else if (pk.kind === 'gift') openGiftPickup(pk);
       else if (pk.kind === 'doc') {
         if (G.maxdocs < 5) { G.maxdocs++; msg('MAXDOC +1', '#2ecc71'); }
         else { G.eddies += 25; addTxt(p.x, p.y - 16, '+$25', '#f9f002'); }
@@ -2624,6 +2794,38 @@ function updatePickups(dt) {
     }
   }
   G.pickups = G.pickups.filter(pk => pk.t > 0);
+  if (G.mapLootT <= 0) {
+    G.mapLootT = 8;
+    const mapLoot = G.pickups.filter(pk => pk.mapLoot).length;
+    if (mapLoot < MAP_LOOT_TARGET) spawnMapLoot(Math.min(8, MAP_LOOT_TARGET - mapLoot));
+  }
+  trimPickups();
+}
+
+function openGiftPickup(pk) {
+  const r = Math.random();
+  if (r < 0.34) {
+    const amt = irnd(90, 260);
+    G.eddies += amt;
+    addTxt(G.p.x, G.p.y - 16, '+$' + fmt(amt), '#f9f002');
+    SFX.coin();
+  } else if (r < 0.62) {
+    collectXp(irnd(45, 120));
+    SFX.levelup();
+  } else if (r < 0.82) {
+    G.p.hp = Math.min(G.p.maxhp, G.p.hp + irnd(35, 70));
+    msg('HỘP QUÀ: +HP', '#2ecc71');
+    SFX.heal();
+  } else if (G.maxdocs < 5) {
+    G.maxdocs++;
+    msg('HỘP QUÀ: MAXDOC +1', '#2ecc71');
+    SFX.buy();
+  } else {
+    const amt = irnd(160, 320);
+    G.eddies += amt;
+    addTxt(G.p.x, G.p.y - 16, '+$' + fmt(amt), '#f9f002');
+    SFX.coin();
+  }
 }
 
 function breakCrate(cr) {
@@ -2633,12 +2835,15 @@ function breakCrate(cr) {
   addP(8, cr.x, cr.y, { col: '#5a4632', sp: 80, life: 0.4, grav: 140 });
   SFX.hit();
   const r = Math.random();
-  if (r < 0.72) G.pickups.push({ kind: 'ed', amt: irnd(15, 60), x: cr.x, y: cr.y, vx: rnd(-10, 10), vy: rnd(-10, 10), t: 30 });
-  else if (r < 0.85) G.pickups.push({ kind: 'doc', x: cr.x, y: cr.y, vx: 0, vy: 0, t: 30 });
+  if (r < 0.42) G.pickups.push(makePickup('gold', cr.x, cr.y, { amt: irnd(20, 90), vx: rnd(-10, 10), vy: rnd(-10, 10), t: 45 }));
+  else if (r < 0.62) G.pickups.push(makePickup('xp', cr.x, cr.y, { amt: irnd(18, 70), vx: rnd(-10, 10), vy: rnd(-10, 10), t: 45 }));
+  else if (r < 0.76) G.pickups.push(makePickup('hp', cr.x, cr.y, { amt: irnd(22, 45), vx: rnd(-10, 10), vy: rnd(-10, 10), t: 45 }));
+  else if (r < 0.88) G.pickups.push(makePickup('gift', cr.x, cr.y, { vx: 0, vy: 0, t: 60 }));
+  else if (r < 0.94) G.pickups.push({ kind: 'doc', x: cr.x, y: cr.y, vx: 0, vy: 0, t: 45 });
   else {
     const pool = WEAPONS.filter(w => !w.iconic && !w.granted && !w.hidden && w.lvl <= G.lvl + 2 && w.price > 0 && !G.weapons[w.id]);
     if (pool.length && Math.random() < 0.4) G.pickups.push({ kind: 'wpn', id: pick(pool).id, x: cr.x, y: cr.y, vx: 0, vy: 0, t: 60 });
-    else G.pickups.push({ kind: 'ed', amt: irnd(30, 90), x: cr.x, y: cr.y, vx: 0, vy: 0, t: 30 });
+    else G.pickups.push(makePickup('gold', cr.x, cr.y, { amt: irnd(60, 150), vx: 0, vy: 0, t: 45 }));
   }
 }
 
@@ -2831,8 +3036,8 @@ function updateCar(dt, rdt) {
           G.decals.push({ x: px1, y: py1, rect: true, w: 2, h: 2, col: col });
           G.decals.push({ x: px2, y: py2, rect: true, w: 2, h: 2, col: col });
         }
-        if (G.decals.length > 500) {
-          G.decals.splice(0, G.decals.length - 500);
+        if (G.decals.length > MAX_DECALS) {
+          G.decals.splice(0, G.decals.length - MAX_DECALS);
         }
       }
     }
@@ -2950,6 +3155,8 @@ function recalcStats() {
 
 // =================== fx & messages ===================
 function addP(n, x, y, o) {
+  if (G.parts.length > MAX_PARTS) G.parts.splice(0, G.parts.length - MAX_PARTS);
+  n = Math.min(n, Math.max(0, MAX_PARTS - G.parts.length));
   for (let i = 0; i < n; i++) {
     // o.dir + o.cone spray particles in a direction; omit for a radial burst
     const a = o.dir != null ? o.dir + rnd(-(o.cone || 0.5), o.cone || 0.5) : rnd(0, Math.PI * 2);
@@ -2986,16 +3193,38 @@ function bloodStain(x, y, dir, power) {
     }
   });
 
-  if (G.decals.length > 500) {
-    G.decals.shift();
+  if (G.decals.length > MAX_DECALS) {
+    G.decals.splice(0, G.decals.length - MAX_DECALS);
   }
 }
-function addTxt(x, y, text, col) { G.texts.push({ x, y, text, col, t: 0.8 }); }
+function addTxt(x, y, text, col) {
+  G.texts.push({ x, y, text, col, t: 0.8 });
+  if (G.texts.length > MAX_TEXTS) G.texts.splice(0, G.texts.length - MAX_TEXTS);
+}
 function msg(text, col) {
   G.msgs.push({ text, col: col || '#cfd6e4', t: 5 });
   if (G.msgs.length > 8) G.msgs.shift();
 }
 function banner(text, sub, col) { G.bannerO = { text, sub, col: col || '#f9f002', t: 3 }; }
+
+function trimFrameLists() {
+  if (G.parts.length > MAX_PARTS) G.parts.splice(0, G.parts.length - MAX_PARTS);
+  if (G.texts.length > MAX_TEXTS) G.texts.splice(0, G.texts.length - MAX_TEXTS);
+  if (G.bullets.length > MAX_BULLETS) G.bullets.splice(0, G.bullets.length - MAX_BULLETS);
+  if (G.slashes.length > MAX_SLASHES) G.slashes.splice(0, G.slashes.length - MAX_SLASHES);
+  if (G.glows.length > MAX_GLOWS) G.glows.splice(0, G.glows.length - MAX_GLOWS);
+}
+
+function trimPickups() {
+  let extra = G.pickups.length - MAX_PICKUPS;
+  if (extra <= 0) return;
+  G.pickups = G.pickups.filter(pk => {
+    if (extra <= 0 || pk.deathDrop || pk.noSelfPickup) return true;
+    extra--;
+    return false;
+  });
+  if (G.pickups.length > MAX_PICKUPS) G.pickups.splice(0, G.pickups.length - MAX_PICKUPS);
+}
 
 function updateRain(dt) {
   if (!G.rain.length) for (let i = 0; i < 160; i++) G.rain.push({ x: rnd(0, VIEW_W), y: rnd(0, VIEW_H), s: rnd(220, 380), l: rnd(4, 9) });
@@ -3094,6 +3323,21 @@ function drawWorldEntities(c, indoor) {
     if (pk.kind === 'ed') {
       c.fillStyle = '#f9f002'; c.fillRect(pk.x - (pk.deathDrop ? 2 : 1), pk.y - (pk.deathDrop ? 2 : 1) + bob, pk.deathDrop ? 5 : 3, pk.deathDrop ? 5 : 3);
       if (pk.deathDrop) drawWorldTextC(c, '$' + fmt(pk.amt), pk.x, pk.y - 16 + bob, '#f9f002', 0.68);
+    }
+    else if (pk.kind === 'gold') {
+      c.fillStyle = '#f9f002'; c.fillRect(pk.x - 3, pk.y - 3 + bob, 6, 6);
+      c.fillStyle = '#fff39a'; c.fillRect(pk.x - 1, pk.y - 4 + bob, 3, 2);
+    }
+    else if (pk.kind === 'xp') {
+      c.fillStyle = '#05d9e8'; c.fillRect(pk.x - 2, pk.y - 4 + bob, 5, 7);
+      c.fillStyle = '#b8fff8'; c.fillRect(pk.x - 1, pk.y - 5 + bob, 3, 2);
+    }
+    else if (pk.kind === 'hp') {
+      c.fillStyle = '#2ecc71'; c.fillRect(pk.x - 4, pk.y - 1 + bob, 8, 3); c.fillRect(pk.x - 1, pk.y - 4 + bob, 3, 8);
+    }
+    else if (pk.kind === 'gift') {
+      c.fillStyle = '#bd00ff'; c.fillRect(pk.x - 4, pk.y - 4 + bob, 8, 8);
+      c.fillStyle = '#f9f002'; c.fillRect(pk.x - 1, pk.y - 4 + bob, 2, 8); c.fillRect(pk.x - 4, pk.y - 1 + bob, 8, 2);
     }
     else if (pk.kind === 'doc') { c.fillStyle = '#fff'; c.fillRect(pk.x - 3, pk.y - 1 + bob, 6, 2); c.fillRect(pk.x - 1, pk.y - 3 + bob, 2, 6); }
     else {
@@ -3399,7 +3643,7 @@ function render() {
   }
   for (const pk of vis.pickups) {
     c.globalAlpha = 0.35 + 0.15 * Math.sin(G.rt * 5);
-    const col = pk.kind === 'wpn' ? RAR_COL[WPN[pk.id].rar] : pk.kind === 'ed' ? '#f9f002' : '#2ecc71';
+    const col = pk.kind === 'wpn' ? RAR_COL[WPN[pk.id].rar] : pk.kind === 'xp' ? '#05d9e8' : pk.kind === 'gift' ? '#bd00ff' : pk.kind === 'hp' || pk.kind === 'doc' ? '#2ecc71' : '#f9f002';
     c.drawImage(SPR.glowS(col, 9), pk.x - 9, pk.y - 9);
   }
   c.globalAlpha = 1;

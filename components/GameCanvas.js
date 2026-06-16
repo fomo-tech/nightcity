@@ -5,7 +5,7 @@ import { useGameStore } from "@/store/useGameStore";
 
 const SAVE_KEY = "ncpx2077_v1";
 const ACCOUNT_KEY = "ncpx_account_v1";
-const SCRIPT_VERSION = "113";
+const SCRIPT_VERSION = "116";
 const GLOBAL_REALTIME_ROOM = "nightcity";
 const PERFORMANCE_MODE = false;
 const GAME_SCRIPTS = [
@@ -1662,6 +1662,8 @@ export default function GameCanvas() {
   } = useGameStore();
 
   const [isJackedIn, setIsJackedIn] = useState(false);
+  const [casinoPhase, setCasinoPhase] = useState("idle"); // "idle", "shaking", "throwing"
+  const [casinoDiceTemp, setCasinoDiceTemp] = useState([1, 1, 1]);
   const [bootStage, setBootStage] = useState("loading");
   const [selectedMenuIdx, setSelectedMenuIdx] = useState(0);
   const [showInstructions, setShowInstructions] = useState(false);
@@ -3000,29 +3002,81 @@ export default function GameCanvas() {
       if (window.SFX && window.SFX.deny) window.SFX.deny();
       return;
     }
-    const d1 = Math.floor(Math.random() * 6) + 1;
-    const d2 = Math.floor(Math.random() * 6) + 1;
-    const d3 = Math.floor(Math.random() * 6) + 1;
-    s.dice = [d1, d2, d3];
-    const sum = d1 + d2 + d3;
-    if (sum === 3 || sum === 18) {
-      s.result = "triple";
-      window.G.eddies -= s.bet;
-      if (window.SFX && window.SFX.hurt) window.SFX.hurt();
-    } else {
-      const sumOutcome = sum >= 11 && sum <= 17 ? 1 : 0;
-      if (sumOutcome === s.choice) {
-        s.result = "win";
-        window.G.eddies += s.bet;
-        if (window.SFX && window.SFX.levelup) window.SFX.levelup();
-      } else {
-        s.result = "lose";
-        window.G.eddies -= s.bet;
-        if (window.SFX && window.SFX.hurt) window.SFX.hurt();
+
+    if (casinoPhase !== "idle") return;
+
+    setCasinoPhase("shaking");
+    s.dice = null;
+    s.result = null;
+
+    let soundTicks = 0;
+    const soundInterval = setInterval(() => {
+      if (soundTicks < 8 && window.SFX && window.SFX.ui) {
+        window.SFX.ui();
       }
-    }
-    if (window.saveGame) window.saveGame();
-    forceUpdate();
+      soundTicks++;
+    }, 150);
+
+    const animInterval = setInterval(() => {
+      setCasinoDiceTemp([
+        Math.floor(Math.random() * 6) + 1,
+        Math.floor(Math.random() * 6) + 1,
+        Math.floor(Math.random() * 6) + 1,
+      ]);
+    }, 80);
+
+    setTimeout(() => {
+      clearInterval(soundInterval);
+      clearInterval(animInterval);
+
+      const d1 = Math.floor(Math.random() * 6) + 1;
+      const d2 = Math.floor(Math.random() * 6) + 1;
+      const d3 = Math.floor(Math.random() * 6) + 1;
+      
+      // Phase 2: Start throwing (duration 800ms)
+      s.dice = [d1, d2, d3];
+      setCasinoPhase("throwing");
+      forceUpdate();
+
+      setTimeout(() => {
+        const sum = d1 + d2 + d3;
+        if (sum === 3 || sum === 18) {
+          s.result = "triple";
+          window.G.eddies -= s.bet;
+          if (window.SFX && window.SFX.hurt) window.SFX.hurt();
+        } else {
+          const sumOutcome = sum >= 11 && sum <= 17 ? 1 : 0;
+          if (sumOutcome === s.choice) {
+            s.result = "win";
+            window.G.eddies += s.bet;
+            if (window.SFX && window.SFX.levelup) window.SFX.levelup();
+          } else {
+            s.result = "lose";
+            window.G.eddies -= s.bet;
+            if (window.SFX && window.SFX.hurt) window.SFX.hurt();
+          }
+        }
+        
+        // Add to local storage trend history (Cầu)
+        try {
+          const historyRaw = localStorage.getItem('ncpx_casino_history');
+          const history = historyRaw ? JSON.parse(historyRaw) : [];
+          history.push({
+            sum,
+            outcome: (sum === 3 || sum === 18) ? 'triple' : (sum >= 11 && sum <= 17 ? 'tai' : 'xiu'),
+            result: s.result
+          });
+          localStorage.setItem('ncpx_casino_history', JSON.stringify(history.slice(-12)));
+        } catch (e) {
+          console.error(e);
+        }
+
+        if (window.saveGame) window.saveGame();
+        setCasinoPhase("idle");
+        forceUpdate();
+      }, 800); // 800ms for throwing/bouncing animation
+
+    }, 1200); // 1200ms shaking cup
   };
 
   const renderModalContent = (ui) => {
@@ -4154,36 +4208,86 @@ export default function GameCanvas() {
     const s = window.G.uiS;
     s.bet = s.bet || 100;
     s.choice = s.choice !== undefined ? s.choice : 1;
-    const choiceText =
-      s.choice === 1
-        ? language === "vi"
-          ? "TÀI (BIG)"
-          : "BIG (TÀI)"
-        : language === "vi"
-          ? "XỈU (SMALL)"
-          : "SMALL (XỈU)";
+    const casinoRolling = casinoPhase !== "idle";
     const fmt = (val) => Number(val).toLocaleString();
 
+    // Helper functions for bets
+    const addBet = (amount) => {
+      if (casinoRolling) return;
+      playSynthSfx("click");
+      s.bet = (s.bet || 0) + amount;
+      forceUpdate();
+    };
+    const setBetMax = () => {
+      if (casinoRolling) return;
+      playSynthSfx("click");
+      s.bet = window.G.eddies;
+      forceUpdate();
+    };
+    const clearBet = () => {
+      if (casinoRolling) return;
+      playSynthSfx("click");
+      s.bet = 100;
+      forceUpdate();
+    };
+
+    // Load recent results from localStorage
+    let history = [];
+    try {
+      const historyRaw = localStorage.getItem('ncpx_casino_history');
+      history = historyRaw ? JSON.parse(historyRaw) : [];
+    } catch (e) {}
+
+    const renderDiceFace = (val, rolling, idx) => {
+      const dotsMap = {
+        1: [4],
+        2: [0, 8],
+        3: [0, 4, 8],
+        4: [0, 2, 6, 8],
+        5: [0, 2, 4, 6, 8],
+        6: [0, 2, 3, 5, 6, 8],
+      };
+      const activeDots = dotsMap[val] || [];
+      const diceClass = rolling ? "rolling" : `dice-throw-${idx + 1}`;
+      return (
+        <div key={Math.random()} className={`dice-face ${diceClass}`} data-val={val}>
+          {Array.from({ length: 9 }).map((_, idx) => (
+            <div key={idx} className="dice-dot-cell">
+              {activeDots.includes(idx) && <div className="dice-dot" />}
+            </div>
+          ))}
+        </div>
+      );
+    };
+
     return (
-      <div className="cyber-modal-body" style={{ gap: "12px" }}>
+      <div className="cyber-modal-body" style={{ gap: "10px" }}>
+        {/* Player Balance bar */}
+        <div className="casino-balance-bar">
+          <span className="balance-label">{language === "vi" ? "SỐ DƯ CỦA BẠN" : "YOUR BALANCE"}</span>
+          <span className="balance-value">€$ {fmt(window.G.eddies)}</span>
+        </div>
+
         <p
           style={{
             color: "#8a93a6",
             fontSize: "11px",
             textAlign: "center",
-            marginBottom: "8px",
+            marginBottom: "2px",
           }}
         >
           {language === "vi"
-            ? "TRÒ CHƠI TÀI XỈU - NHÂN ĐÔI SỐ TIỀN CƯỢC"
-            : "BET AND DOUBLE YOUR EDDIES ON DICE"}
+            ? "TRÒ CHƠI TÀI XỈU - ĐẶT CƯỢC PHÂN ĐỊNH THẮNG THUA"
+            : "BET ON TAI OR XIU - DOUBLE OR NOTHING"}
         </p>
 
-        <div className="gang-select-row">
+        {/* Bet Size adjustment */}
+        <div className="gang-select-row" style={{ marginBottom: "2px" }}>
           <span>{language === "vi" ? "TIỀN ĐẶT CƯỢC" : "BET SIZE"}</span>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <button
               className="gang-nav-btn"
+              disabled={casinoRolling}
               onClick={() => {
                 playSynthSfx("click");
                 s.bet = Math.max(100, s.bet - 100);
@@ -4197,6 +4301,7 @@ export default function GameCanvas() {
             </span>
             <button
               className="gang-nav-btn"
+              disabled={casinoRolling}
               onClick={() => {
                 playSynthSfx("click");
                 s.bet = s.bet + 100;
@@ -4208,82 +4313,145 @@ export default function GameCanvas() {
           </div>
         </div>
 
-        <div className="gang-select-row">
-          <span>{language === "vi" ? "LỰA CHỌN" : "CHOICE"}</span>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <button
-              className="gang-nav-btn"
-              onClick={() => {
-                playSynthSfx("click");
-                s.choice = 1 - s.choice;
-                forceUpdate();
-              }}
-            >
-              ◀
-            </button>
-            <span style={{ color: "var(--cyber-cyan)", fontWeight: "bold" }}>
-              {choiceText}
-            </span>
-            <button
-              className="gang-nav-btn"
-              onClick={() => {
-                playSynthSfx("click");
-                s.choice = 1 - s.choice;
-                forceUpdate();
-              }}
-            >
-              ▶
-            </button>
+        {/* Quick chip bet buttons */}
+        <div className="quick-bet-row">
+          <button className="quick-bet-btn" disabled={casinoRolling} onClick={() => addBet(100)}>+100</button>
+          <button className="quick-bet-btn" disabled={casinoRolling} onClick={() => addBet(500)}>+500</button>
+          <button className="quick-bet-btn" disabled={casinoRolling} onClick={() => addBet(1000)}>+1K</button>
+          <button className="quick-bet-btn" disabled={casinoRolling} onClick={() => addBet(5000)}>+5K</button>
+          <button className="quick-bet-btn" disabled={casinoRolling} onClick={() => setBetMax()}>MAX</button>
+          <button className="quick-bet-btn clear" disabled={casinoRolling} onClick={() => clearBet()}>{language === "vi" ? "XÓA" : "CLR"}</button>
+        </div>
+
+        {/* Tai Xiu Card Selection */}
+        <div className="taixiu-board">
+          <div
+            className={`taixiu-card xiu-card ${s.choice === 0 ? "selected" : ""}`}
+            onClick={() => {
+              if (casinoRolling) return;
+              playSynthSfx("click");
+              s.choice = 0;
+              forceUpdate();
+            }}
+          >
+            <span className="taixiu-card-header">{language === "vi" ? "XỈU" : "XIU"}</span>
+            <span className="taixiu-card-sub">SMALL</span>
+            <span className="taixiu-card-range">4 - 10</span>
+            <span className="taixiu-card-ratio">1 : 1</span>
+          </div>
+
+          <div
+            className={`taixiu-card tai-card ${s.choice === 1 ? "selected" : ""}`}
+            onClick={() => {
+              if (casinoRolling) return;
+              playSynthSfx("click");
+              s.choice = 1;
+              forceUpdate();
+            }}
+          >
+            <span className="taixiu-card-header">{language === "vi" ? "TÀI" : "TAI"}</span>
+            <span className="taixiu-card-sub">BIG</span>
+            <span className="taixiu-card-range">11 - 17</span>
+            <span className="taixiu-card-ratio">1 : 1</span>
+          </div>
+        </div>
+
+        {/* Dice rolling area */}
+        <div className="casino-table">
+          <div className="casino-plate">
+            {/* Retro Pixel Plate SVG */}
+            <svg className="pixel-plate-svg" width="190" height="48" viewBox="0 0 190 48" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ imageRendering: "pixelated", position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: 1 }}>
+              <path d="M 24 2 H 166 L 188 24 L 166 46 H 24 L 2 24 Z" fill="#111116" />
+              <path d="M 25 4 H 165 L 185 24 L 165 44 H 25 L 5 24 Z" fill="#1b2132" />
+              <path d="M 26 5 H 164 L 183 24 L 164 43 H 26 L 7 24 Z" stroke="#bd00ff" strokeWidth="2" strokeOpacity="0.8" fill="none" />
+              <path d="M 32 10 H 158 L 172 24 L 158 38 H 32 L 18 24 Z" fill="#0c0f17" />
+              <rect x="30" y="8" width="130" height="2" fill="#242c42" />
+              <rect x="20" y="24" width="150" height="2" fill="#080a0f" />
+            </svg>
+
+            {/* Shaking cup */}
+            <div className={`casino-cup-container ${casinoPhase === "shaking" ? "shaking" : s.dice ? "lifted" : ""}`} style={{ zIndex: 10 }}>
+              <svg width="80" height="72" viewBox="0 0 80 72" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ imageRendering: "pixelated", display: "block" }}>
+                <path d="M 16 2 H 64 L 76 16 L 76 58 L 68 70 H 12 L 4 58 L 4 16 Z" fill="#111116" />
+                <path d="M 18 4 H 62 L 73 16 L 73 56 L 66 68 H 14 L 7 56 L 7 16 Z" fill="url(#cupGrad)" />
+                <path d="M 20 6 H 60 L 70 16 L 70 54 L 64 66 H 16 L 10 54 L 10 16 Z" stroke="#bd00ff" strokeWidth="2" fill="none" />
+                <rect x="20" y="28" width="40" height="6" fill="#f9f002" />
+                <rect x="20" y="34" width="40" height="2" fill="#c2ba02" />
+                <rect x="36" y="24" width="8" height="4" fill="#f9f002" />
+                <rect x="36" y="34" width="8" height="4" fill="#f9f002" />
+                <path d="M 12 18 L 18 12 M 12 30 L 22 20" stroke="#ffffff" strokeWidth="2" strokeOpacity="0.4" />
+                <defs>
+                  <linearGradient id="cupGrad" x1="0" y1="0" x2="80" y2="72" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stopColor="#251a3d" />
+                    <stop offset="50%" stopColor="#120c24" />
+                    <stop offset="100%" stopColor="#080512" />
+                  </linearGradient>
+                </defs>
+              </svg>
+            </div>
+
+            {/* Dice area */}
+            {(casinoPhase !== "idle" || s.dice) && (
+              <div className="casino-dice-area" style={{ zIndex: 5 }}>
+                {casinoPhase === "shaking"
+                  ? casinoDiceTemp.map((val) => renderDiceFace(val, true))
+                  : s.dice.map((val, idx) => renderDiceFace(val, false, idx))}
+              </div>
+            )}
           </div>
         </div>
 
         <button
           className="cyber-action-btn primary"
+          disabled={casinoRolling}
           onClick={() => {
             playSynthSfx("click");
             rollDice();
           }}
         >
-          {language === "vi"
-            ? "LẮC XÚC XẮC // ROLL DICE"
-            : "ROLL DICE // LẮC XÚC XẮC"}
+          {casinoPhase === "shaking"
+            ? (language === "vi" ? "ĐANG LẮC XÚC XẮC..." : "SHAKING DICE...")
+            : casinoPhase === "throwing"
+            ? (language === "vi" ? "ĐANG MỞ BÁT..." : "REVEALING...")
+            : (language === "vi" ? "LẮC XÚC XẮC // ROLL DICE" : "ROLL DICE // LẮC XÚC XẮC")}
         </button>
 
-        {s.dice && (
-          <div>
-            <div className="casino-dice-container">
-              {s.dice.map((val, idx) => (
-                <div key={idx} className="casino-dice-box">
-                  {val}
-                </div>
-              ))}
+        {/* Custom Premium Result Banner */}
+        {s.dice && casinoPhase === "idle" && s.result && (
+          <div className={`casino-result-banner ${s.result}`}>
+            <div className="result-glow-line" />
+            <div className="result-main-text">
+              {s.result === "win" && (language === "vi" ? "BẠN THẮNG! // YOU WIN" : "YOU WIN! // BẠN THẮNG")}
+              {s.result === "lose" && (language === "vi" ? "BẠN THUA // YOU LOSE" : "YOU LOSE // BẠN THUA")}
+              {s.result === "triple" && (language === "vi" ? "BA CON TRÙNG! // DEALER WINS" : "TRIPLE! // DEALER WINS")}
             </div>
-
-            <div className="casino-result">
-              <span style={{ color: "#8a93a6" }}>
-                SUM = {s.dice[0] + s.dice[1] + s.dice[2]}
-              </span>{" "}
-              &middot;{" "}
-              {s.result === "win" && (
-                <span style={{ color: "#2ecc71" }}>
-                  {language === "vi" ? "THẮNG!" : "WIN!"} +€${fmt(s.bet)}
-                </span>
-              )}
-              {s.result === "lose" && (
-                <span style={{ color: "#ff2a3c" }}>
-                  {language === "vi" ? "THUA!" : "LOSE!"} -€${fmt(s.bet)}
-                </span>
-              )}
-              {s.result === "triple" && (
-                <span style={{ color: "#ff2a3c" }}>
-                  {language === "vi"
-                    ? "BA CON GIỐNG NHAU - NHÀ CÁI ĂN!"
-                    : "TRIPLE! DEALER WINS"}
-                </span>
-              )}
+            <div className="result-details">
+              <span className="result-sum">
+                {language === "vi" ? "TỔNG ĐIỂM: " : "TOTAL SUM: "}
+                <strong>{s.dice[0] + s.dice[1] + s.dice[2]}</strong>
+                {" "}({s.dice[0] + s.dice[1] + s.dice[2] >= 11 ? (language === "vi" ? "TÀI" : "TAI") : (language === "vi" ? "XỈU" : "XIU")})
+              </span>
+              <span className="result-amount">
+                {s.result === "win" ? `+€$ ${fmt(s.bet)}` : s.result === "lose" ? `-€$ ${fmt(s.bet)}` : `€$ 0`}
+              </span>
             </div>
           </div>
         )}
+
+        {/* Historical Trend history (Cầu) */}
+        <div className="casino-history-section">
+          <span className="history-title">{language === "vi" ? "LỊCH SỬ PHÂN ĐỊNH (CẦU)" : "LATEST TREND"}</span>
+          <div className="history-dots">
+            {history.map((h, i) => (
+              <div key={i} className={`history-dot ${h.outcome}`} title={`Sum: ${h.sum} (${h.outcome.toUpperCase()})`}>
+                <span className="history-dot-char">{h.outcome === 'tai' ? 'T' : h.outcome === 'xiu' ? 'X' : 'B'}</span>
+              </div>
+            ))}
+            {history.length === 0 && (
+              <span className="history-empty">{language === "vi" ? "Chưa có lượt chơi nào" : "No results yet"}</span>
+            )}
+          </div>
+        </div>
       </div>
     );
   };
@@ -6317,11 +6485,14 @@ function setupRealtimeBridge(getStore) {
     dropEvents: [],
     npcState: null,
     npcEvents: [],
+    airdropState: null,
+    airdropEvents: [],
     saveSeq: 0,
     savePending: new Map(),
     connected: false,
     retry: 0,
     closed: false,
+    full: false,
     send(state) {
       if (!net.ws || net.ws.readyState !== WebSocket.OPEN) return;
       const store = getStore();
@@ -6402,6 +6573,22 @@ function setupRealtimeBridge(getStore) {
         return;
       net.ws.send(JSON.stringify({ type: "npcHit", ...payload }));
     },
+    sendAirdropSpawn(payload) {
+      if (!net.ws || net.ws.readyState !== WebSocket.OPEN || !payload) return;
+      net.ws.send(JSON.stringify({ type: "airdropSpawn", ...payload }));
+    },
+    sendAirdropState(payload) {
+      if (!net.ws || net.ws.readyState !== WebSocket.OPEN || !payload) return;
+      net.ws.send(JSON.stringify({ type: "airdropState", ...payload }));
+    },
+    sendAirdropOpen(payload) {
+      if (!net.ws || net.ws.readyState !== WebSocket.OPEN || !payload) return;
+      net.ws.send(JSON.stringify({ type: "airdropOpen", ...payload }));
+    },
+    sendAirdropExpire(payload) {
+      if (!net.ws || net.ws.readyState !== WebSocket.OPEN || !payload) return;
+      net.ws.send(JSON.stringify({ type: "airdropExpire", ...payload }));
+    },
     invite(playerId, profile) {
       if (!net.ws || net.ws.readyState !== WebSocket.OPEN || !playerId) return;
       net.ws.send(
@@ -6433,6 +6620,11 @@ function setupRealtimeBridge(getStore) {
       net.npcEvents = [];
       return out;
     },
+    takeAirdropEvents() {
+      const out = net.airdropEvents;
+      net.airdropEvents = [];
+      return out;
+    },
     switchRoom(room) {
       const next = cleanRoom(room);
       if (next === net.room) return;
@@ -6451,13 +6643,14 @@ function setupRealtimeBridge(getStore) {
       net.playerCache.clear();
       net.invites = [];
       net.requests = [];
+      net.full = false;
       connect();
     },
   };
   window.NCPX_NET = net;
 
   const connect = () => {
-    if (net.closed) return;
+    if (net.closed || net.full) return;
     const proto = window.location.protocol === "https:" ? "wss" : "ws";
     net.room = realtimeRoom();
     const ws = new WebSocket(
@@ -6466,6 +6659,7 @@ function setupRealtimeBridge(getStore) {
     net.ws = ws;
     ws.onopen = () => {
       net.connected = true;
+      net.full = false;
       net.retry = 0;
     };
     ws.onmessage = (event) => {
@@ -6473,6 +6667,21 @@ function setupRealtimeBridge(getStore) {
       try {
         msg = JSON.parse(event.data);
       } catch (error) {
+        return;
+      }
+      if (msg.type === "roomFull") {
+        net.full = true;
+        net.connected = false;
+        net.players = [];
+        net.playerCache.clear();
+        for (const [reqId, pending] of net.savePending) {
+          clearTimeout(pending.timer);
+          pending.reject(new Error("Room is full"));
+          net.savePending.delete(reqId);
+        }
+        try {
+          ws.close();
+        } catch (error) {}
         return;
       }
       if (msg.type === "hello") {
@@ -6519,6 +6728,9 @@ function setupRealtimeBridge(getStore) {
       if (msg.type === "npcState") net.npcState = msg;
       if (msg.type === "npcHit")
         net.npcEvents = [msg, ...net.npcEvents].slice(0, 24);
+      if (msg.type === "airdropState") net.airdropState = msg;
+      if (msg.type === "airdropOpen" || msg.type === "airdropExpire")
+        net.airdropEvents = [msg, ...net.airdropEvents].slice(0, 8);
       if (msg.type === "saveResult" && msg.reqId) {
         const pending = net.savePending.get(msg.reqId);
         if (pending) {
@@ -6542,7 +6754,7 @@ function setupRealtimeBridge(getStore) {
         pending.reject(new Error("Save socket closed"));
         net.savePending.delete(reqId);
       }
-      if (!net.closed) {
+      if (!net.closed && !net.full) {
         const delay = Math.min(3000, 350 + net.retry * 450);
         net.retry++;
         setTimeout(connect, delay);

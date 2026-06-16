@@ -5,7 +5,7 @@ import { useGameStore } from "@/store/useGameStore";
 
 const SAVE_KEY = "ncpx2077_v1";
 const ACCOUNT_KEY = "ncpx_account_v1";
-const SCRIPT_VERSION = "112";
+const SCRIPT_VERSION = "116";
 const GLOBAL_REALTIME_ROOM = "nightcity";
 const PERFORMANCE_MODE = false;
 const GAME_SCRIPTS = [
@@ -6130,11 +6130,14 @@ function setupRealtimeBridge(getStore) {
     dropEvents: [],
     npcState: null,
     npcEvents: [],
+    airdropState: null,
+    airdropEvents: [],
     saveSeq: 0,
     savePending: new Map(),
     connected: false,
     retry: 0,
     closed: false,
+    full: false,
     send(state) {
       if (!net.ws || net.ws.readyState !== WebSocket.OPEN) return;
       const store = getStore();
@@ -6215,6 +6218,22 @@ function setupRealtimeBridge(getStore) {
         return;
       net.ws.send(JSON.stringify({ type: "npcHit", ...payload }));
     },
+    sendAirdropSpawn(payload) {
+      if (!net.ws || net.ws.readyState !== WebSocket.OPEN || !payload) return;
+      net.ws.send(JSON.stringify({ type: "airdropSpawn", ...payload }));
+    },
+    sendAirdropState(payload) {
+      if (!net.ws || net.ws.readyState !== WebSocket.OPEN || !payload) return;
+      net.ws.send(JSON.stringify({ type: "airdropState", ...payload }));
+    },
+    sendAirdropOpen(payload) {
+      if (!net.ws || net.ws.readyState !== WebSocket.OPEN || !payload) return;
+      net.ws.send(JSON.stringify({ type: "airdropOpen", ...payload }));
+    },
+    sendAirdropExpire(payload) {
+      if (!net.ws || net.ws.readyState !== WebSocket.OPEN || !payload) return;
+      net.ws.send(JSON.stringify({ type: "airdropExpire", ...payload }));
+    },
     invite(playerId, profile) {
       if (!net.ws || net.ws.readyState !== WebSocket.OPEN || !playerId) return;
       net.ws.send(
@@ -6246,6 +6265,11 @@ function setupRealtimeBridge(getStore) {
       net.npcEvents = [];
       return out;
     },
+    takeAirdropEvents() {
+      const out = net.airdropEvents;
+      net.airdropEvents = [];
+      return out;
+    },
     switchRoom(room) {
       const next = cleanRoom(room);
       if (next === net.room) return;
@@ -6264,13 +6288,14 @@ function setupRealtimeBridge(getStore) {
       net.playerCache.clear();
       net.invites = [];
       net.requests = [];
+      net.full = false;
       connect();
     },
   };
   window.NCPX_NET = net;
 
   const connect = () => {
-    if (net.closed) return;
+    if (net.closed || net.full) return;
     const proto = window.location.protocol === "https:" ? "wss" : "ws";
     net.room = realtimeRoom();
     const ws = new WebSocket(
@@ -6279,6 +6304,7 @@ function setupRealtimeBridge(getStore) {
     net.ws = ws;
     ws.onopen = () => {
       net.connected = true;
+      net.full = false;
       net.retry = 0;
     };
     ws.onmessage = (event) => {
@@ -6286,6 +6312,21 @@ function setupRealtimeBridge(getStore) {
       try {
         msg = JSON.parse(event.data);
       } catch (error) {
+        return;
+      }
+      if (msg.type === "roomFull") {
+        net.full = true;
+        net.connected = false;
+        net.players = [];
+        net.playerCache.clear();
+        for (const [reqId, pending] of net.savePending) {
+          clearTimeout(pending.timer);
+          pending.reject(new Error("Room is full"));
+          net.savePending.delete(reqId);
+        }
+        try {
+          ws.close();
+        } catch (error) {}
         return;
       }
       if (msg.type === "hello") {
@@ -6332,6 +6373,9 @@ function setupRealtimeBridge(getStore) {
       if (msg.type === "npcState") net.npcState = msg;
       if (msg.type === "npcHit")
         net.npcEvents = [msg, ...net.npcEvents].slice(0, 24);
+      if (msg.type === "airdropState") net.airdropState = msg;
+      if (msg.type === "airdropOpen" || msg.type === "airdropExpire")
+        net.airdropEvents = [msg, ...net.airdropEvents].slice(0, 8);
       if (msg.type === "saveResult" && msg.reqId) {
         const pending = net.savePending.get(msg.reqId);
         if (pending) {
@@ -6355,7 +6399,7 @@ function setupRealtimeBridge(getStore) {
         pending.reject(new Error("Save socket closed"));
         net.savePending.delete(reqId);
       }
-      if (!net.closed) {
+      if (!net.closed && !net.full) {
         const delay = Math.min(3000, 350 + net.retry * 450);
         net.retry++;
         setTimeout(connect, delay);

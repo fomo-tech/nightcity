@@ -82,13 +82,34 @@ assert(G.state === 'play' && G.gender === 'f', 'new game started as female V');
 assert(Object.keys(G.weapons).length === 1 && G.loadout[0], 'random starter weapon granted');
 assert(Object.keys(G.cars).length === 1 && G.activeCar, 'random starter vehicle granted');
 assert(WORLD.crateSpots.length > 110, 'extra loot crates seeded (' + WORLD.crateSpots.length + ')');
-assert(WORLD.giftSpots.length > 20 && G.pickups.some(pk => pk.kind === 'ed' || pk.kind === 'doc'), 'loose map gifts seeded');
+assert(WORLD.giftSpots.length > 20 && G.pickups.some(pk => pk.kind === 'gold' || pk.kind === 'xp' || pk.kind === 'gift' || pk.kind === 'hp'), 'loose map gifts seeded');
+const looseLootKinds = new Set(G.pickups.map(pk => pk.kind));
+assert(['gold', 'xp', 'gift', 'hp'].every(k => looseLootKinds.has(k)), 'map-wide gold/xp/gift/health pickups seeded');
+const lvlBeforeXpDrop = G.lvl;
+G.pickups = [];
+xpGain(xpFor(G.lvl) + 25);
+assert(G.lvl === lvlBeforeXpDrop && G.pickups.some(pk => pk.kind === 'xp'), 'xp gain drops collectible xp without auto-leveling');
+const xpDrop = G.pickups.find(pk => pk.kind === 'xp');
+G.p.x = xpDrop.x; G.p.y = xpDrop.y;
+steps(5);
+assert(G.lvl > lvlBeforeXpDrop, 'collecting xp pickup levels the player');
 assert(WORLD.trees.length > 90, 'green pixel trees seeded (' + WORLD.trees.length + ')');
 assert(Object.keys(DISTRICTS).filter(k => DISTRICTS[k].danger >= 3).length >= 3, 'more three-star danger districts');
 G.enemies = [];
 const mapPackN = spawnMapGangPack(3);
 assert(mapPackN >= 5 && G.enemies.every(e => e.mapSpawn && DISTRICTS[WORLD.districtAt(e.x, e.y)].danger >= 3), 'map-wide gang pack spawns larger crews in high danger zones');
 G.enemies = [];
+G.parts = Array.from({ length: 400 }, () => ({ t: 1 }));
+G.texts = Array.from({ length: 80 }, () => ({ t: 1, y: 0 }));
+G.bullets = Array.from({ length: 180 }, () => ({ life: 1 }));
+G.slashes = Array.from({ length: 60 }, () => ({ t: 1 }));
+G.glows = Array.from({ length: 90 }, () => ({ t: 1 }));
+trimFrameLists();
+assert(G.parts.length <= MAX_PARTS && G.texts.length <= MAX_TEXTS && G.bullets.length <= MAX_BULLETS && G.slashes.length <= MAX_SLASHES && G.glows.length <= MAX_GLOWS, 'long-session fx lists are capped');
+G.pickups = Array.from({ length: MAX_PICKUPS + 25 }, (_, i) => ({ kind: 'ed', amt: 1, x: G.p.x + 200 + i, y: G.p.y, t: 10 }));
+G.pickups.push({ kind: 'ed', amt: 999, x: G.p.x, y: G.p.y, t: 10, deathDrop: true });
+trimPickups();
+assert(G.pickups.length <= MAX_PICKUPS + 1 && G.pickups.some(pk => pk.deathDrop && pk.amt === 999), 'long-session pickup list is capped without losing death drops');
 G.p.iframes = 99999; // god mode for the soak; the death test clears it explicitly
 
 // radio dial: cycles all stations + OFF, then wraps
@@ -312,6 +333,10 @@ G.p.iframes = 99999;
 spawnPack(G.p.x + 80, G.p.y + 40, 6);
 G.mouse.down = true; G.keys.add('KeyA');
 steps(900);
+const war = makeEnemy(G.p.x + 900, G.p.y + 900, 1, 'scavs', 'melee', { war: true, warT: 0.01 });
+G.enemies.push(war);
+updateEnemies(1);
+assert(!G.enemies.includes(war), 'expired far gang-war bots despawn');
 
 // ---- stealth FOV: enemies only see inside their view cone ----
 G.mouse.down = false; G.keys.clear();
@@ -466,7 +491,7 @@ assert(WORLD.districtAt(20 * TILE, 100 * TILE) === 'dogtown', 'dogtown occupies 
 G.enemies = []; G.bounty = null; G.airdrop = null; G.airdropT = 0;
 spawnAirdrop();
 assert(G.airdrop && G.airdrop.state === 'falling', 'airdrop spawned');
-assert(WORLD.districtAt(G.airdrop.x, G.airdrop.y) === 'dogtown', 'airdrop targets dogtown');
+assert(distPx(G.airdrop.x, G.airdrop.y, WORLD.W * TILE / 2, WORLD.H * TILE / 2) < 420, 'airdrop targets the map center');
 steps(60 * 7);
 assert(G.airdrop && G.airdrop.state === 'landed', 'airdrop landed');
 G.p.x = G.airdrop.x + 60; G.p.y = G.airdrop.y + 60; // approach → guards converge
@@ -476,6 +501,7 @@ G.p.x = G.airdrop.x; G.p.y = G.airdrop.y + 10;
 const edBeforeDrop = G.eddies;
 steps(2); G.pressed.add('KeyE'); steps(3);
 assert(!G.airdrop, 'airdrop cracked open');
+assert(G.pickups.some(pk => pk.kind === 'gift' || pk.kind === 'xp' || pk.kind === 'hp' || pk.kind === 'gold'), 'airdrop spills gift loot');
 steps(80); // hoover the loot
 assert(G.stats.airdrops === 1, 'airdrop stat counted');
 assert(G.eddies > edBeforeDrop, 'airdrop eddies collected');
